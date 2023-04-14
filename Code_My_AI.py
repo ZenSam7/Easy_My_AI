@@ -1,78 +1,85 @@
+import numpy as np
 
 class AI:
     """Набор функций для работы с самодельным ИИ"""
-    def __init__(self):
-        pass
+    def __init__(self, ):
+        self.matrix_weights = []      # Появиться после вызова create_weights
+        self.neurons_in_layers = []   # Появиться после вызова create_weights
 
 
-    def get_weight(self, inputs, layers, neurons_in_layer, outputs,
-                   min_weight=-1, max_weight=1, fractionality=1000):
-        """Возвращает матрицу со всеми весами между всеми элементами
-        (Подавать надо количество каждого элемента)
+    def create_weights(self, architecture,
+                       min_weight=-1, max_weight=1, fractionality=100):
+        """Создаёт матрицу со всеми весами между всеми элементами
+        (Подавать надо список с количеством нейронов на каждом слое (архитектуру нейрпонки))
         ((Все веса - рандомные числа от -1 до 1))"""
 
-        from random import randint
+        self.neurons_in_layers = architecture  # Добавляем архитектуру (что бы было)
 
-        matrix_weights = []
 
         def create_weight(inp, outp):
             """Создаём веса между inp и outp"""
             layer_weights = []
 
             for _ in range(inp):
-                layer_weights.append([])  # Заполним весами от входа до нейронов
+                layer_weights.append([])  # Этот список заполним весами
                 for _ in range(outp):
-                    layer_weights[-1].append(randint(min_weight * fractionality,  # Добавляем дробь от -1 до 1
-                                                     max_weight * fractionality) / fractionality)
-
+                    layer_weights[-1].append(np.random.randint(min_weight * fractionality,  # Добавляем дробь от -1 до 1
+                                                      max_weight * fractionality)  / fractionality)
             return layer_weights
 
-
-        # Сначала добавляем веса между входами и первым слоем нейроноыв
-        if layers != 0:
-            matrix_weights.append(create_weight(inputs, neurons_in_layer))
-        else:
-            # Если у нас не будет скрытых слоёв ->
-            # Возвращаем веса между входом и выходом
-            return matrix_weights.append(create_weight(inputs, outputs))
+        # Добавляем все веса между слоями нейронов
+        for i in range(len(architecture) -1):
+            self.matrix_weights.append( create_weight(architecture[i], architecture[i +1]) )
 
 
-        # Затем добавляем все веса между слоями нейронов
-        for _ in range(layers -1):
-            matrix_weights.append(create_weight(neurons_in_layer, neurons_in_layer))
+    class activation_function:
+        """Набор функций активации"""
+        def ReLU(x):
+            """ReLU"""
+            if x < 0:
+                return 0.1 * x
+            else:
+                return x
 
+        def ReLU_2(x):
+            """Таже ReLU, но немного другая"""
+            if x < 0:
+                return 0.1 * x
+            elif x <= 1:    # 0 <= x <= 1
+                return x
+            else:
+                return 0.1 * x +0.9
 
-        # Затем добавляем все веса между слоем нейронов и выходами
-        matrix_weights.append(create_weight(neurons_in_layer, outputs))
+        def Gaussian(x):
+            """Распределение Гаусса"""
+            return np.e ** (- x**2)
 
-        return matrix_weights
+        def SoftPlus(x):
+            """ 'Типа экспонента' """
+            return np.log(1 + np.e ** x)
 
+        def Curved(x):
+            """Как ReLU, только плавная"""
+            return ( np.sqrt(x**2 +1) -1 )/2 +x
 
-
-    def activation_function_ReLU(self, x):
-        """ReLU function"""
-        if x < 0:
-            return 0.01 * x
-        else:
+        def Classic(x):
+            """ y = x """
             return x
 
+        def ISRU(x):
+            """Похожа на √x"""
+            return x / np.sqrt(x**2 +1)
 
-    def activation_function_ReLU_2(self, x):
-        """Типо ReLU function, но немного другая"""
-        if x < 0:
-            return 0.01 * x
-        elif 0 <= x <= 1:
-            return x
-        else:
-            return 0.01 * x
+        def Sigmoid(x):
+            """Сигмоид"""
+            return 1 / (1 + np.e ** (-x))
 
 
 
 simple_ai = AI()
-inputs = [1]
-outputs = [0]
 
-matrix_weights = simple_ai.get_weight(len(inputs), 3, 4, len(outputs))
-for i in matrix_weights:
+simple_ai.create_weights([2, 3, 3, 1])
+
+for i in simple_ai.matrix_weights:
     print(i)
-    print()
+
