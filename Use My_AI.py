@@ -6,23 +6,27 @@ ai = Code_My_AI.AI()
 
 
 # Создаём архитектуру (сколько нейронов на каком слое)
-ai.create_weights([2, 22, 22, 22, 1])
-
-# Указываем, какую функцию активации будем использовать (можно и свою придумать)
-ai.what_activation_function = ai.activation_function.ISRU
+ai.create_weights([1, 2, 1], add_bias_neuron=True)
 
 
-# print("Веса:")
-# for i in ai.matrix_weights:
-#     print(i)
-# print()
+
+data = [42]
 
 
-data = [44, 1]
+ai.activation_function.value_range(0, 20)
+ai.end_activation_function = ai.activation_function.Sigmoid
 
-print("Результат работы нейронки:")
-print(ai.start_work(data))
-print()
 
-ai.save_data("first ai")
+for i in ai.weights:
+    print(i)
+print(ai.start_work(data, True))
 
+# for learn_iteration in range(100):
+#     # Наши данные
+#     data = [np.random.randint(10), np.random.randint(10)]
+#
+#     print("#" + str(learn_iteration))
+#     print("Ответ: ", sum(data))
+#     print("Результат нейронки: ", ai.start_work(data)[0])
+#     print()
+#     ai.learning(data, [sum(data)])
