@@ -6,9 +6,9 @@ class AI:
     def __init__(self):
         self.weights =      []      # Появиться после вызова create_weights
         self.architecture = []      # Появиться после вызова create_weights
-        self.alpha =        0.001    # Альфа каэффицент (каэффицент скорости обучения)
+        self.alpha =        0.00001    # Альфа каэффицент (каэффицент скорости обучения)
         self.activation_function = self.ActivationFunctions()
-        self.what_activation_function = self.activation_function.Sigmoid # Какую функцию активации используем
+        self.what_activation_function = self.activation_function.Curved # Какую функцию активации используем
         self.end_activation_function = None     # Какую функцию активации используем для выходных зачений
         self.have_bias_neuron = 0    # Определяет наличие нейрона смещения (True or False)
 
@@ -87,7 +87,7 @@ class AI:
 
 
 
-    def learning(self, input_data: list, answer: list, get_info=False):
+    def learning(self, input_data: list, answer: list, get_error=False):
         """Метод обратного распространения ошибки для изменения весов в нейронной сети"""
 
         # Определяем наш ответ как вектор
@@ -101,10 +101,8 @@ class AI:
         answers_ai = self.start_work(input_data, True)[1]
 
 
-        error = np.sum((answer - ai_answer) **2 )
-
         # На сколько должны суммарно изменить веса
-        delta_w = answer - ai_answer
+        delta_weight = answer - ai_answer
 
 
         # Матрица, предотвращающая переобучение, умножением рандомных нейронов на 0
@@ -112,13 +110,20 @@ class AI:
 
 
         for weight, layer_answer in zip(self.weights[::-1], answers_ai[::-1]):
-            # Обратно распространяем, то, на сколько надо исправить суммарно все веса (учитываем веса)
-            delta_w = delta_w.dot(weight.T)
-            # Умножаем производную функции активации на сколько надо изменить веса
-            delta_w *= self.what_activation_function(layer_answer, True)
+            # Превращаем вектор в матрицу
+            layer_answer = np.matrix(layer_answer)
+            delta_weight = np.matrix(delta_weight)
 
             # Изменяем веса
-            weight -= self.alpha * layer_answer.T.dot(delta_w)
+            weight += self.alpha * layer_answer.T.dot(delta_weight)
+
+
+            delta_weight = delta_weight.dot(weight.T)
+            delta_weight.dot( self.what_activation_function(layer_answer, True).T )
+
+
+        if get_error:
+            return np.sum( (answer - ai_answer) **2 )
 
 
 
@@ -253,40 +258,53 @@ class AI:
             self.min = min
             self.max = max
 
-
+        # Не действует ограничение value_range
         def ReLU(self, x, return_derivative=False):
             """ReLU"""
 
             if return_derivative:
-                if x < 0:
-                    return 0.1
-                else:
-                    return 1
+                return (x < 0) * 0.1 + \
+                       (x >= 0)
 
             else:
-                if x < 0:
-                    return 0.1 * x
-                else:
-                    return x
+                return (x < 0) * 0.1 * x + \
+                       (x >= 0) * x
 
+        # Не действует ограничение value_range
         def ReLU_2(self, x, return_derivative=False):
             """Таже ReLU, но немного другая"""
 
             if return_derivative:
-                if x < 0:
-                    return 0.1
-                elif x <= 1:  # 0 <= x <= 1
-                    return 1
-                else:
-                    return 0.1
+                return (x < 0) * 0.1 + \
+                       (0 <= x <= 1) + \
+                       (x > 1) * 0.1
 
             else:
-                if x < 0:
-                    return 0.1 * x
-                elif x <= 1:    # 0 <= x <= 1
-                    return x
-                else:
-                    return 0.1 * x +0.9
+                return (x < 0) * 0.1 * x + \
+                       (0 <= x <= 1) * x + \
+                       (x > 1) * 0.1 * x +0.9
+
+        # Не действует ограничение value_range
+        def Curved(self, x, return_derivative=False):
+            """Как ReLU, только плавная"""
+
+            if return_derivative:
+                return x / (np.sqrt(2 * x ** 2 + 1)) + 1
+
+            else:
+                return ( np.sqrt(2* x**2 +1) -1 )/2 +x
+
+        # Не действует ограничение value_range (точнее, нету максимума)
+        def SoftPlus(self, x, return_derivative=False):
+            """ 'Типа экспонента' """
+            min = self.min
+
+            if return_derivative:
+                return np.exp(x) / (np.exp(x) + 1)
+
+            else:
+                return np.log(1 + np.exp(x)) + min
+
 
         def Gaussian(self, x, return_derivative=False):
             """Распределение Гаусса"""
@@ -298,25 +316,6 @@ class AI:
 
             else:
                 return (max - min) * np.exp(-.1* x**2 ) + min
-
-        def SoftPlus(self, x, return_derivative=False):
-            """ 'Типа экспонента' """
-            min = self.min
-
-            if return_derivative:
-                return np.exp(x) / (np.exp(x) + 1)
-
-            else:
-                return np.log(1 + np.exp(x)) + min
-
-        def Curved(self, x, return_derivative=False):
-            """Как ReLU, только плавная"""
-
-            if return_derivative:
-                return x / (np.sqrt(2 * x ** 2 + 1)) + 1
-
-            else:
-                return ( np.sqrt(2* x**2 +1) -1 )/2 +x
 
         def Tanh(self, x, return_derivative=False):
             """Это Tanh (точно)"""
