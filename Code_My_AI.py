@@ -6,17 +6,23 @@ class AI:
     def __init__(self):
         self.weights =      []          # Появиться после вызова create_weights
         self.architecture = []          # Появиться после вызова create_weights
-        self.alpha =        0.0001      # Альфа каэффицент (каэффицент скорости обучения)
+
         self.activation_function = self.ActivationFunctions()
-        self.what_activation_function = self.activation_function.Curved     # Какую функцию активации используем
-        self.end_activation_function = None            # Какую функцию активации используем для выходных зачений
+        self.what_activation_function = self.activation_function.Curved  # Какую функцию активации используем
+        self.end_activation_function = None  # Какую функцию активации используем для выходных зачений
+
+        self.alpha =        0.0001      # Альфа каэффицент (каэффицент скорости обучения)
         self.have_bias_neuron = 0       # Определяет наличие нейрона смещения (True or False)
-        self.number_disabled_neurons = 0.2      # Какую часть нейронов "отключаем" при обучении
+        self.number_disabled_neurons = 0.2      # Какую долю нейронов "отключаем" при обучении
+
+        self.packet_size = 1     # Как много ошибок будем усреднять, чтобы на основе этой усреднённой ошибки изменять веса
+        # Чем packet_size больше, тем "качество обучения меньше" но скорость итераций обучения больше
+        self.packet_errors = []   # Где мы будем эти ошибки складывать
 
 
     def create_weights(self, architecture: list, add_bias_neuron=False):
         """Создаёт матрицу со всеми весами между всеми элементами
-        (Подавать надо список с количеством нейронов на каждом слое (архитектуру нейрпонки))
+        (Подавать надо список с количеством нейронов на каждом слое (архитектуру нейронки))
         ((Минимум 3 слоя!!!))"""
 
         self.architecture = architecture  # Добавляем архитектуру (что бы было)
@@ -43,35 +49,34 @@ class AI:
 
     def start_work(self, input_data: list, return_answers=False):
         """Возвращает результат работы нейронки, из входных данных"""
-
         # Определяем входные данные как вектор
         result_layer_neurons = np.array(input_data)
 
         # Сохраняем список всех ответов от нейронов каждого слоя
-        # Для нейрона смещения добавляем 1 в самое начало
-        list_answers = [np.array( np.matrix(input_data).tolist()[0] +\
-                                 [1] * self.have_bias_neuron )]
+        list_answers = []
 
 
         # Проходимся по каждому (кроме последнего) слою весов
         for layer_weight in self.weights[:-1]:
             # Если есть нейрон смещения, то в правую часть матриц
-            # result_layer_neurons и layer_weight добавляем еденицы
+            # result_layer_neurons добавляем еденицы
             # Чтобы можно было умножить еденицы на веса нейрона смещения
             if self.have_bias_neuron:
                 result_layer_neurons = np.array(result_layer_neurons.tolist() + [1])
-                layer_weight = np.array([i + [1] for i in layer_weight.tolist()])
 
+            if return_answers:
+                list_answers.append(result_layer_neurons)
 
             # Процежеваем через функцию активации  ...
             # ... Результат перемножения результата прошлого слоя на слой весов
             result_layer_neurons = self.what_activation_function(
                                         result_layer_neurons.dot(layer_weight) )
 
-            if return_answers:
-                list_answers.append(result_layer_neurons)
 
 
+        result_layer_neurons = np.array(result_layer_neurons.tolist() + [1])
+        if return_answers:
+            list_answers.append(result_layer_neurons)
 
         # Пропускаем выходные данные через последнюю функцию активации (Если есть)
         if self.end_activation_function == None:
@@ -80,7 +85,8 @@ class AI:
             result_layer_neurons = self.end_activation_function(
                         result_layer_neurons.dot(self.weights[-1]))
 
-        # Если нажо, возвращаем спосок с ответами от каждого слоя
+
+        # Если надо, возвращаем спосок с ответами от каждого слоя
         if return_answers:
             return [result_layer_neurons, list_answers]
         else:
@@ -105,36 +111,40 @@ class AI:
         delta_weight = answer - ai_answer
 
 
+        self.packet_errors.append(int(delta_weight))
 
-        for weight, layer_answer in zip(self.weights[::-1], answers_ai[::-1]):
-            # Превращаем вектор в матрицу
-            layer_answer = np.matrix(layer_answer)
-            delta_weight = np.matrix(delta_weight)
+        if len(self.packet_errors) == self.packet_size:
+            delta_weight = np.mean(self.packet_errors)
+            self.packet_errors = []
 
-
-            # Матрица, предотвращающая переобучение, умножением изменением веса рандомных нейронов на 0
-            dropout_mask = np.random.random(size=(layer_answer.shape[1], delta_weight.shape[1])) \
-                           >= self.number_disabled_neurons
-
-
-            # Изменяем веса
-            weight += np.multiply(dropout_mask, # Отключаем изменение некоторых связей
-                                  self.alpha * layer_answer.T.dot(delta_weight))
-            print(np.multiply(dropout_mask,
-                                  self.alpha * layer_answer.T.dot(delta_weight)))
-
-            # К нейрону смещения не идут связи, поэтому обрезаем этот нейрон вмещения
-            if self.have_bias_neuron:
-                weight = weight[0:-1]
-                layer_answer = np.matrix(layer_answer.tolist()[0][0:-1])
+            for weight, layer_answer in zip(self.weights[::-1], answers_ai[::-1]):
+                # Превращаем вектор в матрицу
+                layer_answer = np.matrix(layer_answer)
+                delta_weight = np.matrix(delta_weight)
 
 
-            delta_weight = delta_weight.dot(weight.T)
-            delta_weight.dot( self.what_activation_function(layer_answer, True).T )
+                # Матрица, предотвращающая переобучение, умножением изменением веса рандомных нейронов на 0
+                dropout_mask = np.random.random(size=(layer_answer.shape[1], delta_weight.shape[1])) \
+                               >= self.number_disabled_neurons
 
 
-        if get_error:
-            return np.sum( np.power(answer - ai_answer, 2) )
+                # Изменяем веса
+                weight += np.multiply(dropout_mask, # Отключаем изменение некоторых связей
+                                      self.alpha * layer_answer.T.dot(delta_weight))
+
+
+                # К нейрону смещения не идут связи, поэтому обрезаем этот нейрон смещения
+                if self.have_bias_neuron:
+                    weight = weight[0:-1]
+                    layer_answer = np.matrix(layer_answer.tolist()[0][0:-1])
+
+
+                delta_weight = delta_weight.dot(weight.T)
+                delta_weight.dot( self.what_activation_function(layer_answer, True).T )
+
+
+            if get_error:
+                return np.sum( np.power(answer - ai_answer, 2) )
 
 
 
@@ -273,25 +283,21 @@ class AI:
             """Не действует ограничение value_range"""
 
             if return_derivative:
-                return (x < 0) * 0.1 + \
-                       (x >= 0)
+                return (x > 0)
 
             else:
-                return (x < 0) * 0.1 * x + \
-                       (x >= 0) * x
+                return (x > 0) * x
 
         def ReLU_2(self, x, return_derivative=False):
             """Не действует ограничение value_range"""
 
             if return_derivative:
                 return (x < 0) * 0.1 + \
-                       (0 <= x <= 1) + \
-                       (x > 1) * 0.1
+                       (x >= 0)
 
             else:
                 return (x < 0) * 0.1 * x + \
-                       (0 <= x <= 1) * x + \
-                       (x > 1) * 0.1 * x +0.9
+                       (x >= 0) * x
 
         def Curved(self, x, return_derivative=False):
             """Не действует ограничение value_range
