@@ -12,11 +12,11 @@ class AI:
         self.end_activation_function = None  # Какую функцию активации используем для выходных зачений
 
         self.alpha =        0.0001      # Альфа каэффицент (каэффицент скорости обучения)
-        self.have_bias_neuron = 0       # Определяет наличие нейрона смещения (True or False)
+        self.have_bias_neuron = False      # Определяет наличие нейрона смещения (True or False)
         self.number_disabled_neurons = 0.2      # Какую долю нейронов "отключаем" при обучении
 
         self.packet_size = 1     # Как много ошибок будем усреднять, чтобы на основе этой усреднённой ошибки изменять веса
-        # Чем packet_size больше, тем "качество обучения меньше" но скорость итераций обучения больше
+        # Чем packet_size больше, тем "качество обучения" меньше, но скорость итераций обучения больше
         self.packet_errors = []   # Где мы будем эти ошибки складывать
 
 
@@ -61,7 +61,7 @@ class AI:
             # Если есть нейрон смещения, то в правую часть матриц
             # result_layer_neurons добавляем еденицы
             # Чтобы можно было умножить еденицы на веса нейрона смещения
-            if self.have_bias_neuron:
+            if self.have_bias_neuron == True:
                 result_layer_neurons = np.array(result_layer_neurons.tolist() + [1])
 
             if return_answers:
@@ -73,8 +73,8 @@ class AI:
                                         result_layer_neurons.dot(layer_weight) )
 
 
-
-        result_layer_neurons = np.array(result_layer_neurons.tolist() + [1])
+        if self.have_bias_neuron == True:
+            result_layer_neurons = np.array(result_layer_neurons.tolist() + [1])
         if return_answers:
             list_answers.append(result_layer_neurons)
 
@@ -111,10 +111,12 @@ class AI:
         delta_weight = answer - ai_answer
 
 
-        self.packet_errors.append(int(delta_weight))
+        self.packet_errors.append(np.sum(delta_weight))
 
-        if len(self.packet_errors) == self.packet_size:
-            delta_weight = np.mean(self.packet_errors)
+        if self.packet_size == 1 or len(self.packet_errors) == self.packet_size:
+            if self.packet_size != 1:
+                delta_weight = np.mean(self.packet_errors)
+                delta_weight = np.repeat(delta_weight,  self.weights[-1].shape[1])
             self.packet_errors = []
 
             for weight, layer_answer in zip(self.weights[::-1], answers_ai[::-1]):
@@ -134,10 +136,9 @@ class AI:
 
 
                 # К нейрону смещения не идут связи, поэтому обрезаем этот нейрон смещения
-                if self.have_bias_neuron:
+                if self.have_bias_neuron == True:
                     weight = weight[0:-1]
                     layer_answer = np.matrix(layer_answer.tolist()[0][0:-1])
-
 
                 delta_weight = delta_weight.dot(weight.T)
                 delta_weight.dot( self.what_activation_function(layer_answer, True).T )
@@ -160,10 +161,12 @@ class AI:
             file.write("architecture " +
                        "".join((str(self.architecture).split()))
                        + "\n")
-            file.write("alpha " + str(self.alpha) + "\n")
             file.write("what_activation_function " + str(self.what_activation_function) + "\n")
             file.write("end_activation_function " + str(self.end_activation_function) + "\n")
+            file.write("alpha " + str(self.alpha) + "\n")
             file.write("have_bias_neuron " + str(self.have_bias_neuron) + "\n")
+            file.write("number_disabled_neurons " + str(self.number_disabled_neurons) + "\n")
+            file.write("packet_size " + str(self.packet_size) + "\n")
 
 
             file.write("\n")
@@ -226,42 +229,77 @@ class AI:
         self.architecture = self.find_among_data(load_AI_with_name, "architecture", True)
         self.alpha = self.find_among_data(load_AI_with_name, "alpha", True)
         self.have_bias_neuron = self.find_among_data(load_AI_with_name, "have_bias_neuron", True)
+        self.number_disabled_neurons = self.find_among_data(load_AI_with_name, "number_disabled_neurons", True)
+        self.packet_size = self.find_among_data(load_AI_with_name, "packet_size", True)
+
 
         # Выясняем какая функция активации
-        result = self.find_among_data(load_AI_with_name, "what_activation_function", True).split()[1]
-        if result == "AI.activation_function.ReLU":
+
+        result = self.find_among_data(load_AI_with_name, "what_activation_function", True).split()[2].split('.')[-1]
+        if result == "ReLU":
             self.what_activation_function = self.activation_function.ReLU
-        elif result == "AI.activation_function.ReLU_2":
+        elif result == "ReLU_2":
             self.what_activation_function = self.activation_function.ReLU_2
-        elif result == "AI.activation_function.Gaussian":
+        elif result == "Gaussian":
             self.what_activation_function = self.activation_function.Gaussian
-        elif result == "AI.activation_function.SoftPlus":
+        elif result == "SoftPlus":
             self.what_activation_function = self.activation_function.SoftPlus
-        elif result == "AI.activation_function.Curved":
+        elif result == "Curved":
             self.what_activation_function = self.activation_function.Curved
-        elif result == "AI.activation_function.Tanh":
+        elif result == "Tanh":
             self.what_activation_function = self.activation_function.Tanh
-        elif result == "AI.activation_function.Sigmoid":
+        elif result == "Sigmoid":
             self.what_activation_function = self.activation_function.Sigmoid
 
         # То же самое для end_activation_function
-        result = self.find_among_data(load_AI_with_name, "end_activation_function", True).split()[1]
+        result = self.find_among_data(load_AI_with_name, "end_activation_function", True).split()
+        if result[0] != "None":
+            result = result[2].split('.')[-1]
+
         if result == "None":
             self.end_activation_function = None
-        elif result == "AI.activation_function.ReLU":
+        elif result == "ReLU":
             self.end_activation_function = self.activation_function.ReLU
-        elif result == "AI.activation_function.ReLU_2":
+        elif result == "ReLU_2":
             self.end_activation_function = self.activation_function.ReLU_2
-        elif result == "AI.activation_function.Gaussian":
+        elif result == "Gaussian":
             self.end_activation_function = self.activation_function.Gaussian
-        elif result == "AI.activation_function.SoftPlus":
+        elif result == "SoftPlus":
             self.end_activation_function = self.activation_function.SoftPlus
-        elif result == "AI.activation_function.Curved":
+        elif result == "Curved":
             self.end_activation_function = self.activation_function.Curved
-        elif result == "AI.activation_function.Tanh":
+        elif result == "Tanh":
             self.end_activation_function = self.activation_function.Tanh
-        elif result == "AI.activation_function.Sigmoid":
+        elif result == "Sigmoid":
             self.end_activation_function = self.activation_function.Sigmoid
+
+
+
+    def delete_data(self, load_AI_with_name: str):
+        """Удаляет ПОСЛЕДНЕЕ сохранение данный (если такое имя повторяется)"""
+
+        # Копируем
+        with open("Data of AIs.txt", "r+") as file:
+            lines = file.readlines()
+            file.truncate(0)
+
+
+        # Удаляем последние данные
+        for num in range(1, len(lines)):
+            line = lines[len(lines) - num] # Снизу вверх
+
+            if line[5:-1] == load_AI_with_name:
+                for _ in range(10):
+                    lines.pop(len(lines) - num +1)
+                break
+
+
+        # Записываем обратно
+        with open("Data of AIs.txt", "r+") as file:
+            for line in lines:
+                file.write(line)
+
+
 
 
 
