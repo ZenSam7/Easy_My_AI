@@ -71,6 +71,7 @@ def emptySudoku():
     ''' Creates an empty sudoku in row major form. Sets up all of the x, y, and z
         coordinates for the sudoku cells'''
     ans = []
+    intz = 0
     for x in range(1, 10):
         if x in [7, 8, 9]:
             intz = 7
@@ -399,6 +400,7 @@ def get_matrix_sudoku(sudoku):
             row8.append(sudoku[i].returnSolved())
         if i in range(72, 81):
             row9.append(sudoku[i].returnSolved())
+
     return np.array([row1, row2, row3, row4, row5, row6, row7, row8, row9])
 
 
@@ -408,7 +410,7 @@ def make_holes_in_sudoku(sudoku, how_many_holes):
     sudoku = sudoku.tolist()
 
     for _ in range(how_many_holes):
-        sudoku[np.random.randint(0, 9)][np.random.randint(0, 9)] = 0
+        sudoku[np.random.randint(0, 9)][np.random.randint(0, 9)] = -9
 
     return np.array(sudoku)
 
@@ -417,71 +419,98 @@ def make_holes_in_sudoku(sudoku, how_many_holes):
 # Создаём ИИ
 ai = Code_My_AI.AI()
 
-ai.create_weights([81, 30, 30, 81], add_bias_neuron=True)
+ai.create_weights([81, 81, 81], add_bias_neuron=False)
 
 ai.what_activation_function = ai.activation_function.ReLU
-ai.end_activation_function = ai.activation_function.ReLU
+ai.activation_function.value_range(0.5, 9.5)
+ai.end_activation_function = ai.activation_function.Sigmoid
 
 ai.number_disabled_neurons = 0.0
 ai.packet_size = 1
-ai.alpha = 0.00000001
-
-len_iterations_learning = 50_000
+ai.alpha = 1e-8
 
 
 # Делаем судоку
+num_holes = 0
+
 answer_sudoku = get_matrix_sudoku(sudokuGen())
+sudoku = make_holes_in_sudoku(answer_sudoku, 0)
 
-sudoku = make_holes_in_sudoku(answer_sudoku, 16)
 
-
+# Загружаем последнее сохранение
+ai.save_data("Sudoku")
 ai.load_data("Sudoku")
-ai.delete_data("Sudoku")
 
 
-
-# Обучаем сначала, просто вставлять цифры в строку
 
 errors = []
-for learn_iteration in range(1, len_iterations_learning +1):
-    num_answer_string = np.random.randint(0, 9)
+learn_iteration = 0
+while 1:
+    learn_iteration += 1
 
+    # Превращаем в один длинный список
+    data = []
+    # noinspection PyTypeChecker
+    for string in sudoku.tolist():
+        for x in string:
+            data.append(x)
 
-    answer = [ ([0]*9) * num_answer_string,             # Заполняем нулями начало
-               answer_sudoku[num_answer_string],        # Заполняем ответом
-               ([0]*9) * (9 - num_answer_string -1)]    # Заполняем нулями конец
-    answer = [x for l in answer for x in l]    # Превращаем в один длинный список чисел
-
-
-    # Аналогично с data
-    data = [([0] * 9) * num_answer_string,              # Заполняем нулями начало
-              sudoku[num_answer_string],                # Заполняем строкой судоку
-              ([0] * 9) * (9 - num_answer_string - 1)]  # Заполняем нулями конец
-    data = [x for l in data for x in l]  # Превращаем в один длинный список чисел
+    # Превращаем в один длинный список
+    answer = []
+    # noinspection PyTypeChecker
+    for string in answer_sudoku.tolist():
+        for x in string:
+            answer.append(x)
 
 
     ################################################################################
+    # try:
 
+    # Учим, что такое судоку
+    err = ai.learning(answer, answer, True)
 
-    err = ai.learning(data, answer, True)
-    if err != None:
+    if not np.isnan(err):
         errors.append(err)
 
 
 
-    if learn_iteration % (0.1* len_iterations_learning) == 0:
-
+    if learn_iteration % (1) == 0:
         # Пересоздаём судоку
         answer_sudoku = get_matrix_sudoku(sudokuGen())
-        sudoku = make_holes_in_sudoku(answer_sudoku, 16)
+        sudoku = make_holes_in_sudoku(answer_sudoku, num_holes)
 
+
+    if learn_iteration % (1_000) == 0:
         print("#", learn_iteration)
-        print("Ответ:", answer)
-        print("Результат нейронки: \n", ai.start_work(data))
-        print("Ошибка:", int(np.mean(errors)))
+        print("Количество дыр:", num_holes)
+
+        print("Данные:\t \t \t \t \t \t \t \t \t", "Результат нейронки:" )
+        # noinspection PyTypeChecker
+        for data, work in zip(np.reshape(np.array(data), (9, 9)).tolist(), np.reshape(ai.start_work(data), (9, 9)).tolist()):
+            print(data,"\t \t \t", [int(i) for i in work])
+        # print("Ответ:\t\t\t\t", answer[:50])
+        # print("Результат нейронки: ", [int(i) for i in ai.start_work(data).tolist()][:50])
+
+        print("Ошибка:",int(np.mean(errors)))
+
         errors.clear()
         print()
 
 
+        # Сохраняемся и удаляем лишнее
+        ai.delete_data("Sudoku")
+        ai.save_data("Sudoku")
 
-ai.save_data("Sudoku")
+        num_holes += 0
+
+
+    # except:
+    #     # Если что-то не так, то откатываемся, и уменьшаем alpha
+    #     print("Error!")
+    #     print()
+    #     ai.load_data("Sudoku")
+    #     errors = []
+    #     ai.alpha /= 5
+    #     ai.weights = [i/(10 **150) for i in ai.weights]
+
+

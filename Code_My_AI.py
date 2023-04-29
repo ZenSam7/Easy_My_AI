@@ -20,10 +20,10 @@ class AI:
         self.packet_errors = []   # Где мы будем эти ошибки складывать
 
 
+
     def create_weights(self, architecture: list, add_bias_neuron=False):
         """Создаёт матрицу со всеми весами между всеми элементами
-        (Подавать надо список с количеством нейронов на каждом слое (архитектуру нейронки))
-        ((Минимум 3 слоя!!!))"""
+        (Подавать надо список с количеством нейронов на каждом слое (архитектуру нейронки))"""
 
         self.architecture = architecture  # Добавляем архитектуру (что бы было)
 
@@ -47,7 +47,7 @@ class AI:
                                               architecture[i + 1]))
 
 
-    def start_work(self, input_data: list, return_answers=False):
+    def start_work(self, input_data: list, return_answers: object = False) -> object:
         """Возвращает результат работы нейронки, из входных данных"""
         # Определяем входные данные как вектор
         result_layer_neurons = np.array(input_data)
@@ -73,10 +73,21 @@ class AI:
                                         result_layer_neurons.dot(layer_weight) )
 
 
+
+
+        # Если у нас число в весах слишком большие, то уменьшаем веса и alpha
+        if self.weights[0].any() >= 10 ** 100:
+            layer_weight /= 10 ** 20
+            self.alpha /= 2
+
+
+
+        # Добавляем ответ (единицу) для нейрона смещения
         if self.have_bias_neuron == True:
             result_layer_neurons = np.array(result_layer_neurons.tolist() + [1])
         if return_answers:
             list_answers.append(result_layer_neurons)
+
 
         # Пропускаем выходные данные через последнюю функцию активации (Если есть)
         if self.end_activation_function == None:
@@ -108,7 +119,8 @@ class AI:
 
 
         # На сколько должны суммарно изменить веса
-        delta_weight = answer - ai_answer
+        delta_weight = np.power(answer - ai_answer, 3)
+
 
 
         self.packet_errors.append(np.sum(delta_weight))
@@ -145,7 +157,7 @@ class AI:
 
 
             if get_error:
-                return np.sum( np.power(answer - ai_answer, 2) )
+                return sum( np.power(answer - ai_answer, 2).tolist() )
 
 
 
@@ -167,10 +179,10 @@ class AI:
             file.write("have_bias_neuron " + str(self.have_bias_neuron) + "\n")
             file.write("number_disabled_neurons " + str(self.number_disabled_neurons) + "\n")
             file.write("packet_size " + str(self.packet_size) + "\n")
+            file.write("value_range " + "".join((str([self.activation_function.min, self.activation_function.max]).split())) + "\n")
 
 
             file.write("\n")
-        print("Все данные сохранены ✔")
 
 
     def find_among_data(self, start_with_ai_name: str, what_find: str, from_bottom_to_top=False):
@@ -231,6 +243,8 @@ class AI:
         self.have_bias_neuron = self.find_among_data(load_AI_with_name, "have_bias_neuron", True)
         self.number_disabled_neurons = self.find_among_data(load_AI_with_name, "number_disabled_neurons", True)
         self.packet_size = self.find_among_data(load_AI_with_name, "packet_size", True)
+        self.activation_function.min = self.find_among_data(load_AI_with_name, "value_range", True)[0]
+        self.activation_function.max = self.find_among_data(load_AI_with_name, "value_range", True)[1]
 
 
         # Выясняем какая функция активации
@@ -289,7 +303,7 @@ class AI:
             line = lines[len(lines) - num] # Снизу вверх
 
             if line[5:-1] == load_AI_with_name:
-                for _ in range(10):
+                for _ in range(11):
                     lines.pop(len(lines) - num +1)
                 break
 

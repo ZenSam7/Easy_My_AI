@@ -20,7 +20,7 @@ ai.what_activation_function = ai.activation_function.ReLU
 
 ai.number_disabled_neurons = 0.0
 ai.packet_size = 1
-ai.alpha = 0.000001
+ai.alpha = 10** -7
 
 # ai.save_data("Sum_ai")
 # ai.delete_data("My_ai")
