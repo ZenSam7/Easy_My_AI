@@ -8,12 +8,12 @@ class AI:
         self.architecture = []          # Появиться после вызова create_weights
 
         self.activation_function = self.ActivationFunctions()
-        self.what_activation_function = self.activation_function.Curved  # Какую функцию активации используем
+        self.what_activation_function = self.activation_function.ReLU  # Какую функцию активации используем
         self.end_activation_function = None  # Какую функцию активации используем для выходных зачений
 
-        self.alpha =        0.0001      # Альфа каэффицент (каэффицент скорости обучения)
+        self.alpha = 1e-7     # Альфа каэффицент (каэффицент скорости обучения)
         self.have_bias_neuron = False      # Определяет наличие нейрона смещения (True or False)
-        self.number_disabled_neurons = 0.2      # Какую долю нейронов "отключаем" при обучении
+        self.number_disabled_neurons = 0.0      # Какую долю нейронов "отключаем" при обучении
 
         self.packet_size = 1     # Как много ошибок будем усреднять, чтобы на основе этой усреднённой ошибки изменять веса
         # Чем packet_size больше, тем "качество обучения" меньше, но скорость итераций обучения больше
@@ -38,7 +38,7 @@ class AI:
                 layer_weights.append([])  # Этот список заполним весами
                 for _ in range(outp):
                     # Добавляем дробь от -1 до 1
-                    layer_weights[-1].append( np.random.randint(-100, 100) / 100)
+                    layer_weights[-1].append( np.random.randint(-100, 100) /100)
             return np.array(layer_weights)
 
         # Добавляем все веса между слоями нейронов
@@ -119,7 +119,11 @@ class AI:
 
 
         # На сколько должны суммарно изменить веса
-        delta_weight = np.power(answer - ai_answer, 3)
+        delta_weight = answer - ai_answer
+
+        # Альфа обратно пропорциональна велечине ошибки
+        # alpha = self.alpha / sum( np.power(delta_weight, 2).tolist() )
+
 
 
 
@@ -130,6 +134,7 @@ class AI:
                 delta_weight = np.mean(self.packet_errors)
                 delta_weight = np.repeat(delta_weight,  self.weights[-1].shape[1])
             self.packet_errors = []
+
 
             for weight, layer_answer in zip(self.weights[::-1], answers_ai[::-1]):
                 # Превращаем вектор в матрицу
@@ -345,11 +350,13 @@ class AI:
 
             if return_derivative:
                 return (x < 0) * 0.1 + \
-                       (x >= 0)
+                       np.multiply(0 <= x, x <= 1) + \
+                       (x > 1) * 0.1
 
             else:
                 return (x < 0) * 0.1 * x + \
-                       (x >= 0) * x
+                       np.multiply(0 <= x, x <= 1) * x + \
+                       (x > 1) * 0.1 * x
 
         def Curved(self, x, return_derivative=False):
             """Не действует ограничение value_range
@@ -388,10 +395,12 @@ class AI:
             max = self.max
 
             if return_derivative:
-                return (2* (max-min) * np.exp(2*x)) / ( np.power(np.exp(2*x) +1, 2) )
+                return 0.05* (max-min) / np.power(cosh(.1*x), 2)
 
             else:
-                return (min-max) / ( np.exp(2*x) +1) + max
+                return 0.5* ( (max-min) *np.tanh(.1*x) +min+max)
+
+
 
         def Sigmoid(self, x, return_derivative=False):
             """Cигмоида"""

@@ -10,31 +10,34 @@ ai = Code_My_AI.AI()
 
 
 # Создаём архитектуру (сколько нейронов на каком слое)
-ai.create_weights([2, 4, 2], add_bias_neuron=False)
+ai.create_weights([2, 5, 5, 2], add_bias_neuron=True)
 
 
-ai.what_activation_function = ai.activation_function.ReLU
+ai.what_activation_function = ai.activation_function.ReLU_2
 # ai.activation_function.value_range(-100, 100)
 # ai.end_activation_function = ai.activation_function.Sigmoid
 
 
 ai.number_disabled_neurons = 0.0
 ai.packet_size = 1
-ai.alpha = 10** -7
+ai.alpha = 1e-8
 
 # ai.save_data("Sum_ai")
 # ai.delete_data("My_ai")
 # ai.load_data("Sum_ai")
 
-len_iterations_learning = 10000
-
-
 
 errors = []
-for learn_iteration in range(1, len_iterations_learning +1):
+learn_iteration = 0
+while 1:
+    learn_iteration += 1
+
+
     # Наши данные
     data = [np.random.randint(100), np.random.randint(100)]
-    answer = [round(11* data[0] + 2.3* data[1] -33, 1), 1]
+
+    # Ответ - это рандомная функция, которая принимает наши входные данные (data)
+    answer = [round(11* data[0] + 2.3* data[1] -33, 1), data[0] **0.5]
 
 
     err = ai.learning(data, answer, True)
@@ -44,20 +47,16 @@ for learn_iteration in range(1, len_iterations_learning +1):
 
 
     # За всё обучение отображаем данные 10 раз
-    if learn_iteration %  (0.1*len_iterations_learning) == 0:
+    if learn_iteration % (1_000) == 0:
 
         print("#", learn_iteration)
         print("Ответ:", answer)
         print("Результат нейронки:", ai.start_work(data))
-        print("Ошибка: %", round((ai.start_work(data)[0] - answer[0])\
+        print("Ошибка в этом примере: %", round((ai.start_work(data)[0] - answer[0])\
                                  /answer[0]*100,1) )
 
-        print("Ошибка:", int(np.mean(errors)))
+        print("Общая ошибка:", int(np.mean(errors)))
         errors.clear()
         print()
 
-
-print("Время на 1 итерацию:", format(round(
-    (time() - start_time) / len_iterations_learning,
-    10), '.10f'))
 
