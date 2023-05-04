@@ -1,5 +1,5 @@
 import Code_My_AI
-import numpy as np
+
 import pygame
 from random import randint
 
@@ -56,7 +56,7 @@ class Snake:
             self.snake_body.append([head[0], head[1] +1])
         else:
             # Если хотим двигаться в тело - продолжаем двигаться в противоположную сторону
-            self.need_grow = True  # Надо, что бы змея лишний раз не укорачивалась)
+            self.need_grow = True  # Надо, что бы змея лишний раз не укорачивалась
 
             if where_want_move == "left":
                 self.move_snake("right")
@@ -66,7 +66,6 @@ class Snake:
                 self.move_snake("down")
             elif where_want_move == "down":
                 self.move_snake("up")
-
 
 
     def collision(self):
@@ -129,8 +128,11 @@ class Snake:
         pygame.display.update()
 
 
-    def game_over(self):
+    def game_over(self, func=None):
         """Сбрасываем все переменные"""
+        if func != None:
+            func()
+
         self.snake_body = [[0,0], [1,0], [2,0]]
         self.food_coords = []
         self.need_grow = False
@@ -145,21 +147,129 @@ class Snake:
         self.draw()
 
 
+def get_range_to_blocks(snake) -> list:
+    """Записываем минимальное расстояние до стены или тела змеи
+    По 4м осям, относительно головы (влево, вправо, вверх, вниз)"""
+    data = []
+
+
+
+    range_to_block = 0
+    head = [i for i in snake.snake_body[-1]]  # Копируем координаты головы
+
+    head[0] -= 1
+    while 0 <= head[0] < snake.window_width // snake.cell_size and \
+        not (head in snake.snake_body):
+        range_to_block += 1
+        head[0] -= 1
+    data.append(range_to_block)
+
+    ########## Тоже самое, но для других осей
+    range_to_block = 0
+    head = [i for i in snake.snake_body[-1]]
+
+    head[0] += 1
+    while 0 <= head[0] < snake.window_width // snake.cell_size and \
+        not (head in snake.snake_body):
+        range_to_block += 1
+        head[0] += 1
+    data.append(range_to_block)
+
+    ########## Тоже самое, но для других осей
+    range_to_block = 0
+    head = [i for i in snake.snake_body[-1]]
+
+    head[1] -= 1
+    while 0 <= head[1] < snake.window_height // snake.cell_size and \
+        not (head in snake.snake_body):
+        range_to_block += 1
+        head[1] -= 1
+    data.append(range_to_block)
+
+    ########## Тоже самое, но для других осей
+    range_to_block = 0
+    head = [i for i in snake.snake_body[-1]]
+
+    head[1] += 1
+    while 0 <= head[1] < snake.window_height // snake.cell_size and \
+        not (head in snake.snake_body):
+        range_to_block += 1
+        head[1] += 1
+    data.append(range_to_block)
+
+
+    ####################
+
+    #################### Тоже самое, но для еды
+
+    head = [i for i in snake.snake_body[-1]]  # Копируем координаты головы
+
+    for food_coord in snake.food_coords: # Для каждой еды отдельно
+        # Если по оси Y мы на линии с едой, то добавляем расстояние влево и вправо
+        if head[1] == food_coord[1]:
+            data.append(food_coord[0] - head[0])
+        else:
+            data.append(0)
+
+        # Если по оси X мы на линии с едой, то добавляем расстояние влево и вправо
+        if head[0] == food_coord[0]:
+            data.append(food_coord[1] - head[1])
+        else:
+            data.append(0)
+
+
+    return data
+
+
+
+
+# Создаём Змейку
+snake = Snake(1200, 900, 100, 3)
+
+
 # Создаём ИИ
 ai = Code_My_AI.AI()
-ai.create_weights([1, 25, 15, 4], add_bias_neuron=True)
+ai.create_weights([10, 25, 15, 4], add_bias_neuron=False)
 
 ai.what_activation_function = ai.activation_function.ReLU_2
 ai.activation_function.value_range(0, 1)
 ai.end_activation_function = ai.activation_function.Tanh
 
-ai.alpha = 1e-10
+ai.packet_size = 10
+
+ai.alpha = 1e-5
 
 
-# Создаём Змейку
-snake = Snake(1200, 900, 50, 3)
-from time import sleep
+
+# Загружаем последнее сохранение
+# ai.load_data("Snake")
+
+learn_iteration = 0
 while 1:
-    sleep(0.1)
-    snake.step("down")
+    learn_iteration += 1
+
+
+######################## ЗАПИСЫВАЕТ ДАННЫЕ В ОТВЕТ
+
+    data = get_range_to_blocks(snake)
+
+######################## ОТВЕТ ОТ НЕЙРОНКИ
+
+    ai_answer = ai.start_work(data).tolist()
+    if max(ai_answer) == ai_answer[0]:
+        snake.step("left")
+    elif max(ai_answer) == ai_answer[1]:
+        snake.step("right")
+    elif max(ai_answer) == ai_answer[2]:
+        snake.step("up")
+    elif max(ai_answer) == ai_answer[3]:
+        snake.step("down")
+
+######################## ОБУЧАЕМ
+
+
+    if learn_iteration % 1000 == 0:
+        ai.delete_data("Snake")
+        ai.save_data("Snake")
+
 
