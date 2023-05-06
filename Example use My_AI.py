@@ -2,6 +2,7 @@ import Code_My_AI
 import numpy as np
 from time import time
 
+"""     Это пример, как можно использовать эту библиотеку, для аппроксимации сложной функции        """
 
 start_time = time()
 

@@ -19,6 +19,10 @@ class AI:
         # Чем packet_size больше, тем "качество обучения" меньше, но скорость итераций обучения больше
         self.packet_errors = []   # Где мы будем эти ошибки складывать
 
+        # self.q = []         # Q-table
+        # self.states = []    # Все состояния
+        # self.actions = []     # Все действия
+
 
 
     def create_weights(self, architecture: list, add_bias_neuron=False):
@@ -30,7 +34,7 @@ class AI:
         self.have_bias_neuron = add_bias_neuron
 
 
-        def create_weight(inp, outp):
+        def __create_weight(inp, outp):
             """Создаём веса между inp и outp"""
             layer_weights = []
 
@@ -38,13 +42,37 @@ class AI:
                 layer_weights.append([])  # Этот список заполним весами
                 for _ in range(outp):
                     # Добавляем дробь от -1 до 1
-                    layer_weights[-1].append( np.random.randint(-100, 100) /100)
+                    layer_weights[-1].append(np.random.random() - np.random.random())
             return np.array(layer_weights)
 
         # Добавляем все веса между слоями нейронов
         for i in range(len(architecture) -1):
-            self.weights.append(create_weight(architecture[i] + add_bias_neuron,
-                                              architecture[i + 1]))
+            self.weights.append(__create_weight(architecture[i] + add_bias_neuron,
+                                                architecture[i + 1]))
+
+
+    def genetic_crossing_with(self, ai):
+        """Перемешевает веса между ЭТОЙ нейронкой и нейронкой В АРГУМЕНТЕ \n
+            И добавляем (в эту) нейросет случайные веса \n
+            P.s. Не обязательно, чтобы количество связей (размеры матриц весов) были обинаковы"""
+
+        for layer1, layer2 in zip(self.weights, ai.weights):
+            for _ in range(layer1.shape[0] * layer1.shape[1]): # Для каждого элемента...
+                if np.random.random() < 0.5:  # ... С шансом 50% ...
+                    # ... Производим замену на вес из другой матрицы
+                    layer1[np.random.randint(layer1.shape[0]), np.random.randint(layer1.shape[1])] =\
+                        layer2[np.random.randint(layer2.shape[0]), np.random.randint(layer2.shape[1])]
+
+
+    def get_mutations(self, mutation=0.1):
+        """Создаёт рандомные веса в нейронке"""
+
+        for layer in self.weights:                            # Для каждого слоя
+            for _ in range(layer.shape[0] * layer.shape[1]):  # Для каждого элемента
+                if np.random.random() <= mutation:            # С шансом mutation
+                    # Производим замену на случайное число
+                    layer[np.random.randint(layer.shape[0]), np.random.randint(layer.shape[1])] = \
+                        np.random.random() - np.random.random()
 
 
     def start_work(self, input_data: list, return_answers: object = False) -> object:
@@ -99,7 +127,7 @@ class AI:
 
         # Если надо, возвращаем спосок с ответами от каждого слоя
         if return_answers:
-            return [result_layer_neurons, list_answers]
+            return result_layer_neurons, list_answers
         else:
             return result_layer_neurons
 
@@ -112,10 +140,8 @@ class AI:
         # Определяем наши входные данные как вектор
         input_data = np.array(input_data)
 
-        # То, что выдала нам нейросеть
-        ai_answer = self.start_work(input_data)
-        # Список с ответами от каждого слоя нейронов
-        answers_ai = self.start_work(input_data, True)[1]
+        # То, что выдала нам нейросеть | Список с ответами от каждого слоя нейронов
+        ai_answer, answers_ai = self.start_work(input_data, True)
 
 
         # На сколько должны суммарно изменить веса
@@ -126,18 +152,17 @@ class AI:
 
 
 
-
         self.packet_errors.append(np.sum(delta_weight))
 
         if self.packet_size == 1 or len(self.packet_errors) == self.packet_size:
-            if self.packet_size != 1:
+            if self.packet_size != 1:       # Замением пакет ошибок на их среднее
                 delta_weight = np.mean(self.packet_errors)
                 delta_weight = np.repeat(delta_weight,  self.weights[-1].shape[1])
             self.packet_errors = []
 
 
             for weight, layer_answer in zip(self.weights[::-1], answers_ai[::-1]):
-                # Превращаем вектор в матрицу
+                # Превращаем векторы в матрицу
                 layer_answer = np.matrix(layer_answer)
                 delta_weight = np.matrix(delta_weight)
 
@@ -165,6 +190,41 @@ class AI:
                 return sum( np.power(answer - ai_answer, 2).tolist() )
 
 
+    # def make_all_for_q_learning(self, states: list, actions: list, gamma):
+    #     """Создаём всё необходимое для Q-обучения
+    #         (q-таблицу, каэфицент вознаграждения gamma)"""
+    #
+    #     self.states = states
+    #     self.actions = actions
+    #     self.gamma = gamma    # Каэфицент "доверия опыту"
+    #
+    #
+    #     self.q = []    # Таблица состояний
+    #
+    #     for _ in range(len(states)):    # states == строки
+    #         string = [0 for _ in range(len(actions))]   # actions == столбы
+    #         self.q.append(string)
+    #
+    #
+    #
+    # def q_learning(self, state, action, reward_for_state, future_state):
+    #     """Q-обучение
+    #
+    #     ------------------------
+    #
+    #     Подаём: Текущее состояние, Текущее действие, Текущее вознаграждение, Будущее состояние при таком же действии"""
+    #     q = self.q
+    #     states = self.states
+    #     actions = self.actions
+    #
+    #
+    #     # Формула в документации
+    #     q[states.index(state)][actions.index(action)] = q[states.index(state)][actions.index(action)] +\
+    #                                                     self.alpha * (reward_for_state +\
+    #                                                     self.gamma * max( q[states.index(future_state)] ) -\
+    #                                                     q[states.index(state)][actions.index(action)])
+    #
+
 
     def save_data(self, name_this_ai: str):
         """Сохраняет все переменные текущей ИИ"""
@@ -185,6 +245,15 @@ class AI:
             file.write("number_disabled_neurons " + str(self.number_disabled_neurons) + "\n")
             file.write("packet_size " + str(self.packet_size) + "\n")
             file.write("value_range " + "".join((str([self.activation_function.min, self.activation_function.max]).split())) + "\n")
+            # file.write("q_table " +
+            #            "".join((str(self.q).split()))
+            #            + "\n")
+            # file.write("states " +
+            #            "".join((str(self.states).split()))
+            #            + "\n")
+            # file.write("actions " +
+            #            "".join((str(self.actions).split()))
+            #            + "\n")
 
 
             file.write("\n")
@@ -250,6 +319,9 @@ class AI:
         self.packet_size = self.find_among_data(load_AI_with_name, "packet_size", True)
         self.activation_function.min = self.find_among_data(load_AI_with_name, "value_range", True)[0]
         self.activation_function.max = self.find_among_data(load_AI_with_name, "value_range", True)[1]
+        # self.q = self.find_among_data(load_AI_with_name, "q_table", True)
+        # self.states = self.find_among_data(load_AI_with_name, "states", True)
+        # self.actions = self.find_among_data(load_AI_with_name, "actions", True)
 
 
         # Выясняем какая функция активации
@@ -293,7 +365,6 @@ class AI:
             self.end_activation_function = self.activation_function.Sigmoid
 
 
-
     def delete_data(self, load_AI_with_name: str):
         """Удаляет ПОСЛЕДНЕЕ сохранение данный (если такое имя повторяется)"""
 
@@ -308,7 +379,7 @@ class AI:
             line = lines[len(lines) - num] # Снизу вверх
 
             if line[5:-1] == load_AI_with_name:
-                for _ in range(11):
+                for _ in range(11): # 14
                     lines.pop(len(lines) - num +1)
                 break
 
@@ -317,9 +388,6 @@ class AI:
         with open("Data of AIs.txt", "r+") as file:
             for line in lines:
                 file.write(line)
-
-
-
 
 
 
