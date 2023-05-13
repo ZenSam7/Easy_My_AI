@@ -191,6 +191,7 @@ class AI:
     def q_learning(self, state, action, reward_for_state, future_state):
         """Q-обучение"""
         state = [i for i in state]
+        future_state = [i for i in future_state]
 
         # Если не находим состояние в прошлых состояниях, то добовляем новое
         if not state in self.states:
@@ -212,10 +213,17 @@ class AI:
 
 
         # Обновляею Q-таблицу
-        self.q[self.states.index(state)][self.actions.index(action)] +=\
-                self.alpha * ( reward_for_state +\
-                self.gamma * max( self.q[self.states.index(future_state)] ) -\
-                self.q[self.states.index(state)][self.actions.index(action)] )
+
+        # self.q[self.states.index(state)][self.actions.index(action)] +=\
+        #         self.alpha * ( reward_for_state +\
+        #         self.gamma * max( self.q[self.states.index(future_state)] ) -\
+        #         self.q[self.states.index(state)][self.actions.index(action)] )
+        self.q[self.states.index(state)][self.actions.index(action)] = \
+                (1 - self.alpha) * self.q[self.states.index(state)][self.actions.index(action)] +\
+                self.alpha * ( reward_for_state + \
+                               self.gamma * max( self.q[self.states.index(future_state)] ) )
+
+
 
 
     def save_data(self, name_this_ai: str):
