@@ -5,11 +5,10 @@ class AI:
     """Набор функций для работы с самодельным ИИ"""
     def __init__(self):
         self.weights =      []          # Появиться после вызова create_weights
-        self.architecture = []          # Появиться после вызова create_weights
 
         self.activation_function = self.ActivationFunctions()
-        self.what_activation_function = self.activation_function.ReLU  # Какую функцию активации используем
-        self.end_activation_function = None  # Какую функцию активации используем для выходных зачений
+        self.what_activation_function = self.activation_function.ReLU_2  # Какую функцию активации используем
+        self.end_activation_function  = self.activation_function.ReLU_2  # Какую функцию активации используем для выходных зачений
 
         self.alpha = 1e-7     # Альфа каэффицент (каэффицент скорости обучения)
         self.have_bias_neuron = False      # Определяет наличие нейрона смещения (True or False)
@@ -19,41 +18,30 @@ class AI:
         # Чем packet_size больше, тем "качество обучения" меньше, но скорость итераций обучения больше
         self.packet_errors = []   # Где мы будем эти ошибки складывать
 
-        # self.q = []         # Q-table
-        # self.states = []    # Все состояния
-        # self.actions = []     # Все действия
+        self.q = []         # Q-table
+        self.states = []    # Все состояния
+        self.actions = []     # Все действия
+        self.gamma = 1
+        self.epsilon = None
 
 
 
-    def create_weights(self, architecture: list, add_bias_neuron=False):
+    def create_weights(self, architecture: list, add_bias_neuron=False,
+                       min_weight=0, max_weight=1):
         """Создаёт матрицу со всеми весами между всеми элементами
         (Подавать надо список с количеством нейронов на каждом слое (архитектуру нейронки))"""
 
-        self.architecture = architecture  # Добавляем архитектуру (что бы было)
-
         self.have_bias_neuron = add_bias_neuron
-
-
-        def __create_weight(inp, outp):
-            """Создаём веса между inp и outp"""
-            layer_weights = []
-
-            for _ in range(inp):
-                layer_weights.append([])  # Этот список заполним весами
-                for _ in range(outp):
-                    # Добавляем дробь от -1 до 1
-                    layer_weights[-1].append(np.random.random() - np.random.random())
-            return np.array(layer_weights)
 
         # Добавляем все веса между слоями нейронов
         for i in range(len(architecture) -1):
-            self.weights.append(__create_weight(architecture[i] + add_bias_neuron,
-                                                architecture[i + 1]))
+            self.weights.append( np.random.randint(min_weight * 1000, max_weight * 1000,
+                                                   size = (architecture[i] + add_bias_neuron,
+                                                   architecture[i + 1])) /1000)
 
 
     def genetic_crossing_with(self, ai):
         """Перемешевает веса между ЭТОЙ нейронкой и нейронкой В АРГУМЕНТЕ \n
-            И добавляем (в эту) нейросет случайные веса \n
             P.s. Не обязательно, чтобы количество связей (размеры матриц весов) были обинаковы"""
 
         for layer1, layer2 in zip(self.weights, ai.weights):
@@ -64,7 +52,7 @@ class AI:
                         layer2[np.random.randint(layer2.shape[0]), np.random.randint(layer2.shape[1])]
 
 
-    def get_mutations(self, mutation=0.1):
+    def get_mutations(self, mutation=0.01):
         """Создаёт рандомные веса в нейронке"""
 
         for layer in self.weights:                            # Для каждого слоя
@@ -75,7 +63,7 @@ class AI:
                         np.random.random() - np.random.random()
 
 
-    def start_work(self, input_data: list, return_answers: object = False) -> object:
+    def start_work(self, input_data: list, return_answers=False):
         """Возвращает результат работы нейронки, из входных данных"""
         # Определяем входные данные как вектор
         result_layer_neurons = np.array(input_data)
@@ -89,7 +77,7 @@ class AI:
             # Если есть нейрон смещения, то в правую часть матриц
             # result_layer_neurons добавляем еденицы
             # Чтобы можно было умножить еденицы на веса нейрона смещения
-            if self.have_bias_neuron == True:
+            if self.have_bias_neuron:
                 result_layer_neurons = np.array(result_layer_neurons.tolist() + [1])
 
             if return_answers:
@@ -101,17 +89,8 @@ class AI:
                                         result_layer_neurons.dot(layer_weight) )
 
 
-
-
-        # Если у нас число в весах слишком большие, то уменьшаем веса и alpha
-        if self.weights[0].any() >= 10 ** 100:
-            layer_weight /= 10 ** 20
-            self.alpha /= 2
-
-
-
         # Добавляем ответ (единицу) для нейрона смещения
-        if self.have_bias_neuron == True:
+        if self.have_bias_neuron:
             result_layer_neurons = np.array(result_layer_neurons.tolist() + [1])
         if return_answers:
             list_answers.append(result_layer_neurons)
@@ -125,6 +104,11 @@ class AI:
                         result_layer_neurons.dot(self.weights[-1]))
 
 
+        # "Разведуем окружающую среду" ()
+        if (self.epsilon != None) and (np.random.random() < self.epsilon):
+            result_layer_neurons = np.random.random(result_layer_neurons.shape)
+
+
         # Если надо, возвращаем спосок с ответами от каждого слоя
         if return_answers:
             return result_layer_neurons, list_answers
@@ -132,7 +116,7 @@ class AI:
             return result_layer_neurons
 
 
-    def learning(self, input_data: list, answer: list, get_error=False):
+    def learning(self, input_data: list, answer: list, get_error=False, squared_error=False):
         """Метод обратного распространения ошибки для изменения весов в нейронной сети"""
 
         # Определяем наш ответ как вектор
@@ -141,15 +125,15 @@ class AI:
         input_data = np.array(input_data)
 
         # То, что выдала нам нейросеть | Список с ответами от каждого слоя нейронов
-        ai_answer, answers_ai = self.start_work(input_data, True)
+        ai_answer, answers = self.start_work(input_data, True)
 
 
         # На сколько должны суммарно изменить веса
-        delta_weight = answer - ai_answer
-
-        # Альфа обратно пропорциональна велечине ошибки
-        # alpha = self.alpha / sum( np.power(delta_weight, 2).tolist() )
-
+        if squared_error:
+            delta_weight = np.power(ai_answer - answer, 2) *\
+                           (-1* ((ai_answer - answer) <0) + 1*((ai_answer - answer) >=0) )
+        else:
+            delta_weight = ai_answer - answer
 
 
         self.packet_errors.append(np.sum(delta_weight))
@@ -161,7 +145,7 @@ class AI:
             self.packet_errors = []
 
 
-            for weight, layer_answer in zip(self.weights[::-1], answers_ai[::-1]):
+            for weight, layer_answer in zip(self.weights[::-1], answers[::-1]):
                 # Превращаем векторы в матрицу
                 layer_answer = np.matrix(layer_answer)
                 delta_weight = np.matrix(delta_weight)
@@ -173,12 +157,12 @@ class AI:
 
 
                 # Изменяем веса
-                weight += np.multiply(dropout_mask, # Отключаем изменение некоторых связей
+                weight -= np.multiply(dropout_mask, # Отключаем изменение некоторых связей
                                       self.alpha * layer_answer.T.dot(delta_weight))
 
 
                 # К нейрону смещения не идут связи, поэтому обрезаем этот нейрон смещения
-                if self.have_bias_neuron == True:
+                if self.have_bias_neuron:
                     weight = weight[0:-1]
                     layer_answer = np.matrix(layer_answer.tolist()[0][0:-1])
 
@@ -187,43 +171,51 @@ class AI:
 
 
             if get_error:
-                return sum( np.power(answer - ai_answer, 2).tolist() )
+                err = np.sum( np.power(answer - ai_answer, 2) )   # Квадратичное отклонение
+
+                if not (np.isnan(err) or err == None or err is None or err == np.nan):
+                    return err
 
 
-    # def make_all_for_q_learning(self, states: list, actions: list, gamma):
-    #     """Создаём всё необходимое для Q-обучения
-    #         (q-таблицу, каэфицент вознаграждения gamma)"""
-    #
-    #     self.states = states
-    #     self.actions = actions
-    #     self.gamma = gamma    # Каэфицент "доверия опыту"
-    #
-    #
-    #     self.q = []    # Таблица состояний
-    #
-    #     for _ in range(len(states)):    # states == строки
-    #         string = [0 for _ in range(len(actions))]   # actions == столбы
-    #         self.q.append(string)
-    #
-    #
-    #
-    # def q_learning(self, state, action, reward_for_state, future_state):
-    #     """Q-обучение
-    #
-    #     ------------------------
-    #
-    #     Подаём: Текущее состояние, Текущее действие, Текущее вознаграждение, Будущее состояние при таком же действии"""
-    #     q = self.q
-    #     states = self.states
-    #     actions = self.actions
-    #
-    #
-    #     # Формула в документации
-    #     q[states.index(state)][actions.index(action)] = q[states.index(state)][actions.index(action)] +\
-    #                                                     self.alpha * (reward_for_state +\
-    #                                                     self.gamma * max( q[states.index(future_state)] ) -\
-    #                                                     q[states.index(state)][actions.index(action)])
-    #
+    def make_all_for_q_learning(self, actions: list, gamma=0.1, epsilon=0.1):
+        """Создаём всё необходимое для Q-обучения
+            (q-таблицу, каэфицент вознаграждения gamma)"""
+
+        self.actions = actions
+        self.gamma = gamma     # Каэфицент "доверия опыту"
+        self.epsilon = epsilon  # Каэфицент "разведки окружающей среды"
+
+        self.q = []    # Таблица состояний
+
+
+    def q_learning(self, state, action, reward_for_state, future_state):
+        """Q-обучение"""
+        state = [i for i in state]
+
+        # Если не находим состояние в прошлых состояниях, то добовляем новое
+        if not state in self.states:
+            self.states.append(state)
+            self.q.append([0 for _ in range(len(self.actions))])
+        if not future_state in self.states:
+            self.states.append(future_state)
+            self.q.append([0 for _ in range(len(self.actions))])
+
+
+
+        answer = [0 for _ in range(len(self.actions))]
+        # На месте максимального значения из Q-таблицы ставим максимально возможное значение как "правильный" ответ
+        answer[self.q[self.states.index(state)].index( max(self.q[self.states.index(state)]) )] =\
+                self.activation_function.max
+
+        # Изменяем веса
+        self.learning(state, answer)
+
+
+        # Обновляею Q-таблицу
+        self.q[self.states.index(state)][self.actions.index(action)] +=\
+                self.alpha * ( reward_for_state +\
+                self.gamma * max( self.q[self.states.index(future_state)] ) -\
+                self.q[self.states.index(state)][self.actions.index(action)] )
 
 
     def save_data(self, name_this_ai: str):
@@ -235,9 +227,6 @@ class AI:
             file.write("weights " +
                        "".join((str([i.tolist() for i in self.weights]).split()))
                        + "\n")
-            file.write("architecture " +
-                       "".join((str(self.architecture).split()))
-                       + "\n")
             file.write("what_activation_function " + str(self.what_activation_function) + "\n")
             file.write("end_activation_function " + str(self.end_activation_function) + "\n")
             file.write("alpha " + str(self.alpha) + "\n")
@@ -245,21 +234,23 @@ class AI:
             file.write("number_disabled_neurons " + str(self.number_disabled_neurons) + "\n")
             file.write("packet_size " + str(self.packet_size) + "\n")
             file.write("value_range " + "".join((str([self.activation_function.min, self.activation_function.max]).split())) + "\n")
-            # file.write("q_table " +
-            #            "".join((str(self.q).split()))
-            #            + "\n")
-            # file.write("states " +
-            #            "".join((str(self.states).split()))
-            #            + "\n")
-            # file.write("actions " +
-            #            "".join((str(self.actions).split()))
-            #            + "\n")
+            file.write("q_table " +
+                       "".join((str(self.q).split()))
+                       + "\n")
+            file.write("states " +
+                       "".join((str(self.states).split()))
+                       + "\n")
+            file.write("actions " +
+                       "".join((str(self.actions).split()))
+                       + "\n")
+            file.write("gamma " + str(self.gamma) + "\n")
+            file.write("epsilon " + str(self.epsilon) + "\n")
 
 
             file.write("\n")
 
 
-    def find_among_data(self, start_with_ai_name: str, what_find: str, from_bottom_to_top=False):
+    def _find_among_data(self, start_with_ai_name: str, what_find: str, from_bottom_to_top=True):
         """Ищет среди сохранённых данных нужное нам слово, и возвращает его значение"""
 
         # Если читаем снизу вверх, то читаем инвертированный файл (шаг == -1)
@@ -311,22 +302,21 @@ class AI:
         """Загружает все данные сохранённой ИИ"""
         """!! ВНИМАНИЕ !! Она загружает ПОСЛЕДНЕЕ сохранение (ПОСЛЕДНЕЕ имя), если несколько одинаковых имён"""
 
-        self.weights = [np.array(i) for i in self.find_among_data(load_AI_with_name, "weights", True)]
-        self.architecture = self.find_among_data(load_AI_with_name, "architecture", True)
-        self.alpha = self.find_among_data(load_AI_with_name, "alpha", True)
-        self.have_bias_neuron = self.find_among_data(load_AI_with_name, "have_bias_neuron", True)
-        self.number_disabled_neurons = self.find_among_data(load_AI_with_name, "number_disabled_neurons", True)
-        self.packet_size = self.find_among_data(load_AI_with_name, "packet_size", True)
-        self.activation_function.min = self.find_among_data(load_AI_with_name, "value_range", True)[0]
-        self.activation_function.max = self.find_among_data(load_AI_with_name, "value_range", True)[1]
-        # self.q = self.find_among_data(load_AI_with_name, "q_table", True)
-        # self.states = self.find_among_data(load_AI_with_name, "states", True)
-        # self.actions = self.find_among_data(load_AI_with_name, "actions", True)
+        self.weights = [np.array(i) for i in self._find_among_data(load_AI_with_name, "weights", True)]
+        self.alpha = self._find_among_data(load_AI_with_name, "alpha", True)
+        self.have_bias_neuron = self._find_among_data(load_AI_with_name, "have_bias_neuron", True)
+        self.number_disabled_neurons = self._find_among_data(load_AI_with_name, "number_disabled_neurons", True)
+        self.packet_size = self._find_among_data(load_AI_with_name, "packet_size", True)
+        self.activation_function.min = self._find_among_data(load_AI_with_name, "value_range", True)[0]
+        self.activation_function.max = self._find_among_data(load_AI_with_name, "value_range", True)[1]
+        self.q = self._find_among_data(load_AI_with_name, "q_table", True)
+        self.states = self._find_among_data(load_AI_with_name, "states", True)
+        self.actions = self._find_among_data(load_AI_with_name, "actions", True)
 
 
         # Выясняем какая функция активации
 
-        result = self.find_among_data(load_AI_with_name, "what_activation_function", True).split()[2].split('.')[-1]
+        result = self._find_among_data(load_AI_with_name, "what_activation_function", True).split()[2].split('.')[-1]
         if result == "ReLU":
             self.what_activation_function = self.activation_function.ReLU
         elif result == "ReLU_2":
@@ -343,7 +333,7 @@ class AI:
             self.what_activation_function = self.activation_function.Sigmoid
 
         # То же самое для end_activation_function
-        result = self.find_among_data(load_AI_with_name, "end_activation_function", True).split()
+        result = self._find_among_data(load_AI_with_name, "end_activation_function", True).split()
         if result[0] != "None":
             result = result[2].split('.')[-1]
 
@@ -379,7 +369,7 @@ class AI:
             line = lines[len(lines) - num] # Снизу вверх
 
             if line[5:-1] == load_AI_with_name:
-                for _ in range(11): # 14
+                for _ in range(14):
                     lines.pop(len(lines) - num +1)
                 break
 
@@ -395,7 +385,7 @@ class AI:
         """Набор функций активации и их производных"""
 
         def __init__(self):
-            self.min = -1
+            self.min = 0
             self.max = 1
 
         def value_range(self, min: int, max: int):
@@ -414,21 +404,21 @@ class AI:
                 return (x > 0) * x
 
         def ReLU_2(self, x, return_derivative=False):
-            """Не действует ограничение value_range"""
+            min = self.min
+            max = self.max
 
             if return_derivative:
-                return (x < 0) * 0.1 + \
-                       np.multiply(0 <= x, x <= 1) + \
-                       (x > 1) * 0.1
+                return (x < min) * 0.01 + \
+                       np.multiply(min <= x, x <= max) + \
+                       (x > max) * 0.01
 
             else:
-                return (x < 0) * 0.1 * x + \
-                       np.multiply(0 <= x, x <= 1) * x + \
-                       (x > 1) * 0.1 * x
+                return (x < min) * 0.01 * x + \
+                       np.multiply(min <= x, x <= max) * x + \
+                       (x > max) * 0.01 * x
 
         def Curved(self, x, return_derivative=False):
-            """Не действует ограничение value_range
-                (Как ReLU, только плавная)"""
+            """Не действует ограничение value_range"""
 
             if return_derivative:
                 return x / (np.sqrt(2 * np.power(x,2) + 1)) + 1
@@ -446,8 +436,16 @@ class AI:
             else:
                 return np.log(1 + np.exp(x)) + min
 
+        def Softmax(self, x, return_derivative=False):
+            """Не действует ограничение value_range"""
+
+            if return_derivative:
+                return np.exp(x) / np.sum(np.exp(x))
+
+            else:
+                return np.exp(x) / np.sum(np.exp(x))
+
         def Gaussian(self, x, return_derivative=False):
-            """Распределение Гаусса"""
             min = self.min
             max = self.max
 
@@ -458,7 +456,6 @@ class AI:
                 return (max - min) * np.exp(-.1* np.power(x,2) ) + min
 
         def Tanh(self, x, return_derivative=False):
-            """Это Tanh (точно)"""
             min = self.min
             max = self.max
 
@@ -471,7 +468,6 @@ class AI:
 
 
         def Sigmoid(self, x, return_derivative=False):
-            """Cигмоида"""
             min = self.min
             max = self.max
 

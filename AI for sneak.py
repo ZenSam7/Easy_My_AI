@@ -1,22 +1,19 @@
 import Code_My_AI
-import Code_My_Snake
-
-
+import Snake
 
 
 # Загружаем последнее сохранение
 # ai.load_data("Snake")
 
 
-
 SNAKES = []
 AIs = []
-number_populations = 30       # Сколько змей в популяции (из скольких змей выбираем 2 наилучшие)
+number_populations = 200       # Сколько змей в популяции (из скольких змей выбираем 2 наилучшие)
 
 
 for _ in range(number_populations):
     ##### Создаём Змеек
-    snake = Code_My_Snake.Snake(1200, 900, 100, 13, game_over_function=None, display_game=False)
+    snake = Code_My_Snake.Snake(9, 9, 1, 11, game_over_function=None, display_game=False)
 
     def end():
         snake.generation += 1
@@ -64,7 +61,7 @@ while 1:
 
 ###################### ОБУЧАЕМ
 
-        if iteration >= 3_000:
+        if iteration >= 1_000:
             snake.game_over() # Что бы змея на месте не закручивалась
 
         if all([not i.alive for i in SNAKES]) and\
@@ -83,7 +80,7 @@ while 1:
             better_ais[0].genetic_crossing_with(better_ais[1]) # Скрещиваем лучшего м лучшим
 
             for _ in range(len(AIs)): # Заменяем все старые ии на лучшего (с небольшими мутациями)
-                better_ais[0].get_mutations(0.3)
+                better_ais[0].get_mutations(0.05)
 
             print(f"Поколение #{SNAKES[0].generation} | {better_scores[1]}")
 
