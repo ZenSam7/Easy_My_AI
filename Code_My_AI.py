@@ -23,6 +23,7 @@ class AI:
         self.actions = []     # Все действия
         self.gamma = 1
         self.epsilon = None
+        self.q_alpha = 0.01
 
 
 
@@ -104,16 +105,28 @@ class AI:
                         result_layer_neurons.dot(self.weights[-1]))
 
 
-        # "Разведуем окружающую среду" ()
-        if (self.epsilon != None) and (np.random.random() < self.epsilon):
-            result_layer_neurons = np.random.random(result_layer_neurons.shape)
-
-
         # Если надо, возвращаем спосок с ответами от каждого слоя
         if return_answers:
             return result_layer_neurons, list_answers
         else:
             return result_layer_neurons
+
+
+    def q_start_work(self, input_data: list):
+        """Возвращает action, на основе входных данных"""
+
+        ai_result = self.start_work(input_data)
+
+        # "Разведуем окружающую среду" ()
+        if (self.epsilon != None) and (np.random.random() < self.epsilon):
+            ai_result *= np.random.random(ai_result.shape) +0.5        # множаем на число от 0.5 до 1.5
+
+        ai_result = ai_result.tolist()
+
+        # Находим действие
+        for i in range(len(ai_result)):
+            if max(ai_result) == ai_result[i]:
+                return self.actions[i]
 
 
     def learning(self, input_data: list, answer: list, get_error=False, squared_error=False):
@@ -177,19 +190,34 @@ class AI:
                     return err
 
 
-    def make_all_for_q_learning(self, actions: list, gamma=0.1, epsilon=0.1):
+    def make_all_for_q_learning(self, actions: list, gamma=0.1, epsilon=0.1, q_alpha=0.01):
         """Создаём всё необходимое для Q-обучения
             (q-таблицу, каэфицент вознаграждения gamma)"""
 
         self.actions = actions
         self.gamma = gamma     # Каэфицент "доверия опыту"
         self.epsilon = epsilon  # Каэфицент "разведки окружающей среды"
+        self.q_alpha = q_alpha
 
         self.q = []    # Таблица состояний
 
 
-    def q_learning(self, state, action, reward_for_state, future_state):
-        """Q-обучение"""
+    def q_learning(self, state, action, reward_for_state, future_state, num_function=2):
+        """Q-обучение \n
+        ИИ используется как предсказатель правильныз действий
+
+        -----------------
+
+        num_function - это номер функции обновления Q-таблицы: \n
+        -----------------
+        \n 1: Q(s,a) = Q(s,a) + α[r + γ(max Q(s’,a')) - Q(s,a)] \n
+        \n 2: Q(s,a) = (1 - α) Q(s,a) + α[r + γ(max Q(s’,a))] \n
+        \n 3: Q(s,a) = Q(s,a) + α[r + γ Q(s’,a') - Q(s,a)] \n
+        \n 4: Q(s,a) = Q(s,a) + α[r + γ(Expected Q(s’,a')) - Q(s,a)] \n
+        \n 5: Q(s,a) = R + γ Q’(s’,a’) \n
+        \n 6: Q(s,a) = R + γ Q’(s’, max a) \n
+        """
+
         state = [i for i in state]
         future_state = [i for i in future_state]
 
@@ -213,17 +241,42 @@ class AI:
 
 
         # Обновляею Q-таблицу
+        if num_function == 1:
+            self.q[self.states.index(state)][self.actions.index(action)] = \
+                    self.q[self.states.index(state)][self.actions.index(action)] +\
+                    self.q_alpha * (reward_for_state + \
+                                  self.gamma * max( self.q[self.states.index(future_state)] ) - \
+                                  self.q[self.states.index(state)][self.actions.index(action)] )
 
-        # self.q[self.states.index(state)][self.actions.index(action)] +=\
-        #         self.alpha * ( reward_for_state +\
-        #         self.gamma * max( self.q[self.states.index(future_state)] ) -\
-        #         self.q[self.states.index(state)][self.actions.index(action)] )
-        self.q[self.states.index(state)][self.actions.index(action)] = \
-                (1 - self.alpha) * self.q[self.states.index(state)][self.actions.index(action)] +\
-                self.alpha * ( reward_for_state + \
-                               self.gamma * max( self.q[self.states.index(future_state)] ) )
+        elif num_function == 2:
+            self.q[self.states.index(state)][self.actions.index(action)] = \
+                    (1 - self.q_alpha) * self.q[self.states.index(state)][self.actions.index(action)] + \
+                    self.q_alpha * (reward_for_state + \
+                                    self.gamma * max( self.q[self.states.index(future_state)] ) )
 
+        elif num_function == 3:
+            self.q[self.states.index(state)][self.actions.index(action)] = \
+                    self.q[self.states.index(state)][self.actions.index(action)] + \
+                    self.q_alpha * (reward_for_state + \
+                                    self.gamma * self.q[self.states.index(future_state)][self.actions.index(self.q_start_work(state))] -\
+                                    self.q[self.states.index(state)][self.actions.index(action)])
 
+        elif num_function == 4:
+            self.q[self.states.index(state)][self.actions.index(action)] = \
+                    self.q[self.states.index(state)][self.actions.index(action)] + \
+                    self.q_alpha * (reward_for_state + \
+                                    self.gamma * sum( self.q[self.states.index(future_state)] ) -\
+                                    self.q[self.states.index(state)][self.actions.index(action)])
+
+        elif num_function == 5:
+            self.q[self.states.index(state)][self.actions.index(action)] = \
+                    reward_for_state + \
+                    self.gamma * self.q[self.states.index(future_state)][self.actions.index(self.q_start_work(state))]
+
+        elif num_function == 6:
+            self.q[self.states.index(state)][self.actions.index(action)] = \
+                    reward_for_state + \
+                    self.gamma * max( self.q[self.states.index(future_state)] )
 
 
     def save_data(self, name_this_ai: str):
@@ -238,6 +291,7 @@ class AI:
             file.write("what_activation_function " + str(self.what_activation_function) + "\n")
             file.write("end_activation_function " + str(self.end_activation_function) + "\n")
             file.write("alpha " + str(self.alpha) + "\n")
+            file.write("q_alpha " + str(self.q_alpha) + "\n")
             file.write("have_bias_neuron " + str(self.have_bias_neuron) + "\n")
             file.write("number_disabled_neurons " + str(self.number_disabled_neurons) + "\n")
             file.write("packet_size " + str(self.packet_size) + "\n")
@@ -320,6 +374,7 @@ class AI:
         self.q = self._find_among_data(load_AI_with_name, "q_table", True)
         self.states = self._find_among_data(load_AI_with_name, "states", True)
         self.actions = self._find_among_data(load_AI_with_name, "actions", True)
+        self.q_alpha = self._find_among_data(load_AI_with_name, "q_alpha", True)
 
 
         # Выясняем какая функция активации
@@ -377,7 +432,7 @@ class AI:
             line = lines[len(lines) - num] # Снизу вверх
 
             if line[5:-1] == load_AI_with_name:
-                for _ in range(14):
+                for _ in range(16):
                     lines.pop(len(lines) - num +1)
                 break
 

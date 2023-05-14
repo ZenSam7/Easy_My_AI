@@ -2,7 +2,7 @@ import Code_My_AI
 import Game_for_Q_learning
 
 
-game = Game_for_Q_learning.Game(4, 2)
+game = Game_for_Q_learning.Game(6, 5)
 
 # Состояния - нахождение в какой-либо клетке поля (координаты каждой клетки)
 actions = ["left", "right", "up", "down"]
@@ -10,15 +10,16 @@ actions = ["left", "right", "up", "down"]
 
 # Создаём ИИ
 ai = Code_My_AI.AI()
-ai.create_weights([2, 11, 11, 11, 4], add_bias_neuron=True)
+ai.create_weights([2, 10, 10, 4], add_bias_neuron=True)
 
-ai.what_activation_function = ai.activation_function.ReLU
+ai.what_activation_function = ai.activation_function.ReLU_2
 ai.activation_function.value_range(0, 1)
 ai.end_activation_function = ai.activation_function.ReLU_2
 
-ai.packet_size = 1
+ai.alpha = 1e-3
+ai.q_alpha = 1e-2
 
-ai.alpha = 1e-4
+ai.make_all_for_q_learning(actions, 0.7, 0.2)
 
 
 
@@ -27,19 +28,16 @@ reward, generation, num_win = 0, 0, 0
 def died():
     global reward, generation
     generation += 1
-    reward = -10
+    reward = -100
 def win():
     global reward, generation, num_win
     generation += 1
-    reward = 5000
+    reward = 10_000
     num_win += 1
     print("WIN !", num_win, " ", round(num_win/generation*100, 2))
 
 game.game_over_function = died
 game.win_function = win
-
-
-ai.make_all_for_q_learning(actions, 0.8, 0.15)
 
 
 
@@ -52,30 +50,19 @@ while 1:
 
 ###################### ОТВЕТ ОТ НЕЙРОНКИ
 
-    data = [i +0.1 for i in game.agent_coords]
-    ai_answer = ai.start_work(data).tolist()
+    data = [i +0.1 for i in game.agent_coords]   # Нельзя чтобы на входе были 0
 
-    where_move = ""
-    if max(ai_answer) == ai_answer[0]:
-        where_move = "left"
-    elif max(ai_answer) == ai_answer[1]:
-        where_move = "right"
-    elif max(ai_answer) == ai_answer[2]:
-        where_move = "up"
-    elif max(ai_answer) == ai_answer[3]:
-        where_move = "down"
+    where_move = ai.q_start_work(data)
 
     game.step(where_move)
 
 ###################### ОБУЧАЕМ
 
-    ai.q_learning([i +0.1 for i in game.agent_coords], # Нельзя чтобы на входе были 0
-                  where_move, reward, game.get_future_coords(where_move))
+    ai.q_learning(data, where_move, reward, game.get_future_coords(where_move), 1)   # Лучше всего выбрать функцию 3
 
 
-    # Если не умерли и не победили, то -0.1 (т.е. штрафуем за лишние шаги)
-    # (P.s. reward изменяется в game.win* или game.game_over* (в game.step), и если они не сработали, то reward как был, так и остаётся -0.1)
-    # *точнее в функциях, которые мы им передаём (win и died)
-    reward = -0.1
+    # Если не умерли и не победили, то 0 (т.е. штрафуем за лишние шаги)
+    # (P.s. reward изменяется в game.win или game.game_over (в game.step), и если они не сработали, то reward как был, так и остаётся 0)
+    reward = -1
 
 
