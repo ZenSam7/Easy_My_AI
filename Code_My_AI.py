@@ -28,7 +28,7 @@ class AI:
 
 
     def create_weights(self, architecture: list, add_bias_neuron=False,
-                       min_weight=0, max_weight=1):
+                       min_weight=-1, max_weight=1):
         """Создаёт матрицу со всеми весами между всеми элементами
         (Подавать надо список с количеством нейронов на каждом слое (архитектуру нейронки))"""
 
@@ -127,6 +127,8 @@ class AI:
         for i in range(len(ai_result)):
             if max(ai_result) == ai_result[i]:
                 return self.actions[i]
+
+        return self.actions[0]
 
 
     def learning(self, input_data: list, answer: list, get_error=False, squared_error=False):
@@ -336,8 +338,8 @@ class AI:
                             if what_find == LINE[0:len(what_find)]:
                                 value = LINE[len(what_find) + 1:-1]
                                 if value[0] == "[":      # Либо список
-                                    from json import loads
-                                    return loads(value)
+                                    from ast import literal_eval
+                                    return literal_eval(value)
                                 elif value[0].isdigit(): # Либо число
                                     return float(value)
                                 else:                    # Либо название
@@ -347,8 +349,8 @@ class AI:
                         if what_find == line[0:len(what_find)]:
                             value = line[len(what_find) + 1:-1]
                             if value[0] == "[":      # Либо список
-                                from json import loads
-                                return loads(value)
+                                from ast import literal_eval
+                                return literal_eval(value)
                             elif value[0].isdigit(): # Либо число
                                 return float(value)
                             else:                    # Либо название

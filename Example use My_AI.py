@@ -9,20 +9,19 @@ import numpy as np
 ai = Code_My_AI.AI()
 
 # Создаём архитектуру (сколько нейронов на каком слое)
-ai.create_weights([2, 5, 5, 2], add_bias_neuron=True, min_weight=0, max_weight=1)
+ai.create_weights([2, 10, 10, 10, 2], add_bias_neuron=True)
 
-ai.what_activation_function = ai.activation_function.ReLU_2
-ai.activation_function.value_range(-10, 10000)
+ai.what_activation_function = ai.activation_function.ReLU
+ai.activation_function.value_range(0, 2000)
 ai.end_activation_function = ai.activation_function.ReLU_2
 
 
 ai.number_disabled_neurons = 0.0
-ai.packet_size = 1
 ai.alpha = 1e-9
 
 
 # Загружаем ии
-ai.load_data("Sum_ai")
+# ai.load_data("Sum_ai")
 
 
 errors = []
