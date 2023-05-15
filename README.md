@@ -33,7 +33,9 @@ ai.create_weights( [number_of_inputs,
 > You can change nothing, or change only a some of parameters
 ```python
 ai.alpha = 1e-7   # Alpha coefficient (learning rate coefficient)
-# ATTENTION !! IF YOU HAVE ERRORS IN THE CALCULATION (or have too large numbers), THEN DECREASE alpha
+# ATTENTION !! IF YOU HAVE ERRORS IN THE CALCULATION
+# ("RuntimeWarning: invalid value encountered in multiply") (or have too large numbers),
+# THEN DECREASE alpha
 
 ai.number_disabled_neurons = 0.0    # What proportion of neurons we "turn off" during training
 # (This is necessary so that there is no overlearning (memorizing responses instead of finding correlations))
