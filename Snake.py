@@ -6,7 +6,7 @@ class Snake:
     """Набор функций для создания змеи"""
 
     def __init__(self, window_width, window_height, cell_size, amount_food,
-                 game_over_function=None, display_game=False):
+                 game_over_function=None, eat_apple_function=None, display_game=False):
         self.window_width = window_width
         self.window_height = window_height
         self.cell_size = cell_size
@@ -19,9 +19,10 @@ class Snake:
         self.need_grow = False
         self.generation = 0        # Номер поколения
         self.score = 0
-        self.alive = True
+        self.max_score = self.score
 
         self.game_over_function = game_over_function  # Запускаем функцию перед рестартом в game_over
+        self.eat_apple_function = eat_apple_function
 
         self.display_game = display_game    # Пока False -> ничего не выводим на экран (просто работаем с цифрами)
 
@@ -92,6 +93,7 @@ class Snake:
 
         # Столкновение с едой
         if head in self.food_coords:
+            self.eat_apple_function()
             self.food_coords.remove(head)
             self.need_grow = True
             self.score += 1
@@ -152,155 +154,128 @@ class Snake:
         if self.game_over_function != None:
             self.game_over_function()  # Запускаем функцию, если она есть
 
+        self.max_score = self.score if self.score > self.max_score else self.max_score
+
         self.snake_body = [[0,0], [1,0], [2,0]]
         self.food_coords = []
         self.need_grow = False
         self.spawn_food(self.amount_food)
         self.score = 0
 
-        self.alive = False
-
 
     def step(self, where_want_move: str, iteration):
         """Запускаем одну итерацию змейки"""
 
-        if self.alive:
-            self.move_snake(where_want_move)
-            self.collision()
+        self.move_snake(where_want_move)
+        self.collision()
 
         if self.display_game:
             self.draw(iteration)
 
 
-    def get_range_to_blocks(self) -> list:
-        """Записываем минимальное расстояние до стены (или тела змеи) и еды \n
-        По 4м осям, относительно головы (влево, вправо, вверх, вниз)"""
-        data = []
+    def get_blocks(self):
+        """Возвращаем 8 значений, описывающие состояние клетки вокруг головы змеи
+            (если слева сверху еда, то 1й элемент равен 10, если справа от головы стена, то 4й значение равно -10)"""
+        data = [0 for _ in range(8)]
 
-        range_to_block = 0
-        head = [i for i in self.snake_body[-1]]
-
-        head[0] -= 1
-        while 0 <= head[0] < self.window_width // self.cell_size and \
-                not (head in self.snake_body):
-            range_to_block += 1
-            head[0] -= 1
-        data.append(range_to_block)
-
-        ########## Тоже самое, но для других осей
-        range_to_block = 0
-        head = [i for i in self.snake_body[-1]]
-
-        head[0] += 1
-        while 0 <= head[0] < self.window_width // self.cell_size and \
-                not (head in self.snake_body):
-            range_to_block += 1
-            head[0] += 1
-        data.append(range_to_block)
-
-        ########## Тоже самое, но для других осей
-        range_to_block = 0
-        head = [i for i in self.snake_body[-1]]
-
-        head[1] -= 1
-        while 0 <= head[1] < self.window_height // self.cell_size and \
-                not (head in self.snake_body):
-            range_to_block += 1
-            head[1] -= 1
-        data.append(range_to_block)
-
-        ########## Тоже самое, но для других осей
-        range_to_block = 0
-        head = [i for i in self.snake_body[-1]]
-
-        head[1] += 1
-        while 0 <= head[1] < self.window_height // self.cell_size and \
-                not (head in self.snake_body):
-            range_to_block += 1
-            head[1] += 1
-        data.append(range_to_block)
-
-        ####################
-
-        ####################
-
-        #################### Тоже самое, но для еды
-
-        x_foods = [food[0] for food in self.food_coords]
-        y_foods = [food[1] for food in self.food_coords]
-        head = [i for i in self.snake_body[-1]]
-
-        if head[1] in y_foods:  # Если голова и еда по значению Y равны, то считаем расстояние
-
-            range_to_eat = 0
-            head = [i for i in self.snake_body[-1]]
-
-            while 0 <= head[0] < self.window_width // self.cell_size and \
-                    not (head in self.food_coords):
-                range_to_eat += 1
-                head[0] -= 1
-            # Если вылезли за экран, то расстояние = 0
-            if 0 <= head[0] < self.window_width // self.cell_size:
-                data.append(range_to_eat)
-            else:
-                data.append(0)
+        foods = [ [i[0],i[1]] for i in self.food_coords]
+        head = [self.snake_body[-1][0], self.snake_body[-1][1]]
 
 
-            ########## Тоже самое
+        # Записываем все препятствия, от которых можно убиться
+        blocks = [ [i[0],i[1]] for i in self.snake_body]
+        for i in range(self.window_width // self.cell_size):
+            blocks.append([i, -1])                                     # Потолок
+            blocks.append([i, self.window_height // self.cell_size])   # Пол
+        for i in range(self.window_height // self.cell_size):
+            blocks.append([-1, i])                                     # Левая стена
+            blocks.append([self.window_width // self.cell_size, i])    # Правая стена
 
-            range_to_eat = 0
-            head = [i for i in self.snake_body[-1]]
-
-            while 0 <= head[0] < self.window_width // self.cell_size and \
-                    not (head in self.food_coords):
-                range_to_eat += 1
-                head[0] += 1
-            # Если вылезли за экран, то расстояние = 0
-            if 0 <= head[0] < self.window_width // self.cell_size:
-                data.append(range_to_eat)
-            else:
-                data.append(0)
-
+        # Сверху
+        cell = [head[0] -1, head[1] -1]
+        if cell in foods:
+            data[0] = 10
+        elif cell in blocks:
+            data[0] = -10
         else:
-            data.append(0)
-            data.append(0)
+            data[0] = 0
 
-
-
-        if head[0] in x_foods:  # Если голова и еда по значению Y равны, то считаем расстояние
-
-            range_to_eat = 0
-            head = [i for i in self.snake_body[-1]]
-
-            while 0 <= head[1] < self.window_height // self.cell_size and \
-                    not (head in self.food_coords):
-                range_to_eat += 1
-                head[1] -= 1
-            # Если вылезли за экран, то расстояние = 0
-            if 0 <= head[1] < self.window_height // self.cell_size:
-                data.append(range_to_eat)
-            else:
-                data.append(0)
-
-
-            ########## Тоже самое
-
-            range_to_eat = 0
-            head = [i for i in self.snake_body[-1]]
-
-            while 0 <= head[1] < self.window_height // self.cell_size and \
-                    not (head in self.food_coords):
-                range_to_eat += 1
-                head[1] += 1
-            # Если вылезли за экран, то расстояние = 0
-            if 0 <= head[1] < self.window_height // self.cell_size:
-                data.append(range_to_eat)
-            else:
-                data.append(0)
-
+        cell = [head[0], head[1] -1]
+        if cell in foods:
+            data[1] = 10
+        elif cell in blocks:
+            data[1] = -10
         else:
-            data.append(0)
-            data.append(0)
+            data[1] = 0
+
+        cell = [head[0] +1, head[1] -1]
+        if cell in foods:
+            data[2] = 10
+        elif cell in blocks:
+            data[2] = -10
+        else:
+            data[2] = 0
+
+
+        # По бокам
+        cell = [head[0] -1, head[1]]
+        if cell in foods:
+            data[3] = 10
+        elif cell in blocks:
+            data[3] = -10
+        else:
+            data[3] = 0
+
+        cell = [head[0] +1, head[1]]
+        if cell in foods:
+            data[4] = 10
+        elif cell in blocks:
+            data[4] = -10
+        else:
+            data[4] = 0
+
+
+        # Снизу
+        cell = [head[0] -1, head[1] +1]
+        if cell in foods:
+            data[5] = 10
+        elif cell in blocks:
+            data[5] = -10
+        else:
+            data[5] = 0
+
+        cell = [head[0], head[1] +1]
+        if cell in foods:
+            data[6] = 10
+        elif cell in blocks:
+            data[6] = -10
+        else:
+            data[6] = 0
+
+        cell = [head[0] +1, head[1] +1]
+        if cell in foods:
+            data[7] = 10
+        elif cell in blocks:
+            data[7] = -10
+        else:
+            data[7] = 0
 
 
         return data
+
+
+    def get_future_state(self, where_want_move):
+        snake_body = [ [i[0],i[1]] for i in self.snake_body]
+        food_coords = [ [i[0],i[1]] for i in self.food_coords]
+        score, generation = self.score, self.generation
+
+
+        self.move_snake(where_want_move)
+        self.collision()
+
+        future_state = self.get_range_to_blocks
+
+        self.snake_body, self.food_coords = snake_body, food_coords
+        self.score, self.generation = score, generation
+
+        return future_state

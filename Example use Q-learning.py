@@ -10,16 +10,16 @@ actions = ["left", "right", "up", "down"]
 
 # Создаём ИИ
 ai = Code_My_AI.AI()
-ai.create_weights([10, 20, 20, 4], add_bias_neuron=False)
+ai.create_weights([2, 20, 20, 20, 4], add_bias_neuron=True)
 
 ai.what_activation_function = ai.activation_function.ReLU_2
-ai.activation_function.value_range(0, 1)
+ai.activation_function.value_range(-10, 10)
 ai.end_activation_function = ai.activation_function.ReLU_2
 
-ai.alpha = 1e-4
+ai.alpha = 1e-5
 ai.q_alpha = 1e-1
 
-ai.make_all_for_q_learning(actions, 0.6, 0.1)
+ai.make_all_for_q_learning(actions, 0.4, 0.05)
 
 
 
@@ -31,7 +31,8 @@ def died():
     reward = -100
     number_steps = 0  # Считаем сколько шагов, что бы не было "зацикливания" ИИ
 def win():
-    global reward, num_win
+    global reward, num_win, number_steps
+    number_steps = 0
     reward = 2000
     num_win += 1
     print("WIN !", num_win, "\t", round(num_win/generation*100, 2))
@@ -40,7 +41,7 @@ game.game_over_function = died
 game.win_function = win
 
 
-ai.save_data("Q")
+# ai.load_data("Q")
 
 
 learn_iteration = 0
@@ -48,21 +49,21 @@ while 1:
     number_steps += 1
     learn_iteration += 1
 
-    if learn_iteration % 50 == 0:
+    if learn_iteration % 25 == 0:
         game.draw(generation)
 
         # Если слишком много шагов - убиваем
         if number_steps >= 100:
             game.game_over()
 
-        if learn_iteration % 10_000 == 0:
+        if learn_iteration % 5_000 == 0:
             ai.delete_data("Q")
             ai.save_data("Q")
 
 
 ###################### ОТВЕТ ОТ НЕЙРОНКИ
 
-    data = [[i +0.01 for i in game.agent_coords]] + game.walls_coords
+    data = [[i +0.01 for i in game.agent_coords]]# + game.walls_coords
     data = sum(data, [])
 
 
@@ -72,9 +73,9 @@ while 1:
 
 ###################### ОБУЧАЕМ
 
-    ai.q_learning(data, where_move, reward, game.get_future_coords(where_move), 3)   # Лучше всего выбрать функцию 3
+    ai.q_learning(data, reward, game.get_future_coords(where_move), 3)   # Лучше всего выбрать функцию 3
 
 
     # Если не умерли и не победили, то 0 (т.е. штрафуем за лишние шаги)
     # (P.s. reward изменяется в game.win или game.game_over (в game.step), и если они не сработали, то reward как был, так и остаётся 0)
-    reward = -1
+    reward = -2

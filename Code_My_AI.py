@@ -119,7 +119,7 @@ class AI:
 
         # "Разведуем окружающую среду" ()
         if (self.epsilon != None) and (np.random.random() < self.epsilon):
-            ai_result *= np.random.random(ai_result.shape) +0.5        # множаем на число от 0.5 до 1.5
+            ai_result *= np.random.random(ai_result.shape) +0.5        # Умножаем на число от 0.5 до 1.5
 
         ai_result = ai_result.tolist()
 
@@ -204,7 +204,7 @@ class AI:
         self.q = []    # Таблица состояний
 
 
-    def q_learning(self, state, action, reward_for_state, future_state, num_function=2):
+    def q_learning(self, state, reward_for_state, future_state, num_function=2):
         """Q-обучение \n
         ИИ используется как предсказатель правильныз действий
 
@@ -220,8 +220,11 @@ class AI:
         \n 6: Q(s,a) = R + γ Q’(s’, max a) \n
         """
 
+        action = self.q_start_work(state)
+
         state = [i for i in state]
         future_state = [i for i in future_state]
+
 
         # Если не находим состояние в прошлых состояниях, то добовляем новое
         if not state in self.states:
@@ -232,10 +235,13 @@ class AI:
             self.q.append([0 for _ in range(len(self.actions))])
 
 
+        STATE = self.states.index(state)
+        ACT = self.actions.index(action)
 
-        answer = [0 for _ in range(len(self.actions))]
+
+        answer = [self.activation_function.min for _ in range(len(self.actions))]
         # На месте максимального значения из Q-таблицы ставим максимально возможное значение как "правильный" ответ
-        answer[self.q[self.states.index(state)].index( max(self.q[self.states.index(state)]) )] =\
+        answer[self.q[STATE].index( max(self.q[STATE]) )] =\
                 self.activation_function.max
 
         # Изменяем веса
@@ -244,41 +250,32 @@ class AI:
 
         # Обновляею Q-таблицу
         if num_function == 1:
-            self.q[self.states.index(state)][self.actions.index(action)] = \
-                    self.q[self.states.index(state)][self.actions.index(action)] +\
-                    self.q_alpha * (reward_for_state + \
-                                  self.gamma * max( self.q[self.states.index(future_state)] ) - \
-                                  self.q[self.states.index(state)][self.actions.index(action)] )
+            self.q[STATE][ACT] = self.q[STATE][ACT] +\
+                                    self.q_alpha * (reward_for_state + \
+                                                  self.gamma * max( self.q[self.states.index(future_state)] ) - \
+                                                  self.q[STATE][ACT] )
 
         elif num_function == 2:
-            self.q[self.states.index(state)][self.actions.index(action)] = \
-                    (1 - self.q_alpha) * self.q[self.states.index(state)][self.actions.index(action)] + \
-                    self.q_alpha * (reward_for_state + \
-                                    self.gamma * max( self.q[self.states.index(future_state)] ) )
+            self.q[STATE][ACT] = (1 - self.q_alpha) * self.q[STATE][ACT] + \
+                                    self.q_alpha * (reward_for_state + \
+                                                    self.gamma * max( self.q[self.states.index(future_state)] ) )
 
         elif num_function == 3:
-            self.q[self.states.index(state)][self.actions.index(action)] = \
-                    self.q[self.states.index(state)][self.actions.index(action)] + \
-                    self.q_alpha * (reward_for_state + \
-                                    self.gamma * self.q[self.states.index(future_state)][self.actions.index(self.q_start_work(state))] -\
-                                    self.q[self.states.index(state)][self.actions.index(action)])
+            self.q[STATE][ACT] = self.q[STATE][ACT] + self.q_alpha * (reward_for_state + \
+                                self.gamma * self.q[self.states.index(future_state)][self.actions.index(self.q_start_work(state))] -\
+                                self.q[STATE][ACT])
 
         elif num_function == 4:
-            self.q[self.states.index(state)][self.actions.index(action)] = \
-                    self.q[self.states.index(state)][self.actions.index(action)] + \
-                    self.q_alpha * (reward_for_state + \
-                                    self.gamma * sum( self.q[self.states.index(future_state)] ) -\
-                                    self.q[self.states.index(state)][self.actions.index(action)])
+            self.q[STATE][ACT] = self.q[STATE][ACT] + \
+                                 self.q_alpha * (reward_for_state + \
+                                                 self.gamma * sum( self.q[self.states.index(future_state)] ) -\
+                                                 self.q[STATE][ACT])
 
         elif num_function == 5:
-            self.q[self.states.index(state)][self.actions.index(action)] = \
-                    reward_for_state + \
-                    self.gamma * self.q[self.states.index(future_state)][self.actions.index(self.q_start_work(state))]
+            self.q[STATE][ACT] = reward_for_state + self.gamma * self.q[self.states.index(future_state)][self.actions.index(self.q_start_work(state))]
 
         elif num_function == 6:
-            self.q[self.states.index(state)][self.actions.index(action)] = \
-                    reward_for_state + \
-                    self.gamma * max( self.q[self.states.index(future_state)] )
+            self.q[STATE][ACT] = reward_for_state + self.gamma * max( self.q[self.states.index(future_state)] )
 
 
     def save_data(self, name_this_ai: str):
@@ -368,7 +365,7 @@ class AI:
 
         self.weights = [np.array(i) for i in self._find_among_data(load_AI_with_name, "weights", True)]
         self.alpha = self._find_among_data(load_AI_with_name, "alpha", True)
-        self.have_bias_neuron = self._find_among_data(load_AI_with_name, "have_bias_neuron", True)
+        self.have_bias_neuron = True if self._find_among_data(load_AI_with_name, "have_bias_neuron", True) == True else False
         self.number_disabled_neurons = self._find_among_data(load_AI_with_name, "number_disabled_neurons", True)
         self.packet_size = self._find_among_data(load_AI_with_name, "packet_size", True)
         self.activation_function.min = self._find_among_data(load_AI_with_name, "value_range", True)[0]

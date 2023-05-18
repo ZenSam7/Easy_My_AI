@@ -1,92 +1,59 @@
 import Code_My_AI
-import Snake
+from Snake import Snake
 
 
-# Загружаем последнее сохранение
-# ai.load_data("Snake")
+# Создаём Змейку
+snake = Snake(700, 500, 100, 3, display_game=False)
 
-
-SNAKES = []
-AIs = []
-number_populations = 200       # Сколько змей в популяции (из скольких змей выбираем 2 наилучшие)
-
-
-for _ in range(number_populations):
-    ##### Создаём Змеек
-    snake = Code_My_Snake.Snake(9, 9, 1, 11, game_over_function=None, display_game=False)
-
-    def end():
-        snake.generation += 1
-    snake.game_over_function = end
-
-    SNAKES.append(snake)
-
-
-    ##### Создаём ИИ
-    ai = Code_My_AI.AI()
-    ai.create_weights([8, 10, 10, 4], add_bias_neuron=False)
-
-    ai.what_activation_function = ai.activation_function.ReLU_2
-    ai.activation_function.value_range(0, 1)
-    ai.end_activation_function = ai.activation_function.Tanh
-
-    ai.packet_size = 1
-    ai.alpha = 1e-7
-
-    AIs.append(ai)
+def end():
+    global reward
+    reward = -100
+    snake.generation += 1
+def win():
+    global reward
+    reward = 1_000
+snake.game_over_function = end
+snake.eat_apple_function = win
 
 
 
-iteration = 0   # Если змейка крутиться на месте, то iteration становиться очень большим, и для этой змеи GameOver()
+# Создаём ИИ
+ai = Code_My_AI.AI()
+ai.create_weights([8, 20, 20, 20, 4], add_bias_neuron=False)
+
+ai.what_activation_function = ai.activation_function.ReLU_2
+ai.activation_function.value_range(-10, 10)
+ai.end_activation_function = ai.activation_function.ReLU_2
+
+ai.alpha = 1e-7
+
+actions = ["left", "right", "up", "down"]
+ai.make_all_for_q_learning(actions, 0.1, 0.0, 1)
+
+
+
+ai.load_data("Snake")
+
+
+learn_iteration = 0
 while 1:
-    iteration += 1
+    learn_iteration += 1
+    reward = 0
 
-    for snake, ai in zip(SNAKES, AIs):    # Проводим по 1 итерации для каждой змейки поочереди
+    if learn_iteration % 10_000 == 0:
+        print(snake.max_score)
+        snake.max_score = 0
+        ai.delete_data("Snake")
+        ai.save_data("Snake")
 
-###################### ЗАПИСЫВАЕТ ДАННЫЕ В ОТВЕТ
+################# ЗАПИСЫВАЕТ ДАННЫЕ В ОТВЕТ
 
-        data = snake.get_range_to_blocks()
+    data = snake.get_blocks()
 
-###################### ОТВЕТ ОТ НЕЙРОНКИ
+    action = ai.q_start_work(data)
+    snake.step(action, snake.generation)
 
-        ai_answer = ai.start_work(data).tolist()
-        if max(ai_answer) == ai_answer[0]:
-            snake.step("left", snake.generation)
-        elif max(ai_answer) == ai_answer[1]:
-            snake.step("right", snake.generation)
-        elif max(ai_answer) == ai_answer[2]:
-            snake.step("up", snake.generation)
-        elif max(ai_answer) == ai_answer[3]:
-            snake.step("down", snake.generation)
+################# ОБУЧАЕМ
 
-###################### ОБУЧАЕМ
-
-        if iteration >= 1_000:
-            snake.game_over() # Что бы змея на месте не закручивалась
-
-        if all([not i.alive for i in SNAKES]) and\
-                number_populations >= 2:      # Если все мертвы И популяция >1
-            # Среди всех змей выбираем 2, у которых счёт максимальный (среди остальных)
-            # И скрещиваем эти 2 змеи (перемешиваем веса у нейронок этих змей)
-            better_scores = sorted([snake.score for snake in SNAKES])[-2:]
-            better_ais = []
-
-            for i in range(len(SNAKES)):
-                SNAKES[i].alive = True  # Всех воскрешаем
-
-                if SNAKES[i].score in better_scores: # Если змея относится к 2м наилучшим
-                    better_ais.append(AIs[i])    # Добавляем её нейронку к избранным
-
-            better_ais[0].genetic_crossing_with(better_ais[1]) # Скрещиваем лучшего м лучшим
-
-            for _ in range(len(AIs)): # Заменяем все старые ии на лучшего (с небольшими мутациями)
-                better_ais[0].get_mutations(0.05)
-
-            print(f"Поколение #{SNAKES[0].generation} | {better_scores[1]}")
-
-
-
-
-
-
+    ai.q_learning(data, reward, action, 1)
 
