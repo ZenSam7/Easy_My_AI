@@ -19,7 +19,7 @@ class Snake:
         self.need_grow = False
         self.generation = 0        # Номер поколения
         self.score = 0
-        self.max_score = self.score
+        self.scores = []
 
         self.game_over_function = game_over_function  # Запускаем функцию перед рестартом в game_over
         self.eat_apple_function = eat_apple_function
@@ -154,7 +154,7 @@ class Snake:
         if self.game_over_function != None:
             self.game_over_function()  # Запускаем функцию, если она есть
 
-        self.max_score = self.score if self.score > self.max_score else self.max_score
+        self.scores.append(self.score)
 
         self.snake_body = [[0,0], [1,0], [2,0]]
         self.food_coords = []
@@ -273,9 +273,13 @@ class Snake:
         self.move_snake(where_want_move)
         self.collision()
 
-        future_state = self.get_range_to_blocks
+        future_state = self.get_blocks()
 
         self.snake_body, self.food_coords = snake_body, food_coords
         self.score, self.generation = score, generation
 
         return future_state
+
+
+    def get_max_mean_score(self):
+        return max(self.scores), sum(self.scores) / len(self.scores)

@@ -154,10 +154,10 @@ class AI:
         self.packet_errors.append(np.sum(delta_weight))
 
         if self.packet_size == 1 or len(self.packet_errors) == self.packet_size:
-            if self.packet_size != 1:       # Замением пакет ошибок на их среднее
+            if self.packet_size != 1:
+                # Замением пакет ошибок на их среднее
                 delta_weight = np.mean(self.packet_errors)
-                delta_weight = np.repeat(delta_weight,  self.weights[-1].shape[1])
-            self.packet_errors = []
+                delta_weight = np.repeat(delta_weight, self.weights[-1].shape[1])
 
 
             for weight, layer_answer in zip(self.weights[::-1], answers[::-1]):
@@ -186,13 +186,19 @@ class AI:
 
 
             if get_error:
-                err = np.sum( np.power(answer - ai_answer, 2) )   # Квадратичное отклонение
-
-                if not (np.isnan(err) or err == None or err is None or err == np.nan):
+                if self.packet_size == 1:    # Без усреднения
+                    err = np.sum( np.power(answer - ai_answer, 2) )   # Квадратичное отклонение
                     return err
 
+                else:       # С усреднением
+                    return np.mean(np.power(self.packet_errors, 2))
 
-    def make_all_for_q_learning(self, actions: list, gamma=0.1, epsilon=0.1, q_alpha=0.01):
+
+
+            self.packet_errors = []
+
+
+    def make_all_for_q_learning(self, actions: list, gamma=0.1, epsilon=0.1, q_alpha=1.0):
         """Создаём всё необходимое для Q-обучения
             (q-таблицу, каэфицент вознаграждения gamma)"""
 
@@ -450,7 +456,7 @@ class AI:
             self.min = 0
             self.max = 1
 
-        def value_range(self, min: int, max: int):
+        def value_range(self, min, max):
             """Задаём область значений"""
             self.min = min
             self.max = max

@@ -38,7 +38,7 @@ while 1:
 
 
     err = ai.learning(data, answer, get_error=True)
-    if err != None:
+    if err != None:   # Если функция вернула ошибку
         errors.append(err)
 
 
