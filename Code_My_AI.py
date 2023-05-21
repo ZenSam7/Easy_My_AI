@@ -8,7 +8,7 @@ class AI:
 
         self.activation_function = self.ActivationFunctions()
         self.what_activation_function = self.activation_function.ReLU_2  # Какую функцию активации используем
-        self.end_activation_function  = self.activation_function.ReLU_2  # Какую функцию активации используем для выходных зачений
+        self.end_activation_function  = self.activation_function.ReLU_2  # Какую функцию активации используем для выходных значений
 
         self.alpha = 1e-7     # Альфа каэффицент (каэффицент скорости обучения)
         self.have_bias_neuron = False      # Определяет наличие нейрона смещения (True or False)
@@ -198,19 +198,19 @@ class AI:
             self.packet_errors = []
 
 
-    def make_all_for_q_learning(self, actions: list, gamma=0.1, epsilon=0.1, q_alpha=1.0):
+    def make_all_for_q_learning(self, actions: list, gamma=0.1, epsilon=0.1, q_alpha=0.1):
         """Создаём всё необходимое для Q-обучения
             (q-таблицу, каэфицент вознаграждения gamma)"""
 
         self.actions = actions
-        self.gamma = gamma     # Каэфицент "доверия опыту"
+        self.gamma = gamma      # Каэфицент "доверия опыту"
         self.epsilon = epsilon  # Каэфицент "разведки окружающей среды"
         self.q_alpha = q_alpha
 
         self.q = []    # Таблица состояний
 
 
-    def q_learning(self, state, reward_for_state, future_state, num_function=2):
+    def q_learning(self, state, reward_for_state, future_state, num_function=1):
         """Q-обучение \n
         ИИ используется как предсказатель правильныз действий
 
@@ -268,17 +268,17 @@ class AI:
 
         elif num_function == 3:
             self.q[STATE][ACT] = self.q[STATE][ACT] + self.q_alpha * (reward_for_state + \
-                                self.gamma * self.q[self.states.index(future_state)][self.actions.index(self.q_start_work(state))] -\
+                                self.gamma * self.q[self.states.index(future_state)][self.actions.index(self.q_start_work(future_state))] -\
                                 self.q[STATE][ACT])
 
         elif num_function == 4:
             self.q[STATE][ACT] = self.q[STATE][ACT] + \
                                  self.q_alpha * (reward_for_state + \
-                                                 self.gamma * sum( self.q[self.states.index(future_state)] ) -\
+                                                 self.gamma * sum( self.q[self.states.index(future_state)] ) - \
                                                  self.q[STATE][ACT])
 
         elif num_function == 5:
-            self.q[STATE][ACT] = reward_for_state + self.gamma * self.q[self.states.index(future_state)][self.actions.index(self.q_start_work(state))]
+            self.q[STATE][ACT] = reward_for_state + self.gamma * self.q[self.states.index(future_state)][self.actions.index(self.q_start_work(future_state))]
 
         elif num_function == 6:
             self.q[STATE][ACT] = reward_for_state + self.gamma * max( self.q[self.states.index(future_state)] )
@@ -380,6 +380,7 @@ class AI:
         self.states = self._find_among_data(load_AI_with_name, "states", True)
         self.actions = self._find_among_data(load_AI_with_name, "actions", True)
         self.q_alpha = self._find_among_data(load_AI_with_name, "q_alpha", True)
+        self.epsilon = self._find_among_data(load_AI_with_name, "epsilon", True)
 
 
         # Выясняем какая функция активации
@@ -433,12 +434,13 @@ class AI:
 
 
         # Удаляем последние данные
-        for num in range(1, len(lines)):
-            line = lines[len(lines) - num] # Снизу вверх
+        for num in range(1, len(lines) +1):
+            ind = len(lines) - num      # Снизу вверх
+            line = lines[ind]
 
             if line[5:-1] == load_AI_with_name:
                 for _ in range(16):
-                    lines.pop(len(lines) - num +1)
+                    lines.pop(ind)
                 break
 
 

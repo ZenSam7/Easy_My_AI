@@ -19,22 +19,23 @@ snake.eat_apple_function = win
 
 # Создаём ИИ
 ai = Code_My_AI.AI()
-ai.create_weights([8, 35, 35, 35, 4], add_bias_neuron=False)
+ai.create_weights([9, 25, 25, 4], add_bias_neuron=False)
 
 ai.what_activation_function = ai.activation_function.ReLU_2
 ai.activation_function.value_range(-10, 10)
 ai.end_activation_function = ai.activation_function.ReLU_2
 
-ai.alpha = 1e-7
+ai.alpha = 1e-9
 
 actions = ["left", "right", "up", "down"]
-ai.make_all_for_q_learning(actions, 0.3, 0.05, 1)
+ai.make_all_for_q_learning(actions, 0.2, 0.0, 0.1)
 
 
-# Обычная       ("Snake"):   8, 20, 20, 20, 4
-# Расширенная ("Snake_upd"): 8, 35, 35, 35, 4
+# Обычная       ("Snake"):   9, 25, 25, 4
 version_snake = "Snake"
 
+
+# ai.save_data(version_snake)
 ai.load_data(version_snake)
 
 
@@ -43,10 +44,11 @@ while 1:
     learn_iteration += 1
     reward = 0
 
+
     if learn_iteration % 10_000 == 0:
         # Выводим максимальный и средний счёт змейки за 10_000 шагов
         max, mean = snake.get_max_mean_score()
-        print("Max:",max, "\t\t\t\t", "Mean:", round(mean, 3))
+        print("Max:",max, "\t\t\t\t", "Mean:", round(mean, 1))
         snake.scores = []
 
         ai.delete_data(version_snake)
@@ -62,4 +64,3 @@ while 1:
 ################# ОБУЧАЕМ
 
     ai.q_learning(data, reward, snake.get_future_state(action), 1)
-
