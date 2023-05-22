@@ -32,10 +32,9 @@ ai.create_weights( [number_of_inputs,
 ### • Customize your settings:
 > You can change nothing, or change only a some of parameters
 ```python
-ai.alpha = 1e-7   # Alpha coefficient (learning rate coefficient)
-# ATTENTION !! IF YOU HAVE ERRORS IN THE CALCULATION
-# ("RuntimeWarning: invalid value encountered in multiply") (or have too large numbers),
-# THEN DECREASE alpha
+ai.alpha = 1e-2   # Alpha coefficient (learning rate coefficient)
+# If anything, alpha decreases on its own if necessary, so don't be afraid to put it higher
+# (BUT it must not exceed 0.1)
 
 ai.number_disabled_neurons = 0.0    # What proportion of neurons we "turn off" during training
 # (This is necessary so that there is no overlearning (memorizing responses instead of finding correlations))
@@ -81,7 +80,7 @@ ai.make_all_for_q_learning(all_possible_actions, gamma, epsilon)
 ai_state = [0,1]   # For example coordinates (The input must be completely non-zero! (otherwise won't learn))
 future_state = [1,1]
 
-ai.q_learning(ai_state, "right", reward_for_state, future_state, 1)
+ai.q_learning(ai_state, reward_for_state, future_state, 1)
 # You can choose the most suitable q-table update function for you
 # (Instead of 1, supply any other number that is in the description for this function)
 # P.s. The difference between the functions is negligible
