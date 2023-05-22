@@ -10,7 +10,7 @@ class AI:
         self.what_activation_function = self.activation_function.ReLU_2  # Какую функцию активации используем
         self.end_activation_function  = self.activation_function.ReLU_2  # Какую функцию активации используем для выходных значений
 
-        self.alpha = 1e-7     # Альфа каэффицент (каэффицент скорости обучения)
+        self.alpha = 1e-1     # Альфа каэффицент (каэффицент скорости обучения)
         self.have_bias_neuron = False      # Определяет наличие нейрона смещения (True or False)
         self.number_disabled_neurons = 0.0      # Какую долю нейронов "отключаем" при обучении
 
@@ -21,10 +21,9 @@ class AI:
         self.q = []         # Q-table
         self.states = []    # Все состояния
         self.actions = []     # Все действия
-        self.gamma = 1
+        self.gamma = 0.1
         self.epsilon = None
-        self.q_alpha = 0.01
-
+        self.q_alpha = 0.1
 
 
     def create_weights(self, architecture: list, add_bias_neuron=False,
@@ -90,7 +89,7 @@ class AI:
                                         result_layer_neurons.dot(layer_weight) )
 
 
-        # Добавляем ответ (единицу) для нейрона смещения
+        # Добавляем ответ (единицу) для нейрона смещения, для последнего перемножения
         if self.have_bias_neuron:
             result_layer_neurons = np.array(result_layer_neurons.tolist() + [1])
         if return_answers:
@@ -117,9 +116,9 @@ class AI:
 
         ai_result = self.start_work(input_data)
 
-        # "Разведуем окружающую среду" ()
+        # "Разведуем окружающую среду" (немного искажаем ответ)
         if (self.epsilon != None) and (np.random.random() < self.epsilon):
-            ai_result *= np.random.random(ai_result.shape) +0.5        # Умножаем на число от 0.5 до 1.5
+            ai_result *= np.random.randint(2, 20, ai_result.shape) /10        # Умножаем на число от 0.2 до 2.0
 
         ai_result = ai_result.tolist()
 
@@ -128,11 +127,22 @@ class AI:
             if max(ai_result) == ai_result[i]:
                 return self.actions[i]
 
-        return self.actions[0]
+        return self.actions[0]  # На всякий случай
 
 
     def learning(self, input_data: list, answer: list, get_error=False, squared_error=False):
         """Метод обратного распространения ошибки для изменения весов в нейронной сети"""
+
+        # Нормализуем веса (очень грубо)
+        if np.any(abs(self.weights[0]) >= 1e6):    # Если запредельные значения весов
+            # То уменьшаем все их
+            for i in range(len(self.weights)):  # На каждом слое
+                while np.any(abs(self.weights[i]) >= 10):    # До адекватного состояния
+                    self.weights[i] /= 10
+
+            # И уменьшаем alpha
+            self.alpha /= 10
+
 
         # Определяем наш ответ как вектор
         answer = np.array(answer)
@@ -142,13 +152,13 @@ class AI:
         # То, что выдала нам нейросеть | Список с ответами от каждого слоя нейронов
         ai_answer, answers = self.start_work(input_data, True)
 
-
         # На сколько должны суммарно изменить веса
         if squared_error:
             delta_weight = np.power(ai_answer - answer, 2) *\
                            (-1* ((ai_answer - answer) <0) + 1*((ai_answer - answer) >=0) )
         else:
             delta_weight = ai_answer - answer
+
 
 
         self.packet_errors.append(np.sum(delta_weight))
@@ -170,11 +180,9 @@ class AI:
                 dropout_mask = np.random.random(size=(layer_answer.shape[1], delta_weight.shape[1])) \
                                >= self.number_disabled_neurons
 
-
                 # Изменяем веса
                 weight -= np.multiply(dropout_mask, # Отключаем изменение некоторых связей
                                       self.alpha * layer_answer.T.dot(delta_weight))
-
 
                 # К нейрону смещения не идут связи, поэтому обрезаем этот нейрон смещения
                 if self.have_bias_neuron:
@@ -192,7 +200,6 @@ class AI:
 
                 else:       # С усреднением
                     return np.mean(np.power(self.packet_errors, 2))
-
 
 
             self.packet_errors = []
@@ -232,7 +239,7 @@ class AI:
         future_state = [i for i in future_state]
 
 
-        # Если не находим состояние в прошлых состояниях, то добовляем новое
+        # Если не находим состояние в прошлых состояниях (Q-таблице), то добовляем новое
         if not state in self.states:
             self.states.append(state)
             self.q.append([0 for _ in range(len(self.actions))])
@@ -244,7 +251,7 @@ class AI:
         STATE = self.states.index(state)
         ACT = self.actions.index(action)
 
-
+        # Формируем "правильный" ответ
         answer = [self.activation_function.min for _ in range(len(self.actions))]
         # На месте максимального значения из Q-таблицы ставим максимально возможное значение как "правильный" ответ
         answer[self.q[STATE].index( max(self.q[STATE]) )] =\
@@ -330,15 +337,17 @@ class AI:
             find_name = False
 
             for line in file.readlines()[::from_bottom_to_top]:
-                # Если нашли название, то записываем данные
+                if from_bottom_to_top == -1:
+                    reverlsed_file_list.append(line)
 
-                if not find_name and start_with_ai_name == line[5 : 5 + len(start_with_ai_name)]:
+                # Если нашли название, то записываем данные
+                if not find_name and start_with_ai_name == line[5:-1]:
                     find_name = True
 
                 if find_name:
                     if from_bottom_to_top == -1:
-                        for LINE in reverlsed_file_list:
-                            if what_find == LINE[0:len(what_find)]:
+                        for LINE in reverlsed_file_list[::from_bottom_to_top]:
+                            if what_find == LINE[:len(what_find)]:
                                 value = LINE[len(what_find) + 1:-1]
                                 if value[0] == "[":      # Либо список
                                     from ast import literal_eval
@@ -360,32 +369,27 @@ class AI:
                                 return str(value)
 
 
-                # См. выше описание reverlsed_file_list
-                if from_bottom_to_top == -1:
-                    reverlsed_file_list.append(line)
-
-
-    def load_data(self, load_AI_with_name: str):
+    def load_data(self, AI_name: str):
         """Загружает все данные сохранённой ИИ"""
         """!! ВНИМАНИЕ !! Она загружает ПОСЛЕДНЕЕ сохранение (ПОСЛЕДНЕЕ имя), если несколько одинаковых имён"""
 
-        self.weights = [np.array(i) for i in self._find_among_data(load_AI_with_name, "weights", True)]
-        self.alpha = self._find_among_data(load_AI_with_name, "alpha", True)
-        self.have_bias_neuron = True if self._find_among_data(load_AI_with_name, "have_bias_neuron", True) == True else False
-        self.number_disabled_neurons = self._find_among_data(load_AI_with_name, "number_disabled_neurons", True)
-        self.packet_size = self._find_among_data(load_AI_with_name, "packet_size", True)
-        self.activation_function.min = self._find_among_data(load_AI_with_name, "value_range", True)[0]
-        self.activation_function.max = self._find_among_data(load_AI_with_name, "value_range", True)[1]
-        self.q = self._find_among_data(load_AI_with_name, "q_table", True)
-        self.states = self._find_among_data(load_AI_with_name, "states", True)
-        self.actions = self._find_among_data(load_AI_with_name, "actions", True)
-        self.q_alpha = self._find_among_data(load_AI_with_name, "q_alpha", True)
-        self.epsilon = self._find_among_data(load_AI_with_name, "epsilon", True)
+        self.weights = [np.array(i) for i in self._find_among_data(AI_name, "weights", True)]
+        self.alpha = self._find_among_data(AI_name, "alpha", True)
+        self.have_bias_neuron = True if self._find_among_data(AI_name, "have_bias_neuron", True) == True else False
+        self.number_disabled_neurons = self._find_among_data(AI_name, "number_disabled_neurons", True)
+        self.packet_size = self._find_among_data(AI_name, "packet_size", True)
+        self.activation_function.min = self._find_among_data(AI_name, "value_range", True)[0]
+        self.activation_function.max = self._find_among_data(AI_name, "value_range", True)[1]
+        self.q = self._find_among_data(AI_name, "q_table", True)
+        self.states = self._find_among_data(AI_name, "states", True)
+        self.actions = self._find_among_data(AI_name, "actions", True)
+        self.q_alpha = self._find_among_data(AI_name, "q_alpha", True)
+        self.epsilon = self._find_among_data(AI_name, "epsilon", True)
 
 
         # Выясняем какая функция активации
 
-        result = self._find_among_data(load_AI_with_name, "what_activation_function", True).split()[2].split('.')[-1]
+        result = self._find_among_data(AI_name, "what_activation_function", True).split()[2].split('.')[-1]
         if result == "ReLU":
             self.what_activation_function = self.activation_function.ReLU
         elif result == "ReLU_2":
@@ -402,7 +406,7 @@ class AI:
             self.what_activation_function = self.activation_function.Sigmoid
 
         # То же самое для end_activation_function
-        result = self._find_among_data(load_AI_with_name, "end_activation_function", True).split()
+        result = self._find_among_data(AI_name, "end_activation_function", True).split()
         if result[0] != "None":
             result = result[2].split('.')[-1]
 
@@ -424,7 +428,7 @@ class AI:
             self.end_activation_function = self.activation_function.Sigmoid
 
 
-    def delete_data(self, load_AI_with_name: str):
+    def delete_data(self, AI_name: str):
         """Удаляет ПОСЛЕДНЕЕ сохранение данный (если такое имя повторяется)"""
 
         # Копируем
@@ -438,7 +442,7 @@ class AI:
             ind = len(lines) - num      # Снизу вверх
             line = lines[ind]
 
-            if line[5:-1] == load_AI_with_name:
+            if line[5:-1] == AI_name:
                 for _ in range(16):
                     lines.pop(ind)
                 break
@@ -546,4 +550,3 @@ class AI:
 
             else:
                 return ((max - min) / (1 + np.exp(-0.1*x))) + min
-

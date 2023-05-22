@@ -98,6 +98,7 @@ class Snake:
             self.food_coords.remove(head)
             self.need_grow = True
             self.score += 1
+            self.num_steps = 0
             self.spawn_food(1)
 
         # Выход за границу экрана
