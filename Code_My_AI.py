@@ -8,21 +8,21 @@ class AI:
 
         self.activation_function = self.ActivationFunctions()
         self.what_activation_function = self.activation_function.ReLU_2  # Какую функцию активации используем
-        self.end_activation_function  = self.activation_function.ReLU_2  # Какую функцию активации используем для выходных значений
+        self.end_activation_function  = self.activation_function.Tanh    # Какую функцию активации используем для выходных значений
 
-        self.alpha = 1e-1     # Альфа каэффицент (каэффицент скорости обучения)
-        self.have_bias_neuron = False      # Определяет наличие нейрона смещения (True or False)
+        self.alpha = 1e-1     # Альфа каэффицент (каэффицент скорости обучения) (настраивается самостоятельно)
+        self.have_bias_neuron = False      # Определяет наличие нейрона смещения (True или False)
         self.number_disabled_neurons = 0.0      # Какую долю нейронов "отключаем" при обучении
 
         self.packet_size = 1     # Как много ошибок будем усреднять, чтобы на основе этой усреднённой ошибки изменять веса
         # Чем packet_size больше, тем "качество обучения" меньше, но скорость итераций обучения больше
         self.packet_errors = []   # Где мы будем эти ошибки складывать
 
-        self.q = []         # Q-table
-        self.states = []    # Все состояния
+        self.q = []           # Q-table
+        self.states = []      # Все состояния
         self.actions = []     # Все действия
         self.gamma = 0.1
-        self.epsilon = None
+        self.epsilon = 0.1
         self.q_alpha = 0.1
 
 
@@ -116,9 +116,9 @@ class AI:
 
         ai_result = self.start_work(input_data)
 
-        # "Разведуем окружающую среду" (немного искажаем ответ)
-        if (self.epsilon != None) and (np.random.random() < self.epsilon):
-            ai_result *= np.random.randint(2, 20, ai_result.shape) /10        # Умножаем на число от 0.2 до 2.0
+        # "Разведуем окружающую среду" (искажаем ответ)
+        if np.random.random() > (1- self.epsilon):      # Чтобы не вылетало ошибки от отрицательного  epsilon
+            ai_result *= np.random.randint(0, 10_000, ai_result.shape) /100        # Умножаем на число от 0 до 100
 
         ai_result = ai_result.tolist()
 
@@ -206,8 +206,9 @@ class AI:
 
 
     def make_all_for_q_learning(self, actions: list, gamma=0.1, epsilon=0.1, q_alpha=0.1):
-        """Создаём всё необходимое для Q-обучения
-            (q-таблицу, каэфицент вознаграждения gamma)"""
+        """Создаём всё необходимое для Q-обучения \n
+        Q-таблицу (таблица вознаграждений за действие), каэфицент вознаграждения gamma, \
+        каэфицент почти случайных действий epsilon, и каэфицент скорости изменения Q-таблицы q_alpha """
 
         self.actions = actions
         self.gamma = gamma      # Каэфицент "доверия опыту"
@@ -217,27 +218,43 @@ class AI:
         self.q = []    # Таблица состояний
 
 
-    def q_learning(self, state, reward_for_state, future_state, num_function=1):
-        """Q-обучение \n
-        ИИ используется как предсказатель правильныз действий
+    def q_learning(self, state, reward_for_state, future_state, num_function=1, learning_method=2.1, squared_error=False):
+        """
+        ИИ используется как предсказатель правильных действий\n
 
-        -----------------
+        --------------------------
 
         num_function - это номер функции обновления Q-таблицы: \n
-        -----------------
         \n 1: Q(s,a) = Q(s,a) + α[r + γ(max Q(s’,a')) - Q(s,a)] \n
         \n 2: Q(s,a) = (1 - α) Q(s,a) + α[r + γ(max Q(s’,a))] \n
         \n 3: Q(s,a) = Q(s,a) + α[r + γ Q(s’,a') - Q(s,a)] \n
         \n 4: Q(s,a) = Q(s,a) + α[r + γ(Expected Q(s’,a')) - Q(s,a)] \n
         \n 5: Q(s,a) = R + γ Q’(s’,a’) \n
         \n 6: Q(s,a) = R + γ Q’(s’, max a) \n
+
+        \n
+
+        -------------------------- \n
+
+        Методы обучения (значение learning_method определяет) : \n
+        1 : В качестве "правильного" ответа выбирается то, которое максимально вознаграждается, и на место действия \
+        (которое приводит к лучшему ответу) ставиться максимальное значение функции активации \
+        (self.activation_function.max), а на остальные места минимум функции активации (self.activation_function.min) \n
+        P.s. Это неочень хорошо, т.к. игнорируются другие варианты, которые приносят либо столько же, либо немного меньше  \
+        вознаграждения (а вибирается только один "правильный"). НО ОН ХОРОШО ПОДХОДИТ, КОГДА У ВАС В ЗАДАЧЕ ИМЕЕТСЯ ИСКЛЮЧИТЕЛЬНО 1 \
+        ПРАВИЛЬНЫЙ ОТВЕТ, А "БОЛЕЕ" И "МЕНЕЕ" ПРАВИЛЬНЫХ БЫТЬ НЕ МОЖЕТ \n
+        \n
+
+        2 : Делаем ответы которые больше вознаграждаются, более "правильным" \n
+        Дробная часть числа означает, в какую степень будем возводить "стремление у лучшим результатам" (что это такое читай в P.s.) \
+        (чем степень больше, тем степень будет больше. НАПРИМЕР: 2.2 означает, что мы используем метод обучения 2 и возводим в степень 2 \
+        "стремление у лучшим результатам", а 2.345 означает, что степень будет равна 3.45 ) \n
+        P.s. Работает так: Сначала переводим значения вознаграждений в промежуток от 0 до 1 (т.е. где вместо максимума вознаграждения\
+        - 1, в место минимума - 0, а остальные вознаграждения между ними (без потерь "расстояний" между числами)) \
+        потом прибавляем 0.5 и возводим в степень "стремление у лучшим результатам" (уже искажаем "расстояние" между числами) \
+        (чтобы ИИ больше стремился именно к лучшим результатам и совсем немного учитывал остальные \
+        (чем степень больше, тем меньше учитываются остальные результаты))
         """
-
-        action = self.q_start_work(state)
-
-        state = [i for i in state]
-        future_state = [i for i in future_state]
-
 
         # Если не находим состояние в прошлых состояниях (Q-таблице), то добовляем новое
         if not state in self.states:
@@ -247,21 +264,70 @@ class AI:
             self.states.append(future_state)
             self.q.append([0 for _ in range(len(self.actions))])
 
+        STATE = self.states.index(state)
+
+
+        # Q-обучение
+
+        # Формируем "правильный" ответ
+        if learning_method == 1:
+            answer = [self.activation_function.min for _ in range(len(self.actions))]
+
+            # На месте максимального значения из Q-таблицы ставим максимально возможное значение как "правильный" ответ
+            answer[self.q[STATE].index( max(self.q[STATE]) )] =\
+                    self.activation_function.max
+
+        elif 2 < learning_method < 3:
+            # Нам нужны значения от минимума функции активации до максимума функции активации
+            # Переводим в промежуток от 0 до 1
+            answer = np.array(self.q[STATE]) - min(self.q[STATE])
+            if np.max(answer) != 0:
+                answer = answer / np.max(answer)    # Не работает с /=
+
+            # Искажаем "расстояние" между числами
+            answer = answer + 0.5
+            answer = np.power(answer, (learning_method -2) *10 )
+
+            # Опять переводим в промежуток от 0 до 1
+            answer = answer - np.min(answer)
+            if np.max(answer) != 0:
+                answer = answer / np.max(answer)    # Не работает с /=
+
+            # Переводим в промежуток от min до max
+            answer = answer * (self.activation_function.max - self.activation_function.min) +\
+                    self.activation_function.min
+
+            answer = answer.tolist()
+
+
+        # Обновляем Q-таблицу
+        self._update_q_table(state, reward_for_state, future_state, num_function)
+
+        # Изменяем веса
+        self.learning(state, answer, squared_error=squared_error)
+
+
+    def _update_q_table(self, state, reward_for_state, future_state, num_function):
+        """Формулы для обновления Q-таблицы \n
+
+        --------------------------
+
+        \n 1: Q(s,a) = Q(s,a) + α[r + γ(max Q(s’,a')) - Q(s,a)] \n
+        \n 2: Q(s,a) = (1 - α) Q(s,a) + α[r + γ(max Q(s’,a))] \n
+        \n 3: Q(s,a) = Q(s,a) + α[r + γ Q(s’,a') - Q(s,a)] \n
+        \n 4: Q(s,a) = Q(s,a) + α[r + γ(Expected Q(s’,a')) - Q(s,a)] \n
+        \n 5: Q(s,a) = R + γ Q’(s’,a’) \n
+        \n 6: Q(s,a) = R + γ Q’(s’, max a) \n
+        """
+        action = self.q_start_work(state)
+        state = [i for i in state]
 
         STATE = self.states.index(state)
         ACT = self.actions.index(action)
 
-        # Формируем "правильный" ответ
-        answer = [self.activation_function.min for _ in range(len(self.actions))]
-        # На месте максимального значения из Q-таблицы ставим максимально возможное значение как "правильный" ответ
-        answer[self.q[STATE].index( max(self.q[STATE]) )] =\
-                self.activation_function.max
-
-        # Изменяем веса
-        self.learning(state, answer)
+        future_state = [i for i in future_state]
 
 
-        # Обновляею Q-таблицу
         if num_function == 1:
             self.q[STATE][ACT] = self.q[STATE][ACT] +\
                                     self.q_alpha * (reward_for_state + \
@@ -292,7 +358,7 @@ class AI:
 
 
     def save_data(self, name_this_ai: str):
-        """Сохраняет все переменные текущей ИИ"""
+        """Сохраняет всю необходимую информацию о текущей ИИ"""
 
         with open("Data of AIs.txt", "a+") as file:
             file.write("name " + name_this_ai + "\n")
@@ -325,7 +391,7 @@ class AI:
 
 
     def _find_among_data(self, start_with_ai_name: str, what_find: str, from_bottom_to_top=True):
-        """Ищет среди сохранённых данных нужное нам слово, и возвращает его значение"""
+        """Ищет среди сохранённых данных нужное нам слово (после имени), и возвращает его значение"""
 
         # Если читаем снизу вверх, то читаем инвертированный файл (шаг == -1)
         from_bottom_to_top = -1 if from_bottom_to_top else 1
@@ -371,7 +437,7 @@ class AI:
 
     def load_data(self, AI_name: str):
         """Загружает все данные сохранённой ИИ"""
-        """!! ВНИМАНИЕ !! Она загружает ПОСЛЕДНЕЕ сохранение (ПОСЛЕДНЕЕ имя), если несколько одинаковых имён"""
+        """Она загружает последнее сохранение (последнее имя), если несколько одинаковых имён"""
 
         self.weights = [np.array(i) for i in self._find_among_data(AI_name, "weights", True)]
         self.alpha = self._find_among_data(AI_name, "alpha", True)
@@ -429,7 +495,7 @@ class AI:
 
 
     def delete_data(self, AI_name: str):
-        """Удаляет ПОСЛЕДНЕЕ сохранение данный (если такое имя повторяется)"""
+        """Удаляет последнее сохранение данный (если такое имя повторяется)"""
 
         # Копируем
         with open("Data of AIs.txt", "r+") as file:

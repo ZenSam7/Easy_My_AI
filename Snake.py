@@ -124,7 +124,7 @@ class Snake:
             self.food_coords.append(coords)
 
 
-    def draw(self, iteration, snake_color=(120,130,140), food_color=(160,50,70), background_color=(40,50,60)):
+    def draw(self, snake_color=(120,130,140), food_color=(160,50,70), background_color=(40,50,60)):
         """Рисуем змею и еду, выводим номер поколения"""
 
         # Фон
@@ -144,7 +144,7 @@ class Snake:
 
         # Выводим номер поколения
         font = pygame.font.Font(None, 40)  # Какой шрифт и размер надписи
-        text_SCORE = font.render(f"Поколение #{iteration}", True, (200,200,200))
+        text_SCORE = font.render(f"Поколение #{self.generation}", True, (200,200,200))
         self.wind.blit(text_SCORE, (0, 0))
 
 
@@ -164,19 +164,20 @@ class Snake:
         self.spawn_food(self.amount_food)
         self.score = 0
         self.num_steps = 0
+        self.generation += 1
 
 
-    def step(self, where_want_move: str, iteration):
+    def step(self, where_want_move: str):
         """Запускаем одну итерацию змейки"""
 
         self.move_snake(where_want_move)
         self.collision()
 
         if self.display_game:
-            self.draw(iteration)
+            self.draw()
 
         self.num_steps += 1
-        if self.num_steps > 500:  # Если змея сделала слишком много шагов, то убиваем
+        if self.num_steps > 1000:  # Если змея сделала слишком много шагов, то убиваем
             self.game_over()
 
 
@@ -208,6 +209,7 @@ class Snake:
                     data.append(10)
                 else:
                     data.append(0)
+
 
         return data
 
