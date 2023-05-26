@@ -33,8 +33,7 @@ ai.create_weights( [number_of_inputs,
 > You can change nothing, or change only a some of parameters
 ```python
 ai.alpha = 1e-2   # Alpha coefficient (learning rate coefficient)
-# If anything, alpha decreases on its own if necessary, so don't be afraid to put it higher
-# (BUT it must not exceed 0.1)
+# If anything, the alpha decreases on its own if necessary, so don't be afraid to set it higher (but don't count on saving weights when changing alpha)
 
 ai.number_disabled_neurons = 0.0    # What proportion of neurons we "turn off" during training
 # (This is necessary so that there is no overlearning (memorizing responses instead of finding correlations))
@@ -54,7 +53,7 @@ ai.end_activation_function = ai.activation_function.Sigmoid
 ### • Train AI based on input and correct answer
 ```python
 data  =  [0, 1, 2]   # Required as a list of numbers (required length: number of inputs)
-# (The input must be completely non-zero! (otherwise won't learn))
+# (Input must be at least sometimes completely different from zero! (otherwise it will not learn))
 answer = [2, 1, 0]   # Required as a list of numbers (required length: number of outputs)
 
 ai.learning(data, answer)
@@ -68,22 +67,33 @@ ai.learning(data, answer)
 # Check that the number of output neurons is equal to the number of actions
 all_possible_actions = ["left", "right", "up", "down"]
 
-gamma = 0.7       # Coefficient of "confidence in experience"
+gamma = 0.4       # Coefficient of "confidence in experience"
 epsilon = 0.15    # 15% chance that the Agent (AI) will give a more random answer (Needed to "study" the environment)
+q_alpha = 0.2     # Q-table update rate
 
-ai.make_all_for_q_learning(all_possible_actions, gamma, epsilon)
+ai.make_all_for_q_learning(all_possible_actions, gamma, epsilon, q_alpha)
 
 
 # After ->
 
 # Also make sure the number of input neurons is equal to the size of the state list
-ai_state = [0,1]   # For example coordinates (The input must be completely non-zero! (otherwise won't learn))
-future_state = [1,1]
+ai_state = [0,1]   # For example, coordinates (Input must be at least sometimes completely different from zero! (otherwise it will not learn))
 
-ai.q_learning(ai_state, reward_for_state, future_state, 1)
-# You can choose the most suitable q-table update function for you
-# (Instead of 1, supply any other number that is in the description for this function)
-# P.s. The difference between the functions is negligible
+
+ai.q_learning(ai_state, reward_for_state, 1, 2.1, recce_mode=True)
+"""
+recce_mode - if set to True, enable "reconnaissance mode", i.e. in this mode, the AI does not learn, but only the Q-table is replenished (and random actions are performed)
+P.s. I recommend turning it on before training
+
+You can choose the most suitable q-table update function for you
+(Instead of 1, supply any other number that is in the description for this function)
+P.s. The difference between the functions is negligible
+
+Learning methods (the value of learning_method determines) :
+1 : As the "correct" answer, the one that is most rewarded is selected, and the place of action (which leads to the best answer) is set to the maximum value of the activation function, and to the other places the minimum of the activation function
+P.s. This is not very good, because. other options that bring either the same or a little less reward are ignored (and only one "correct" one is selected). BUT IT IS WELL SUITABLE WHEN YOU HAVE EXCLUSIVELY ONE CORRECT ANSWER IN THE PROBLEM AND THERE CANNOT BE "MORE" AND "LESS" CORRECT
+
+2 : Making answers that are more rewarding more "correct" that we are using learning method 2 and raising to the power of 2 "striving for better results", and 2.345 means that the power will be 3.45 )"""
 ```
 
 
@@ -108,10 +118,11 @@ errors.append( ai.learning(data, answer, get_error=True) )
 better_ai_0.genetic_crossing_with(better_ai_1)
 ```
 
+
 ### • Or you can change (mutate) the AI so that it doesn't stand still or hope that some of mutations turn out to be good
 > If you want to eliminate overlearning in this way (memorizing responses instead of finding correlations), then you better use number_disabled_neurons
 ```python
-ai.get_mutations(0.01)  # Replacing 1% of all weights with random numbers
+ai.get_mutations(0.05)  # Replacing 5% of all weights with random numbers
 ```
 
 ####  
@@ -127,5 +138,5 @@ ai.load_data("Name_AI")
 ####  
 ####  
 ####  
-Good luck to fixing bugs
+Good luck
 (づ｡◕‿‿◕｡)づ
