@@ -18,16 +18,17 @@ class AI:
         # Чем packet_size больше, тем "качество обучения" меньше, но скорость итераций обучения больше
         self.packet_errors = []   # Где мы будем эти ошибки складывать
 
-        self.q = []           # Q-table
-        self.states = []      # Все состояния
-        self.actions = []     # Все действия
-        self.gamma = 0.1
-        self.epsilon = 0.1
-        self.q_alpha = 0.1
+        self.gamma = 0
+        self.epsilon = 0
+        self.q_alpha = 0
+
+        self.q = []
+        self.actions = []
+        self.states = []
+        self.last_state = []
 
 
-    def create_weights(self, architecture: list, add_bias_neuron=False,
-                       min_weight=-1, max_weight=1):
+    def create_weights(self, architecture: list, add_bias_neuron=False, min_weight=-1, max_weight=1):
         """Создаёт матрицу со всеми весами между всеми элементами
         (Подавать надо список с количеством нейронов на каждом слое (архитектуру нейронки))"""
 
@@ -85,6 +86,9 @@ class AI:
 
             # Процежеваем через функцию активации  ...
             # ... Результат перемножения результата прошлого слоя на слой весов
+            print(result_layer_neurons.shape)
+            print(layer_weight.shape)
+            print()
             result_layer_neurons = self.what_activation_function(
                                         result_layer_neurons.dot(layer_weight) )
 
@@ -116,25 +120,24 @@ class AI:
 
         ai_result = self.start_work(input_data)
 
-        # "Разведуем окружающую среду" (искажаем ответ)
-        if np.random.random() > (1- self.epsilon):      # Чтобы не вылетало ошибки от отрицательного  epsilon
-            ai_result *= np.random.randint(0, 10_000, ai_result.shape) /100        # Умножаем на число от 0 до 100
+        # "Разведуем окружающую среду"
+        if self.epsilon < 1:    # Если адекватные значения epsilon, то ИСКАЖАЕМ ответ
+            if np.random.random() > self.epsilon:   # С вероятностью epsilon
+                ai_result *= np.random.randint(1, 10_000, ai_result.shape) /100     # Умножаем на число от 0.01 до 100
 
-        ai_result = ai_result.tolist()
+        else:    # А если неадекватные значения epsilon (>= 1), то заменяем ответ случайными числами
+            ai_result = np.random.random(ai_result.shape)
+
 
         # Находим действие
-        for i in range(len(ai_result)):
-            if max(ai_result) == ai_result[i]:
-                return self.actions[i]
-
-        return self.actions[0]  # На всякий случай
+        return self.actions[ np.argmax(ai_result) ]
 
 
     def learning(self, input_data: list, answer: list, get_error=False, squared_error=False):
         """Метод обратного распространения ошибки для изменения весов в нейронной сети"""
 
         # Нормализуем веса (очень грубо)
-        if np.any(abs(self.weights[0]) >= 1e6):    # Если запредельные значения весов
+        if np.any(abs(self.weights[0]) >= 1e7):    # Если запредельные значения весов
             # То уменьшаем все их
             for i in range(len(self.weights)):  # На каждом слое
                 while np.any(abs(self.weights[i]) >= 10):    # До адекватного состояния
@@ -159,6 +162,7 @@ class AI:
         else:
             delta_weight = ai_answer - answer
 
+        delta_weight = np.matrix(delta_weight)  # Превращаем вектор в матрицу
 
 
         self.packet_errors.append(np.sum(delta_weight))
@@ -167,30 +171,30 @@ class AI:
             if self.packet_size != 1:
                 # Замением пакет ошибок на их среднее
                 delta_weight = np.mean(self.packet_errors)
-                delta_weight = np.repeat(delta_weight, self.weights[-1].shape[1])
+                delta_weight = np.repeat(delta_weight, len(answer))
 
 
             for weight, layer_answer in zip(self.weights[::-1], answers[::-1]):
-                # Превращаем векторы в матрицу
-                layer_answer = np.matrix(layer_answer)
+                # Превращаем вектор в матрицу
                 delta_weight = np.matrix(delta_weight)
+                layer_answer = np.matrix(layer_answer)
 
 
                 # Матрица, предотвращающая переобучение, умножением изменением веса рандомных нейронов на 0
-                dropout_mask = np.random.random(size=(layer_answer.shape[1], delta_weight.shape[1])) \
+                dropout_mask = np.random.random(size=(delta_weight.shape[1], layer_answer.shape[1])) \
                                >= self.number_disabled_neurons
 
                 # Изменяем веса
-                weight -= np.multiply(dropout_mask, # Отключаем изменение некоторых связей
-                                      self.alpha * layer_answer.T.dot(delta_weight))
+                weight -= ( np.multiply(dropout_mask, # Отключаем изменение некоторых связей
+                                        self.alpha * delta_weight.T.dot(layer_answer)) ).T
+
+                # "Переносим" на другой слой и умножаем на производную
+                delta_weight = np.multiply( delta_weight.dot(weight.T),
+                                            self.what_activation_function(layer_answer, True) )
 
                 # К нейрону смещения не идут связи, поэтому обрезаем этот нейрон смещения
                 if self.have_bias_neuron:
-                    weight = weight[0:-1]
-                    layer_answer = np.matrix(layer_answer.tolist()[0][0:-1])
-
-                delta_weight = delta_weight.dot(weight.T)
-                delta_weight.dot( self.what_activation_function(layer_answer, True).T )
+                    delta_weight = np.matrix(delta_weight.T.tolist()[0:-1]).T
 
 
             if get_error:
@@ -205,36 +209,41 @@ class AI:
             self.packet_errors = []
 
 
-    def make_all_for_q_learning(self, actions: list, gamma=0.1, epsilon=0.1, q_alpha=0.1):
+    def make_all_for_q_learning(self, actions: list, gamma=0.5, epsilon=0.0, q_alpha=0.1):
         """Создаём всё необходимое для Q-обучения \n
-        Q-таблицу (таблица вознаграждений за действие), каэфицент вознаграждения gamma, \
-        каэфицент почти случайных действий epsilon, и каэфицент скорости изменения Q-таблицы q_alpha """
+        Q-таблицу (таблица вознаграждений за действие) \n
+        Каэфицент важности будущего вознаграждения gamma \n
+        Каэфицент почти случайных действий epsilon \n
+        Каэфицент скорости изменения Q-таблицы q_alpha """
 
         self.actions = actions
-        self.gamma = gamma      # Каэфицент "доверия опыту"
+        self.gamma = gamma      # Каэфицент на сколько важно будущее вознаграждение
         self.epsilon = epsilon  # Каэфицент "разведки окружающей среды"
         self.q_alpha = q_alpha
 
-        self.q = []    # Таблица состояний
+        self.q = [[0 for _ in range(len(actions))]]    # Таблица состояний (заполняем нулевым состоянием)
+
+        # Заполняем "первое" (несуществующее (т.к. мы в прошлом на 1 шаг)) состояние количеством входов
+        self.states = [[-0.0 for _ in range(self.weights[0].shape[0])]]
+        self.last_state = self.states[0]     # Прошлое состояние нужно для откатывания на 1 состояние назад
 
 
-    def q_learning(self, state, reward_for_state, future_state, num_function=1, learning_method=2.1, squared_error=False):
-        """
-        ИИ используется как предсказатель правильных действий\n
+    def q_learning(self, state, reward_for_state, num_function=1, learning_method=2.1,
+                   squared_error=False, recce_mode=False):
+        """ Глубокое Q-обучение (ИИ используется как предсказатель правильных действий)
 
-        --------------------------
+        recce_mode - при значении True включаем "режим разведки", т.е. при таком режиме ИИ не обучается, а только пополняется Q-таблица
+
+-------------------------- \n
 
         num_function - это номер функции обновления Q-таблицы: \n
         \n 1: Q(s,a) = Q(s,a) + α[r + γ(max Q(s’,a')) - Q(s,a)] \n
-        \n 2: Q(s,a) = (1 - α) Q(s,a) + α[r + γ(max Q(s’,a))] \n
-        \n 3: Q(s,a) = Q(s,a) + α[r + γ Q(s’,a') - Q(s,a)] \n
-        \n 4: Q(s,a) = Q(s,a) + α[r + γ(Expected Q(s’,a')) - Q(s,a)] \n
-        \n 5: Q(s,a) = R + γ Q’(s’,a’) \n
-        \n 6: Q(s,a) = R + γ Q’(s’, max a) \n
+        \n 2: Q(s,a) = Q(s,a) + α[r + γ Q(s’,a') - Q(s,a)] \n
+        \n 3: Q(s,a) = Q(s,a) + α[r + γ(Expected Q(s’,a')) - Q(s,a)] \n
+        \n 4: Q(s,a) = R + γ Q’(s’,a’) \n
+        \n 5: Q(s,a) = R + γ Q’(s’, max a) \n
 
-        \n
-
-        -------------------------- \n
+-------------------------- \n
 
         Методы обучения (значение learning_method определяет) : \n
         1 : В качестве "правильного" ответа выбирается то, которое максимально вознаграждается, и на место действия \
@@ -247,24 +256,16 @@ class AI:
 
         2 : Делаем ответы которые больше вознаграждаются, более "правильным" \n
         Дробная часть числа означает, в какую степень будем возводить "стремление у лучшим результатам" (что это такое читай в P.s.) \
-        (чем степень больше, тем степень будет больше. НАПРИМЕР: 2.2 означает, что мы используем метод обучения 2 и возводим в степень 2 \
+        (чем степень больше, тем этот режим будет больше похож на режим 1. НАПРИМЕР: 2.2 означает, что мы используем метод обучения 2 и возводим в степень 2 \
         "стремление у лучшим результатам", а 2.345 означает, что степень будет равна 3.45 ) \n
         P.s. Работает так: Сначала переводим значения вознаграждений в промежуток от 0 до 1 (т.е. где вместо максимума вознаграждения\
         - 1, в место минимума - 0, а остальные вознаграждения между ними (без потерь "расстояний" между числами)) \
         потом прибавляем 0.5 и возводим в степень "стремление у лучшим результатам" (уже искажаем "расстояние" между числами) \
         (чтобы ИИ больше стремился именно к лучшим результатам и совсем немного учитывал остальные \
-        (чем степень больше, тем меньше учитываются остальные результаты))
+        (чем степень больше, тем меньше учитываются остальные результаты))  \n
         """
 
-        # Если не находим состояние в прошлых состояниях (Q-таблице), то добовляем новое
-        if not state in self.states:
-            self.states.append(state)
-            self.q.append([0 for _ in range(len(self.actions))])
-        if not future_state in self.states:
-            self.states.append(future_state)
-            self.q.append([0 for _ in range(len(self.actions))])
-
-        STATE = self.states.index(state)
+        STATE = self.states.index(self.last_state)
 
 
         # Q-обучение
@@ -300,61 +301,71 @@ class AI:
             answer = answer.tolist()
 
 
-        # Обновляем Q-таблицу
-        self._update_q_table(state, reward_for_state, future_state, num_function)
+        # Если режим разведки выключен
+        if recce_mode == False:
+            # Обновляем Q-таблицу
+            self._update_q_table(state, reward_for_state, num_function)
 
-        # Изменяем веса
-        self.learning(state, answer, squared_error=squared_error)
+            # Изменяем веса (не забываем, что мы находимся в состоянии на 1 шаг назад)
+            self.learning(self.last_state, answer, squared_error=squared_error)
+
+        else:
+            # Иначе просто обновляем таблицу с изменёнными параметрами
+            Gamma, Epsilon, Q_alpha = self.gamma, self.epsilon, self.q_alpha
+            self.gamma, self.epsilon, self.q_alpha = 0.5, 1, 0.5
+
+            self._update_q_table(state, reward_for_state, num_function)
+
+            self.gamma, self.epsilon, self.q_alpha = Gamma, Epsilon, Q_alpha
 
 
-    def _update_q_table(self, state, reward_for_state, future_state, num_function):
+    def _update_q_table(self, state, reward_for_state, num_function):
         """Формулы для обновления Q-таблицы \n
 
         --------------------------
 
         \n 1: Q(s,a) = Q(s,a) + α[r + γ(max Q(s’,a')) - Q(s,a)] \n
-        \n 2: Q(s,a) = (1 - α) Q(s,a) + α[r + γ(max Q(s’,a))] \n
-        \n 3: Q(s,a) = Q(s,a) + α[r + γ Q(s’,a') - Q(s,a)] \n
-        \n 4: Q(s,a) = Q(s,a) + α[r + γ(Expected Q(s’,a')) - Q(s,a)] \n
-        \n 5: Q(s,a) = R + γ Q’(s’,a’) \n
-        \n 6: Q(s,a) = R + γ Q’(s’, max a) \n
+        \n 2: Q(s,a) = Q(s,a) + α[r + γ Q(s’,a') - Q(s,a)] \n
+        \n 3: Q(s,a) = Q(s,a) + α[r + γ(Expected Q(s’,a')) - Q(s,a)] \n
+        \n 4: Q(s,a) = R + γ Q’(s’,a’) \n
+        \n 5: Q(s,a) = R + γ Q’(s’, max a) \n
         """
-        action = self.q_start_work(state)
-        state = [i for i in state]
 
-        STATE = self.states.index(state)
-        ACT = self.actions.index(action)
+        # Если не находим состояние в прошлых состояниях (Q-таблице), то добовляем новое
+        if not state in self.states:
+            self.states.append(state)
+            self.q.append([0 for _ in range(len(self.actions))])
 
-        future_state = [i for i in future_state]
+
+        # Откатываем наше состояние на 1 шаг назад (Текущее (по реальному времени) == Будущее, а Прошлое == Настоящее)
+        STATE = self.states.index(self.last_state)    # "Текущее" на самом деле прошлое
+        FUTURE_STATE = self.states.index(state)       # "Будущее" на самом деле настоящее
+
+        # С учётом вышенаписанного, наше "текущее" действие == ответ нейронки на прошлое состояние
+        ACT     =    self.actions.index( self.q_start_work(self.last_state) )
+        FUTURE_ACT = self.actions.index( self.q_start_work(state) )
+
+
+        self.last_state = state      # А "прошлое" уже является настоящим (т.к. все переменные уже объявлены)
 
 
         if num_function == 1:
-            self.q[STATE][ACT] = self.q[STATE][ACT] +\
-                                    self.q_alpha * (reward_for_state + \
-                                                  self.gamma * max( self.q[self.states.index(future_state)] ) - \
-                                                  self.q[STATE][ACT] )
+            self.q[STATE][ACT] = self.q[STATE][ACT] + self.q_alpha * \
+                                 (reward_for_state + self.gamma * max(self.q[FUTURE_STATE]) - self.q[STATE][ACT])
 
         elif num_function == 2:
-            self.q[STATE][ACT] = (1 - self.q_alpha) * self.q[STATE][ACT] + \
-                                    self.q_alpha * (reward_for_state + \
-                                                    self.gamma * max( self.q[self.states.index(future_state)] ) )
+            self.q[STATE][ACT] = self.q[STATE][ACT] + self.q_alpha *\
+                                 (reward_for_state + self.gamma * self.q[FUTURE_STATE][FUTURE_ACT] - self.q[STATE][ACT])
 
         elif num_function == 3:
-            self.q[STATE][ACT] = self.q[STATE][ACT] + self.q_alpha * (reward_for_state + \
-                                self.gamma * self.q[self.states.index(future_state)][self.actions.index(self.q_start_work(future_state))] -\
-                                self.q[STATE][ACT])
+            self.q[STATE][ACT] = self.q[STATE][ACT] +  self.q_alpha * \
+                                 (reward_for_state +  self.gamma * sum(self.q[FUTURE_STATE]) - self.q[STATE][ACT])
 
         elif num_function == 4:
-            self.q[STATE][ACT] = self.q[STATE][ACT] + \
-                                 self.q_alpha * (reward_for_state + \
-                                                 self.gamma * sum( self.q[self.states.index(future_state)] ) - \
-                                                 self.q[STATE][ACT])
+            self.q[STATE][ACT] = reward_for_state + self.gamma * self.q[FUTURE_STATE][FUTURE_ACT]
 
         elif num_function == 5:
-            self.q[STATE][ACT] = reward_for_state + self.gamma * self.q[self.states.index(future_state)][self.actions.index(self.q_start_work(future_state))]
-
-        elif num_function == 6:
-            self.q[STATE][ACT] = reward_for_state + self.gamma * max( self.q[self.states.index(future_state)] )
+            self.q[STATE][ACT] = reward_for_state + self.gamma * max(self.q[FUTURE_STATE])
 
 
     def save_data(self, name_this_ai: str):
@@ -369,7 +380,6 @@ class AI:
             file.write("what_activation_function " + str(self.what_activation_function) + "\n")
             file.write("end_activation_function " + str(self.end_activation_function) + "\n")
             file.write("alpha " + str(self.alpha) + "\n")
-            file.write("q_alpha " + str(self.q_alpha) + "\n")
             file.write("have_bias_neuron " + str(self.have_bias_neuron) + "\n")
             file.write("number_disabled_neurons " + str(self.number_disabled_neurons) + "\n")
             file.write("packet_size " + str(self.packet_size) + "\n")
@@ -383,8 +393,12 @@ class AI:
             file.write("actions " +
                        "".join((str(self.actions).split()))
                        + "\n")
+            file.write("last_state " +
+                       "".join((str(self.last_state).split()))
+                       + "\n")
             file.write("gamma " + str(self.gamma) + "\n")
             file.write("epsilon " + str(self.epsilon) + "\n")
+            file.write("q_alpha " + str(self.q_alpha) + "\n")
 
 
             file.write("\n")
@@ -451,6 +465,7 @@ class AI:
         self.actions = self._find_among_data(AI_name, "actions", True)
         self.q_alpha = self._find_among_data(AI_name, "q_alpha", True)
         self.epsilon = self._find_among_data(AI_name, "epsilon", True)
+        self.last_state = self._find_among_data(AI_name, "last_state", True)
 
 
         # Выясняем какая функция активации
@@ -509,7 +524,7 @@ class AI:
             line = lines[ind]
 
             if line[5:-1] == AI_name:
-                for _ in range(16):
+                for _ in range(17):
                     lines.pop(ind)
                 break
 
@@ -538,7 +553,7 @@ class AI:
             """Не действует ограничение value_range"""
 
             if return_derivative:
-                return (x > 0)
+                return (x > 0) * 1
 
             else:
                 return (x > 0) * x
@@ -600,12 +615,10 @@ class AI:
             max = self.max
 
             if return_derivative:
-                return 0.05* (max-min) / np.power(cosh(.1*x), 2)
+                return 0.05* (max-min) / np.power(np.cosh(0.1*x), 2)
 
             else:
-                return 0.5* ( (max-min) *np.tanh(.1*x) +min+max)
-
-
+                return 0.5* ( (max-min) *np.tanh(0.1*x) +min+max)
 
         def Sigmoid(self, x, return_derivative=False):
             min = self.min

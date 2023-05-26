@@ -10,16 +10,15 @@ actions = ["left", "right", "up", "down"]
 
 # Создаём ИИ
 ai = Code_My_AI.AI()
-ai.create_weights([2, 20, 20, 20, 4], add_bias_neuron=True)
+ai.create_weights([2, 20, 4], add_bias_neuron=True)
 
 ai.what_activation_function = ai.activation_function.ReLU_2
 ai.activation_function.value_range(-10, 10)
 ai.end_activation_function = ai.activation_function.ReLU_2
 
 ai.alpha = 1e-5
-ai.q_alpha = 1e-1
 
-ai.make_all_for_q_learning(actions, 0.4, 0.05)
+ai.make_all_for_q_learning(actions, 0.4, 0.02, 0.1)
 
 
 
@@ -56,9 +55,10 @@ while 1:
         if number_steps >= 100:
             game.game_over()
 
-        if learn_iteration % 5_000 == 0:
-            ai.delete_data("Q")
-            ai.save_data("Q")
+
+    # if learn_iteration % 5_000 == 0:
+    #     ai.delete_data("Q")
+    #     ai.save_data("Q")
 
 
 ###################### ОТВЕТ ОТ НЕЙРОНКИ
@@ -66,14 +66,11 @@ while 1:
     data = [[i +0.01 for i in game.agent_coords]]# + game.walls_coords
     data = sum(data, [])
 
-
-    where_move = ai.q_start_work(data)
-
-    game.step(where_move)
+    game.step( ai.q_start_work(data) )
 
 ###################### ОБУЧАЕМ
 
-    ai.q_learning(data, reward, game.get_future_coords(where_move), 3)   # Лучше всего выбрать функцию 3
+    ai.q_learning(data, reward, 2, 2.1, recce_mode=True)   # Лучше всего выбрать функцию 2
 
 
     # Если не умерли и не победили, то 0 (т.е. штрафуем за лишние шаги)

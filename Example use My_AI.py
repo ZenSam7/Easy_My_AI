@@ -9,15 +9,15 @@ import numpy as np
 ai = Code_My_AI.AI()
 
 # Создаём архитектуру (сколько нейронов на каком слое)
-ai.create_weights([2, 10, 10, 10, 2], add_bias_neuron=True)
+ai.create_weights([2, 10, 10, 1], add_bias_neuron=True)
 
-ai.what_activation_function = ai.activation_function.ReLU
+ai.what_activation_function = ai.activation_function.ReLU_2
 ai.activation_function.value_range(0, 2000)
 ai.end_activation_function = ai.activation_function.ReLU_2
 
 
 ai.number_disabled_neurons = 0.0
-ai.alpha = 1e-9
+ai.alpha = 1e-1
 
 
 # Загружаем ии
@@ -34,7 +34,7 @@ while 1:
     data = [np.random.randint(100), np.random.randint(100)]
 
     # Ответ - это рандомная функция, которая принимает наши входные данные (data)
-    answer = [int(11.03* data[0] + 2.23* data[1] + 729), data[0] + 133]
+    answer = [105, 11]
 
 
     err = ai.learning(data, answer, get_error=True)

@@ -177,7 +177,7 @@ class Snake:
             self.draw()
 
         self.num_steps += 1
-        if self.num_steps > 1000:  # Если змея сделала слишком много шагов, то убиваем
+        if self.num_steps > 500:  # Если змея сделала слишком много шагов, то убиваем
             self.game_over()
 
 
@@ -214,22 +214,5 @@ class Snake:
         return data
 
 
-    def get_future_state(self, where_want_move):
-        snake_body = self.snake_body.copy()
-        food_coords = self.food_coords.copy()
-        score, generation, num_steps = self.score, self.generation, self.num_steps
-
-
-        self.move_snake(where_want_move)
-        self.collision()
-
-        future_state = self.get_blocks()
-
-        self.snake_body, self.food_coords = snake_body, food_coords
-        self.score, self.generation, self.num_steps = score, generation, num_steps
-
-        return future_state
-
-
     def get_max_mean_score(self):
-        return max(self.scores), sum(self.scores) / len(self.scores)
+        return max(self.scores), min(self.scores), sum(self.scores) / len(self.scores)
