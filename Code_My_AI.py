@@ -3,20 +3,22 @@ import numpy as np
 
 class AI:
     """Набор функций для работы с самодельным ИИ"""
-    def __init__(self):
-        self.weights =      []          # Появиться после вызова create_weights
 
-        self.activation_function = self.ActivationFunctions()
-        self.what_activation_function = self.activation_function.ReLU_2  # Какую функцию активации используем
-        self.end_activation_function  = self.activation_function.Tanh    # Какую функцию активации используем для выходных значений
+    def __init__(self):
+        self.weights = []          # Появиться после вызова create_weights
+
+        self.act_func = self.ActivationFunctions()
+        self.what_act_func = self.act_func.ReLU_2  # Какую функцию активации используем
+        self.end_act_func  = self.act_func.Tanh    # Какую функцию активации используем для выходных значений
 
         self.alpha = 1e-1     # Альфа каэффицент (каэффицент скорости обучения) (настраивается самостоятельно)
         self.have_bias_neuron = False      # Определяет наличие нейрона смещения (True или False)
         self.number_disabled_neurons = 0.0      # Какую долю нейронов "отключаем" при обучении
 
-        self.packet_size = 1     # Как много ошибок будем усреднять, чтобы на основе этой усреднённой ошибки изменять веса
-        # Чем packet_size больше, тем "качество обучения" меньше, но скорость итераций обучения больше
+        self.batch_size = 1     # Как много ошибок будем усреднять, чтобы на основе этой усреднённой ошибки изменять веса
+        # Чем batch_size больше, тем "качество обучения" меньше, но скорость итераций обучения больше
         self.packet_errors = []   # Где мы будем эти ошибки складывать
+        self.type_error = 1
 
         self.gamma = 0
         self.epsilon = 0
@@ -27,6 +29,8 @@ class AI:
         self.states = []
         self.last_state = []
 
+        self.recce_mode = False
+
 
     def create_weights(self, architecture: list, add_bias_neuron=False, min_weight=-1, max_weight=1):
         """Создаёт матрицу со всеми весами между всеми элементами
@@ -36,9 +40,13 @@ class AI:
 
         # Добавляем все веса между слоями нейронов
         for i in range(len(architecture) -1):
-            self.weights.append( np.random.randint(min_weight * 1000, max_weight * 1000,
-                                                   size = (architecture[i] + add_bias_neuron,
-                                                   architecture[i + 1])) /1000)
+            self.weights.append(
+                self.act_func.normalize(
+                    np.random.random(size = (architecture[i] + add_bias_neuron,
+                                                              architecture[i + 1])),
+                    min_weight, max_weight
+                )
+            )
 
 
     def genetic_crossing_with(self, ai):
@@ -86,10 +94,7 @@ class AI:
 
             # Процежеваем через функцию активации  ...
             # ... Результат перемножения результата прошлого слоя на слой весов
-            print(result_layer_neurons.shape)
-            print(layer_weight.shape)
-            print()
-            result_layer_neurons = self.what_activation_function(
+            result_layer_neurons = self.what_act_func(
                                         result_layer_neurons.dot(layer_weight) )
 
 
@@ -101,10 +106,10 @@ class AI:
 
 
         # Пропускаем выходные данные через последнюю функцию активации (Если есть)
-        if self.end_activation_function == None:
+        if self.end_act_func == None:
             result_layer_neurons = result_layer_neurons.dot(self.weights[-1])
         else:
-            result_layer_neurons = self.end_activation_function(
+            result_layer_neurons = self.end_act_func(
                         result_layer_neurons.dot(self.weights[-1]))
 
 
@@ -121,20 +126,19 @@ class AI:
         ai_result = self.start_work(input_data)
 
         # "Разведуем окружающую среду"
-        if self.epsilon < 1:    # Если адекватные значения epsilon, то ИСКАЖАЕМ ответ
-            if np.random.random() > self.epsilon:   # С вероятностью epsilon
-                ai_result *= np.random.randint(1, 10_000, ai_result.shape) /100     # Умножаем на число от 0.01 до 100
-
-        else:    # А если неадекватные значения epsilon (>= 1), то заменяем ответ случайными числами
+        if np.random.random() < self.epsilon or self.recce_mode:   # С вероятностью epsilon
             ai_result = np.random.random(ai_result.shape)
-
 
         # Находим действие
         return self.actions[ np.argmax(ai_result) ]
 
 
-    def learning(self, input_data: list, answer: list, get_error=False, squared_error=False):
-        """Метод обратного распространения ошибки для изменения весов в нейронной сети"""
+    def learning(self, input_data: list, answer: list, get_error=False, type_error=1):
+        """Метод обратного распространения ошибки для изменения весов в нейронной сети \n
+        Ошибки могут быть: \n
+        1: (regular:) |ai_answer - answer| / len(answer) \n
+        2: (quadratic:) (ai_answer - answer)^2 / len(answer) \n
+        3: (logarithmic:) ln^2( (ai_answer - answer) +1 ) / len(answer) \n"""
 
         # Нормализуем веса (очень грубо)
         if np.any(abs(self.weights[0]) >= 1e7):    # Если запредельные значения весов
@@ -155,20 +159,33 @@ class AI:
         # То, что выдала нам нейросеть | Список с ответами от каждого слоя нейронов
         ai_answer, answers = self.start_work(input_data, True)
 
+        # Умножаем рандомные ответы рандомных нейронов на 0
+        for i in range(len(answers) -1):   # Первый слой это не нейроны
+            answers[i +1] = answers[i +1] * \
+                            (1* ( np.random.random(size=answers[i +1].shape) >= self.number_disabled_neurons ) )
+
+
         # На сколько должны суммарно изменить веса
-        if squared_error:
-            delta_weight = np.power(ai_answer - answer, 2) *\
-                           (-1* ((ai_answer - answer) <0) + 1*((ai_answer - answer) >=0) )
-        else:
+        if type_error == 1:
             delta_weight = ai_answer - answer
+        elif type_error == 2:
+            delta_weight = ai_answer - answer
+            delta_weight = np.power(delta_weight, 2) * \
+                           (-1 * (delta_weight < 0) + 1 * (delta_weight >= 0)) # Тут сохраняем знак
+        elif type_error == 3:
+            delta_weight = ai_answer - answer
+            delta_weight = np.power( np.log(ai_answer-answer +1), 2) * \
+                           (-1 * (delta_weight < 0) + 1 * (delta_weight >= 0)) # Тут сохраняем знак
+
 
         delta_weight = np.matrix(delta_weight)  # Превращаем вектор в матрицу
 
 
+
         self.packet_errors.append(np.sum(delta_weight))
 
-        if self.packet_size == 1 or len(self.packet_errors) == self.packet_size:
-            if self.packet_size != 1:
+        if self.batch_size == 1 or len(self.packet_errors) == self.batch_size:
+            if self.batch_size != 1:
                 # Замением пакет ошибок на их среднее
                 delta_weight = np.mean(self.packet_errors)
                 delta_weight = np.repeat(delta_weight, len(answer))
@@ -179,18 +196,12 @@ class AI:
                 delta_weight = np.matrix(delta_weight)
                 layer_answer = np.matrix(layer_answer)
 
-
-                # Матрица, предотвращающая переобучение, умножением изменением веса рандомных нейронов на 0
-                dropout_mask = np.random.random(size=(delta_weight.shape[1], layer_answer.shape[1])) \
-                               >= self.number_disabled_neurons
-
                 # Изменяем веса
-                weight -= ( np.multiply(dropout_mask, # Отключаем изменение некоторых связей
-                                        self.alpha * delta_weight.T.dot(layer_answer)) ).T
+                weight -= ( self.alpha * delta_weight.T.dot(layer_answer) ).T
 
                 # "Переносим" на другой слой и умножаем на производную
-                delta_weight = np.multiply( delta_weight.dot(weight.T),
-                                            self.what_activation_function(layer_answer, True) )
+                delta_weight = np.multiply(delta_weight.dot(weight.T),
+                                           self.what_act_func(layer_answer, True))
 
                 # К нейрону смещения не идут связи, поэтому обрезаем этот нейрон смещения
                 if self.have_bias_neuron:
@@ -198,12 +209,11 @@ class AI:
 
 
             if get_error:
-                if self.packet_size == 1:    # Без усреднения
-                    err = np.sum( np.power(answer - ai_answer, 2) )   # Квадратичное отклонение
-                    return err
+                if self.batch_size == 1:    # Без усреднения
+                    return np.sum( self.packet_errors ) / answer.shape[0]
 
                 else:       # С усреднением
-                    return np.mean(np.power(self.packet_errors, 2))
+                    return np.mean(self.packet_errors) / answer.shape[0]
 
 
             self.packet_errors = []
@@ -224,15 +234,14 @@ class AI:
         self.q = [[0 for _ in range(len(actions))]]    # Таблица состояний (заполняем нулевым состоянием)
 
         # Заполняем "первое" (несуществующее (т.к. мы в прошлом на 1 шаг)) состояние количеством входов
-        self.states = [[-0.0 for _ in range(self.weights[0].shape[0])]]
+        self.states = [[-0.0 for _ in range(self.weights[0].shape[0] - self.have_bias_neuron)]]
         self.last_state = self.states[0]     # Прошлое состояние нужно для откатывания на 1 состояние назад
+        self.last_reward = 0
 
 
-    def q_learning(self, state, reward_for_state, num_function=1, learning_method=2.1,
-                   squared_error=False, recce_mode=False):
+    def q_learning(self, state, reward_for_state, num_update_function=1, learning_method=2.1,
+                   type_error=1, recce_mode=False):
         """ Глубокое Q-обучение (ИИ используется как предсказатель правильных действий)
-
-        recce_mode - при значении True включаем "режим разведки", т.е. при таком режиме ИИ не обучается, а только пополняется Q-таблица
 
 -------------------------- \n
 
@@ -245,10 +254,21 @@ class AI:
 
 -------------------------- \n
 
+        Ошибки могут быть: \n
+        1: regular: |ai_answer - answer| \n
+        2: quadratic: (ai_answer - answer)^2 \n
+        3: logarithmic: ln^2( (ai_answer - answer) +1 ) \n
+
+-------------------------- \n
+
+        recce_mode - при значении True включаем "режим разведки", т.е. при таком режиме ИИ не обучается, а только пополняется Q-таблица
+
+-------------------------- \n
+
         Методы обучения (значение learning_method определяет) : \n
         1 : В качестве "правильного" ответа выбирается то, которое максимально вознаграждается, и на место действия \
         (которое приводит к лучшему ответу) ставиться максимальное значение функции активации \
-        (self.activation_function.max), а на остальные места минимум функции активации (self.activation_function.min) \n
+        (self.act_func.max), а на остальные места минимум функции активации (self.act_func.min) \n
         P.s. Это неочень хорошо, т.к. игнорируются другие варианты, которые приносят либо столько же, либо немного меньше  \
         вознаграждения (а вибирается только один "правильный"). НО ОН ХОРОШО ПОДХОДИТ, КОГДА У ВАС В ЗАДАЧЕ ИМЕЕТСЯ ИСКЛЮЧИТЕЛЬНО 1 \
         ПРАВИЛЬНЫЙ ОТВЕТ, А "БОЛЕЕ" И "МЕНЕЕ" ПРАВИЛЬНЫХ БЫТЬ НЕ МОЖЕТ \n
@@ -266,60 +286,49 @@ class AI:
         """
 
         STATE = self.states.index(self.last_state)
+        self.recce_mode = recce_mode
 
 
         # Q-обучение
 
         # Формируем "правильный" ответ
         if learning_method == 1:
-            answer = [self.activation_function.min for _ in range(len(self.actions))]
+            answer = [self.act_func.min for _ in range(len(self.actions))]
 
             # На месте максимального значения из Q-таблицы ставим максимально возможное значение как "правильный" ответ
             answer[self.q[STATE].index( max(self.q[STATE]) )] =\
-                    self.activation_function.max
+                    self.act_func.max
 
         elif 2 < learning_method < 3:
-            # Нам нужны значения от минимума функции активации до максимума функции активации
-            # Переводим в промежуток от 0 до 1
-            answer = np.array(self.q[STATE]) - min(self.q[STATE])
-            if np.max(answer) != 0:
-                answer = answer / np.max(answer)    # Не работает с /=
-
             # Искажаем "расстояние" между числами
-            answer = answer + 0.5
+            answer = self.act_func.normalize(np.array(self.q[STATE]), 0, 2)
             answer = np.power(answer, (learning_method -2) *10 )
 
-            # Опять переводим в промежуток от 0 до 1
-            answer = answer - np.min(answer)
-            if np.max(answer) != 0:
-                answer = answer / np.max(answer)    # Не работает с /=
-
             # Переводим в промежуток от min до max
-            answer = answer * (self.activation_function.max - self.activation_function.min) +\
-                    self.activation_function.min
+            answer = self.act_func.normalize(np.array(self.q[STATE]), self.act_func.min, self.act_func.max)
 
             answer = answer.tolist()
 
 
         # Если режим разведки выключен
-        if recce_mode == False:
+        if self.recce_mode == False:
             # Обновляем Q-таблицу
-            self._update_q_table(state, reward_for_state, num_function)
+            self._update_q_table(state, reward_for_state, num_update_function)
 
             # Изменяем веса (не забываем, что мы находимся в состоянии на 1 шаг назад)
-            self.learning(self.last_state, answer, squared_error=squared_error)
+            self.learning(self.last_state, answer, type_error=type_error)
 
         else:
             # Иначе просто обновляем таблицу с изменёнными параметрами
             Gamma, Epsilon, Q_alpha = self.gamma, self.epsilon, self.q_alpha
-            self.gamma, self.epsilon, self.q_alpha = 0.5, 1, 0.5
+            self.gamma, self.epsilon, self.q_alpha = 0.01, 2, 0.01
 
-            self._update_q_table(state, reward_for_state, num_function)
+            self._update_q_table(state, reward_for_state, num_update_function)
 
             self.gamma, self.epsilon, self.q_alpha = Gamma, Epsilon, Q_alpha
 
 
-    def _update_q_table(self, state, reward_for_state, num_function):
+    def _update_q_table(self, state, reward_for_state, num_update_function):
         """Формулы для обновления Q-таблицы \n
 
         --------------------------
@@ -338,34 +347,40 @@ class AI:
 
 
         # Откатываем наше состояние на 1 шаг назад (Текущее (по реальному времени) == Будущее, а Прошлое == Настоящее)
+        REWARD = self.last_reward
         STATE = self.states.index(self.last_state)    # "Текущее" на самом деле прошлое
         FUTURE_STATE = self.states.index(state)       # "Будущее" на самом деле настоящее
 
-        # С учётом вышенаписанного, наше "текущее" действие == ответ нейронки на прошлое состояние
-        ACT     =    self.actions.index( self.q_start_work(self.last_state) )
-        FUTURE_ACT = self.actions.index( self.q_start_work(state) )
+        # С учётом выше написанного, наше "текущее" действие == ответ нейронки на прошлое состояние
+        if self.epsilon < 1:
+            ACT = self.actions.index( self.q_start_work(self.last_state) )
+            FUTURE_ACT = self.actions.index( self.q_start_work(state) )
+        else:
+            ACT = np.random.randint(len(self.actions))        # Случайное действие
+            FUTURE_ACT = np.random.randint(len(self.actions)) # Случайное действие
+
+        # А "прошлое" уже является настоящим (т.к. все переменные уже объявлены)
+        self.last_state = state
+        self.last_reward = reward_for_state
 
 
-        self.last_state = state      # А "прошлое" уже является настоящим (т.к. все переменные уже объявлены)
-
-
-        if num_function == 1:
+        if num_update_function == 1:
             self.q[STATE][ACT] = self.q[STATE][ACT] + self.q_alpha * \
-                                 (reward_for_state + self.gamma * max(self.q[FUTURE_STATE]) - self.q[STATE][ACT])
+                                 (REWARD + self.gamma * max(self.q[FUTURE_STATE]) - self.q[STATE][ACT])
 
-        elif num_function == 2:
+        elif num_update_function == 2:
             self.q[STATE][ACT] = self.q[STATE][ACT] + self.q_alpha *\
-                                 (reward_for_state + self.gamma * self.q[FUTURE_STATE][FUTURE_ACT] - self.q[STATE][ACT])
+                                 (REWARD + self.gamma * self.q[FUTURE_STATE][FUTURE_ACT] - self.q[STATE][ACT])
 
-        elif num_function == 3:
+        elif num_update_function == 3:
             self.q[STATE][ACT] = self.q[STATE][ACT] +  self.q_alpha * \
-                                 (reward_for_state +  self.gamma * sum(self.q[FUTURE_STATE]) - self.q[STATE][ACT])
+                                 (REWARD + self.gamma * sum(self.q[FUTURE_STATE]) - self.q[STATE][ACT])
 
-        elif num_function == 4:
-            self.q[STATE][ACT] = reward_for_state + self.gamma * self.q[FUTURE_STATE][FUTURE_ACT]
+        elif num_update_function == 4:
+            self.q[STATE][ACT] = REWARD + self.gamma * self.q[FUTURE_STATE][FUTURE_ACT]
 
-        elif num_function == 5:
-            self.q[STATE][ACT] = reward_for_state + self.gamma * max(self.q[FUTURE_STATE])
+        elif num_update_function == 5:
+            self.q[STATE][ACT] = REWARD + self.gamma * max(self.q[FUTURE_STATE])
 
 
     def save_data(self, name_this_ai: str):
@@ -377,13 +392,13 @@ class AI:
             file.write("weights " +
                        "".join((str([i.tolist() for i in self.weights]).split()))
                        + "\n")
-            file.write("what_activation_function " + str(self.what_activation_function) + "\n")
-            file.write("end_activation_function " + str(self.end_activation_function) + "\n")
+            file.write("what_act_func " + str(self.what_act_func) + "\n")
+            file.write("end_act_func " + str(self.end_act_func) + "\n")
             file.write("alpha " + str(self.alpha) + "\n")
             file.write("have_bias_neuron " + str(self.have_bias_neuron) + "\n")
             file.write("number_disabled_neurons " + str(self.number_disabled_neurons) + "\n")
-            file.write("packet_size " + str(self.packet_size) + "\n")
-            file.write("value_range " + "".join((str([self.activation_function.min, self.activation_function.max]).split())) + "\n")
+            file.write("batch_size " + str(self.batch_size) + "\n")
+            file.write("value_range " + "".join((str([self.act_func.min, self.act_func.max]).split())) + "\n")
             file.write("q_table " +
                        "".join((str(self.q).split()))
                        + "\n")
@@ -396,6 +411,7 @@ class AI:
             file.write("last_state " +
                        "".join((str(self.last_state).split()))
                        + "\n")
+            file.write("last_reward " + str(0) + "\n")
             file.write("gamma " + str(self.gamma) + "\n")
             file.write("epsilon " + str(self.epsilon) + "\n")
             file.write("q_alpha " + str(self.q_alpha) + "\n")
@@ -454,59 +470,60 @@ class AI:
         """Она загружает последнее сохранение (последнее имя), если несколько одинаковых имён"""
 
         self.weights = [np.array(i) for i in self._find_among_data(AI_name, "weights", True)]
-        self.alpha = self._find_among_data(AI_name, "alpha", True)
-        self.have_bias_neuron = True if self._find_among_data(AI_name, "have_bias_neuron", True) == True else False
-        self.number_disabled_neurons = self._find_among_data(AI_name, "number_disabled_neurons", True)
-        self.packet_size = self._find_among_data(AI_name, "packet_size", True)
-        self.activation_function.min = self._find_among_data(AI_name, "value_range", True)[0]
-        self.activation_function.max = self._find_among_data(AI_name, "value_range", True)[1]
+        self.alpha = float(self._find_among_data(AI_name, "alpha", True))
+        self.have_bias_neuron = True if self._find_among_data(AI_name, "have_bias_neuron", True) == "True" else False
+        self.number_disabled_neurons = float(self._find_among_data(AI_name, "number_disabled_neurons", True))
+        self.batch_size = self._find_among_data(AI_name, "batch_size", True)
+        self.act_func.min = self._find_among_data(AI_name, "value_range", True)[0]
+        self.act_func.max = self._find_among_data(AI_name, "value_range", True)[1]
         self.q = self._find_among_data(AI_name, "q_table", True)
         self.states = self._find_among_data(AI_name, "states", True)
         self.actions = self._find_among_data(AI_name, "actions", True)
         self.q_alpha = self._find_among_data(AI_name, "q_alpha", True)
-        self.epsilon = self._find_among_data(AI_name, "epsilon", True)
+        self.epsilon = float(self._find_among_data(AI_name, "epsilon", True))
         self.last_state = self._find_among_data(AI_name, "last_state", True)
+        self.last_reward = float(self._find_among_data(AI_name, "last_reward", True))
 
 
         # Выясняем какая функция активации
 
-        result = self._find_among_data(AI_name, "what_activation_function", True).split()[2].split('.')[-1]
+        result = self._find_among_data(AI_name, "what_act_func", True).split()[2].split('.')[-1]
         if result == "ReLU":
-            self.what_activation_function = self.activation_function.ReLU
+            self.what_act_func = self.act_func.ReLU
         elif result == "ReLU_2":
-            self.what_activation_function = self.activation_function.ReLU_2
+            self.what_act_func = self.act_func.ReLU_2
         elif result == "Gaussian":
-            self.what_activation_function = self.activation_function.Gaussian
+            self.what_act_func = self.act_func.Gaussian
         elif result == "SoftPlus":
-            self.what_activation_function = self.activation_function.SoftPlus
+            self.what_act_func = self.act_func.SoftPlus
         elif result == "Curved":
-            self.what_activation_function = self.activation_function.Curved
+            self.what_act_func = self.act_func.Curved
         elif result == "Tanh":
-            self.what_activation_function = self.activation_function.Tanh
+            self.what_act_func = self.act_func.Tanh
         elif result == "Sigmoid":
-            self.what_activation_function = self.activation_function.Sigmoid
+            self.what_act_func = self.act_func.Sigmoid
 
-        # То же самое для end_activation_function
-        result = self._find_among_data(AI_name, "end_activation_function", True).split()
+        # То же самое для end_act_func
+        result = self._find_among_data(AI_name, "end_act_func", True).split()
         if result[0] != "None":
             result = result[2].split('.')[-1]
 
         if result == "None":
-            self.end_activation_function = None
+            self.end_act_func = None
         elif result == "ReLU":
-            self.end_activation_function = self.activation_function.ReLU
+            self.end_act_func = self.act_func.ReLU
         elif result == "ReLU_2":
-            self.end_activation_function = self.activation_function.ReLU_2
+            self.end_act_func = self.act_func.ReLU_2
         elif result == "Gaussian":
-            self.end_activation_function = self.activation_function.Gaussian
+            self.end_act_func = self.act_func.Gaussian
         elif result == "SoftPlus":
-            self.end_activation_function = self.activation_function.SoftPlus
+            self.end_act_func = self.act_func.SoftPlus
         elif result == "Curved":
-            self.end_activation_function = self.activation_function.Curved
+            self.end_act_func = self.act_func.Curved
         elif result == "Tanh":
-            self.end_activation_function = self.activation_function.Tanh
+            self.end_act_func = self.act_func.Tanh
         elif result == "Sigmoid":
-            self.end_activation_function = self.activation_function.Sigmoid
+            self.end_act_func = self.act_func.Sigmoid
 
 
     def delete_data(self, AI_name: str):
@@ -524,7 +541,7 @@ class AI:
             line = lines[ind]
 
             if line[5:-1] == AI_name:
-                for _ in range(17):
+                for _ in range(18):
                     lines.pop(ind)
                 break
 
@@ -542,6 +559,19 @@ class AI:
         def __init__(self):
             self.min = 0
             self.max = 1
+
+        def normalize(self, x, min=0, max=1):
+            # Нормализуем от 0 до 1
+            result = x - np.min(x)
+            if np.max(x) != 0:
+                result = result / np.max(result)
+
+
+
+            # Потом от min до max
+            result = result * (max - min) + min
+
+            return result
 
         def value_range(self, min, max):
             """Задаём область значений"""
@@ -600,32 +630,12 @@ class AI:
             else:
                 return np.exp(x) / np.sum(np.exp(x))
 
-        def Gaussian(self, x, return_derivative=False):
-            min = self.min
-            max = self.max
-
-            if return_derivative:
-                return -.2 * (max - min) * x * np.exp(-.1* np.power(x,2))
-
-            else:
-                return (max - min) * np.exp(-.1* np.power(x,2) ) + min
-
         def Tanh(self, x, return_derivative=False):
             min = self.min
             max = self.max
 
             if return_derivative:
-                return 0.05* (max-min) / np.power(np.cosh(0.1*x), 2)
+                return 0.5* (max-min) / np.power(np.cosh(*x), 2)
 
             else:
-                return 0.5* ( (max-min) *np.tanh(0.1*x) +min+max)
-
-        def Sigmoid(self, x, return_derivative=False):
-            min = self.min
-            max = self.max
-
-            if return_derivative:
-                return - ( (min - max) * np.exp(-0.1*x) ) / (10* np.power(1 + np.exp(-0.1*x), 2))
-
-            else:
-                return ((max - min) / (1 + np.exp(-0.1*x))) + min
+                return 0.5* ( (max-min) *np.tanh(x) +min+max)

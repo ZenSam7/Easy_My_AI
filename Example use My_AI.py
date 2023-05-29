@@ -11,9 +11,9 @@ ai = Code_My_AI.AI()
 # Создаём архитектуру (сколько нейронов на каком слое)
 ai.create_weights([2, 10, 10, 1], add_bias_neuron=True)
 
-ai.what_activation_function = ai.activation_function.ReLU_2
-ai.activation_function.value_range(0, 2000)
-ai.end_activation_function = ai.activation_function.ReLU_2
+ai.what_act_func = ai.act_func.ReLU_2
+ai.act_func.value_range(0, 2000)
+ai.end_act_func = ai.act_func.ReLU_2
 
 
 ai.number_disabled_neurons = 0.0
@@ -37,7 +37,7 @@ while 1:
     answer = [105, 11]
 
 
-    err = ai.learning(data, answer, get_error=True)
+    err = ai.learning(data, answer, get_error=True, type_error=2)
     if err != None:   # Если функция вернула ошибку
         errors.append(err)
 

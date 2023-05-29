@@ -214,5 +214,6 @@ class Snake:
         return data
 
 
-    def get_max_mean_score(self):
-        return max(self.scores), min(self.scores), sum(self.scores) / len(self.scores)
+    def get_score(self):
+        Max, Min, Mean = max(self.scores), min(self.scores), sum(self.scores) / len(self.scores)
+        return Max, Min, Mean

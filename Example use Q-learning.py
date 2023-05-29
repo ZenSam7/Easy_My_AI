@@ -10,15 +10,15 @@ actions = ["left", "right", "up", "down"]
 
 # Создаём ИИ
 ai = Code_My_AI.AI()
-ai.create_weights([2, 20, 4], add_bias_neuron=True)
+ai.create_weights([2, 10, 4], add_bias_neuron=False)
 
-ai.what_activation_function = ai.activation_function.ReLU_2
-ai.activation_function.value_range(-10, 10)
-ai.end_activation_function = ai.activation_function.ReLU_2
+ai.what_act_func = ai.act_func.ReLU_2
+ai.act_func.value_range(-10, 10)
+ai.end_act_func = ai.act_func.ReLU_2
 
-ai.alpha = 1e-5
+ai.alpha = 1e-4
 
-ai.make_all_for_q_learning(actions, 0.4, 0.02, 0.1)
+ai.make_all_for_q_learning(actions, 0.4, 0.0, 0.1)
 
 
 
@@ -32,7 +32,7 @@ def died():
 def win():
     global reward, num_win, number_steps
     number_steps = 0
-    reward = 2000
+    reward = 10_000
     num_win += 1
     print("WIN !", num_win, "\t", round(num_win/generation*100, 2))
 
@@ -40,7 +40,7 @@ game.game_over_function = died
 game.win_function = win
 
 
-# ai.load_data("Q")
+# ai.save_data("Q")
 
 
 learn_iteration = 0
@@ -48,11 +48,11 @@ while 1:
     number_steps += 1
     learn_iteration += 1
 
-    if learn_iteration % 25 == 0:
+    if learn_iteration % 10 == 0:
         game.draw(generation)
 
         # Если слишком много шагов - убиваем
-        if number_steps >= 100:
+        if number_steps >= 200:
             game.game_over()
 
 
@@ -70,7 +70,7 @@ while 1:
 
 ###################### ОБУЧАЕМ
 
-    ai.q_learning(data, reward, 2, 2.1, recce_mode=True)   # Лучше всего выбрать функцию 2
+    ai.q_learning(data, reward, 2, 2.4, type_error=1, recce_mode=False)
 
 
     # Если не умерли и не победили, то 0 (т.е. штрафуем за лишние шаги)

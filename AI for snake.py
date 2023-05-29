@@ -1,67 +1,125 @@
 import Code_My_AI
 from Snake import Snake
 
-# Создаём Змейку
-snake = Snake(800, 600, 100, 2, display_game=False)
 
-def end():
-    global reward
-    reward = -3_000
-def win():
-    global reward
-    reward = 1_000
-snake.game_over_function = end
-snake.eat_apple_function = win
+len_population = 4      # >2
+how_many_AI_cross = 2   # <len_population & ЧЁТНОЕ!!
 
 
-# Создаём ИИ
-ai = Code_My_AI.AI()
-ai.create_weights([9, 15, 15, 4])
+SNAKES = []
+AIs = []
+for _ in range(len_population):
+    # Создаём Змейку
+    snake = Snake(500, 400, 100, 1, display_game=False)
 
-ai.end_activation_function = ai.activation_function.ReLU_2
-ai.activation_function.value_range(-10, 10)
+    def end():
+        global reward
+        reward = -50
+    def win():
+        global reward
+        reward = 100
+    snake.game_over_function = end
+    snake.eat_apple_function = win
+
+    SNAKES.append(snake)
 
 
-actions = ["left", "right", "up", "down"]
-ai.make_all_for_q_learning(actions, 0.6, 0.0, 0.2)
+    # Создаём ИИ
+    ai = Code_My_AI.AI()
+    ai.create_weights([9, 20, 20, 4])
+
+    ai.what_act_func = ai.act_func.Tanh
+    ai.end_act_func  = ai.act_func.Tanh
+    ai.act_func.value_range(0, 1)
+
+    actions = ["left", "right", "up", "down"]
+    ai.make_all_for_q_learning(actions, gamma=0.1, epsilon=0.0, q_alpha=0.01)
+
+    ai.batch_size = 1
+    ai.alpha = 1e-5
+    ai.number_disabled_neurons = 0.1
+
+    AIs.append(ai)
 
 
-# Обычная      ("Snake"):      9, 25, 25, 25, 4
-# Маленькая    ("Snake_0.1"):  9, 15, 15, 4
-version_snake = "Snake_0.1"
+# ("Snake_0.1"):  9,   20, 20,   4
+for i in range(len(AIs)):
+    # Каждой ИИ свой место и свой имя
+    version_snake = "Snake_0.1~" + str( i )
+    AIs[i].load_data(version_snake)
 
-ai.load_data(version_snake)
 
-
-learn_iteration = 0
-num = 0
+learn_iteration, num = 0, 0
 while 1:
-    # Включаем режим отображения змейки для человека
-    if snake.display_game == True:
-        from time import sleep
-        sleep(0.08)
-
-    learn_iteration += 1
-    reward = 0
+    for ai, snake in zip(AIs, SNAKES):
+        learn_iteration += 1
+        reward = 0
 
 
-    if learn_iteration % 10_000 == 0:
-        # Выводим максимальный и средний счёт змейки за 10_000 шагов
-        num += 1
-        max, min, mean = snake.get_max_mean_score()
-        print(f"#{num}", "Max Score:",max, "\t\t\t\t", "Mean Score:", round(mean, 1))
-        snake.scores = []
+        # Выводим максимальный и средний счёт каждой змейки за 1_000 шагов
+        if learn_iteration % 1_000 == 0:
+            num += 1
+            for i in range(len_population):
+                max, min, mean = SNAKES[i].get_score()
+                print(f"#{num}.{i}",  "\tMax Score:",max,  "\t\t\t\t Mean Score:", round(mean, 1))
+            print()
+
+            # И сохраняемся
+            for i in range(len_population):
+                version_snake = "Snake_0.1~" + str(i)
+                AIs[i].delete_data(version_snake)
+                AIs[i].save_data(version_snake)
 
 
-        ai.delete_data(version_snake)
-        ai.save_data(version_snake)
+            # Каждые 20 шагов скрещиваем 2 змеи и добавляем мутации, а потом продолжаем обучать Q-обучением
+            # (которое корректирует веса обратным распространением) ((Т.е. 3 вида обучения в 1 проекте получается))
+            if num % 40 == 0:
+                # Выбираем 2 лучших змейки
+                SCORES = []
+                for snake in SNAKES:
+                    _, _, mean = snake.get_score()
+                    SCORES.append(mean)
 
-################# ЗАПИСЫВАЕТ ДАННЫЕ В ОТВЕТ
+                SCORES.sort()
+                SCORES = SCORES[-1*how_many_AI_cross:]  # Выбираем how_many_AI_cross наилучших
+                best_ais = []
 
-    data = snake.get_blocks()
+                for i in range(len_population):
+                    _, _, mean = SNAKES[i].get_score()
+                    SNAKES[i].scores = []
+                    if mean in SCORES:      # Если ИИ совпадает с лучшими, то добавляем
+                        best_ais.append( AIs[i] )
 
-    snake.step( ai.q_start_work(data) )
+                # Скрещиваем 1 с 2, 3 с 4 ...  Пока не останется одна, со всеми равномерно скрещенная, ИИ
+                while len(best_ais) != 1:
+                    for i in range(0, len(best_ais) //2):
+                        best_ais[i].genetic_crossing_with(best_ais[i +1])
+                        crossed_ai = best_ais[i]
 
-################# ОБУЧАЕМ
+                        best_ais.pop(i)
+                        best_ais.pop(i)
 
-    ai.q_learning(data, reward, 1, 2.1, squared_error=False, recce_mode=False)
+                        best_ais.insert(i, crossed_ai)
+
+                best_ai = best_ais[0]   # Просто вытаскиваем из списка
+                # Копируем и создаём клонов (с мутациями)
+                from copy import deepcopy
+                AIs.clear()
+                for _ in range(len_population):
+                    best_ai.get_mutations(0.05)
+                    AIs.append( deepcopy(best_ai) )
+
+                print("Mutating & Crossing", end="\n\n")
+
+
+
+
+
+
+    ################# ОБУЧАЕМ
+
+        data = snake.get_blocks()
+
+        snake.step( ai.q_start_work(data) )
+
+        ai.q_learning(data, reward, num_update_function=1, learning_method=2.3, type_error=1, recce_mode=False)
