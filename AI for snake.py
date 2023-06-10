@@ -2,15 +2,15 @@ import Code_My_AI
 from Snake import Snake
 
 
-len_population = 4      # >2
-how_many_AI_cross = 2   # <len_population & ЧЁТНОЕ!!
+len_population = 10     # >2
+how_many_AI_cross = 1   # <len_population  &  ЧЁТНОЕ!!
 
 
 SNAKES = []
 AIs = []
 for _ in range(len_population):
     # Создаём Змейку
-    snake = Snake(500, 400, 100, 1, display_game=False)
+    snake = Snake(500, 400, 100, 1)
 
     def end():
         global reward
@@ -36,13 +36,13 @@ for _ in range(len_population):
     ai.make_all_for_q_learning(actions, gamma=0.1, epsilon=0.0, q_alpha=0.01)
 
     ai.batch_size = 1
-    ai.alpha = 1e-5
+    ai.alpha = 1e-4
     ai.number_disabled_neurons = 0.1
 
     AIs.append(ai)
 
 
-# ("Snake_0.1"):  9,   20, 20,   4
+# Загружаем всех
 for i in range(len(AIs)):
     # Каждой ИИ свой место и свой имя
     version_snake = "Snake_0.1~" + str( i )
@@ -57,23 +57,17 @@ while 1:
 
 
         # Выводим максимальный и средний счёт каждой змейки за 1_000 шагов
-        if learn_iteration % 1_000 == 0:
+        if learn_iteration % 2_000 == 0:
             num += 1
             for i in range(len_population):
                 max, min, mean = SNAKES[i].get_score()
                 print(f"#{num}.{i}",  "\tMax Score:",max,  "\t\t\t\t Mean Score:", round(mean, 1))
             print()
 
-            # И сохраняемся
-            for i in range(len_population):
-                version_snake = "Snake_0.1~" + str(i)
-                AIs[i].delete_data(version_snake)
-                AIs[i].save_data(version_snake)
-
 
             # Каждые 20 шагов скрещиваем 2 змеи и добавляем мутации, а потом продолжаем обучать Q-обучением
             # (которое корректирует веса обратным распространением) ((Т.е. 3 вида обучения в 1 проекте получается))
-            if num % 40 == 0:
+            if num % 20 == 0:
                 # Выбираем 2 лучших змейки
                 SCORES = []
                 for snake in SNAKES:
@@ -86,34 +80,38 @@ while 1:
 
                 for i in range(len_population):
                     _, _, mean = SNAKES[i].get_score()
-                    SNAKES[i].scores = []
+                    SNAKES[i].scores = [0]  # Очищаем
                     if mean in SCORES:      # Если ИИ совпадает с лучшими, то добавляем
                         best_ais.append( AIs[i] )
 
-                # Скрещиваем 1 с 2, 3 с 4 ...  Пока не останется одна, со всеми равномерно скрещенная, ИИ
-                while len(best_ais) != 1:
-                    for i in range(0, len(best_ais) //2):
-                        best_ais[i].genetic_crossing_with(best_ais[i +1])
-                        crossed_ai = best_ais[i]
 
-                        best_ais.pop(i)
-                        best_ais.pop(i)
-
-                        best_ais.insert(i, crossed_ai)
+                # # Скрещиваем 1 с 2, 3 с 4 ...  Пока не останется одна, со всеми равномерно скрещенная, ИИ
+                # while len(best_ais) != 1:
+                #     for i in range(0, len(best_ais) //2):
+                #         best_ais[i].genetic_crossing_with(best_ais[i +1])
+                #         crossed_ai = best_ais[i]
+                #
+                #         best_ais.pop(i)
+                #         best_ais.pop(i)
+                #
+                #         best_ais.insert(i, crossed_ai)
 
                 best_ai = best_ais[0]   # Просто вытаскиваем из списка
-                # Копируем и создаём клонов (с мутациями)
+                # Создаём клонов (с мутациями)
                 from copy import deepcopy
                 AIs.clear()
                 for _ in range(len_population):
-                    best_ai.get_mutations(0.05)
+                    best_ai.get_mutations(0.02)
                     AIs.append( deepcopy(best_ai) )
 
-                print("Mutating & Crossing", end="\n\n")
+                print("Mutating", end="\n\n")
 
 
-
-
+                # И сохраняемся
+                for i in range(len_population):
+                    version_snake = "Snake_0.1~" + str(i)
+                    AIs[i].delete_data(version_snake)
+                    AIs[i].save_data(version_snake)
 
 
     ################# ОБУЧАЕМ

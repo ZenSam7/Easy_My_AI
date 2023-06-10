@@ -20,7 +20,7 @@ class Snake:
         self.generation = 0        # Номер поколения
         self.num_steps = 0      # Количество шагов
         self.score = 0
-        self.scores = []
+        self.scores = [0]
 
         self.game_over_function = game_over_function  # Запускаем функцию перед рестартом в game_over
         self.eat_apple_function = eat_apple_function

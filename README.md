@@ -34,7 +34,6 @@ ai.create_weights( [number_of_inputs,
 
 ```python
 ai.alpha = 1e-2  # Alpha coefficient (learning rate coefficient)
-# If anything, the alpha decreases on its own if necessary, so don't be afraid to set it higher (but don't count on saving weights when changing alpha)
 
 ai.number_disabled_neurons = 0.0  # What proportion of neurons we "turn off" during training
 # (This is necessary so that there is no overlearning (memorizing responses instead of finding correlations))
@@ -46,7 +45,7 @@ ai.batch_size = 1  # Batch size in batch gradient descent
 ai.act_func.value_range(0, 1)  # What is the range of values in the output
 
 # Which activation function we use for the output values
-ai.end_act_func = ai.act_func.Tanh 
+ai.end_act_func = ai.act_func.Tanh  # (May be None)
 ```
 
 
@@ -57,12 +56,18 @@ data  =  [0, 1, 2]   # Required as a list of numbers (required length: number of
 # (Input must be at least sometimes completely different from zero! (otherwise it will not learn))
 answer = [2, 1, 0]   # Required as a list of numbers (required length: number of outputs)
 
-ai.learning(data, answer, type_error=1)
+ai.learning(data, answer, type_error=1, regularization=1, regularization_value=100)
 """
 Errors can be:
 1: (regular:) |ai_answer - answer| / len(answer) 
 2: (quadratic:) (ai_answer - answer)^2 / len(answer)
 3: (logarithmic:) ln^2( (ai_answer - answer) +1 ) / len(answer)
+
+Regularization can be:
+1: delta += SameSign * sqrt( sum((weights/10) ^2) )
+2: delta += SameSign * sum( abs( weight * (abs(weight) >= 10) -10 ) )
+
+regularization_value: in what interval (±) do we keep weights
 """
 ```
 
@@ -86,7 +91,8 @@ ai.make_all_for_q_learning(all_possible_actions, gamma, epsilon, q_alpha)
 # Also make sure the number of input neurons is equal to the size of the state list
 ai_state = [0, 1]  # For example, coordinates (Input must be at least sometimes completely different from zero! (otherwise it will not learn))
 
-ai.q_learning(ai_state, reward_for_state, 1, 2.1, recce_mode=True)
+ai.q_learning(ai_state, reward_for_state, num_update_function=1, learning_method=2.1,
+                   type_error=1, recce_mode=False, regularization=1, regularization_value=100)
 """
 recce_mode - if set to True, enable "reconnaissance mode", i.e. in this mode, the AI does not learn, but only the Q-table is replenished (and random actions are performed)
 P.s. I recommend turning it on before training
@@ -98,6 +104,12 @@ Errors can be:
 (For big mistakes we punish a lot, and score on small mistakes)
 3: (logarithmic:) ln^2( (ai_answer - answer) +1 ) / len(answer)
 (We punish for medium and large errors of the same, quite a bit by reducing small errors)
+
+Regularization (Regularize the weights so that they are not too large):
+1: delta += SameSign * sqrt( sum( (weights/regular_val) ^2) )
+2: delta += SameSign * sum( abs( weights * (abs(weights) >= regular_val) ) -regular_val )
+
+regularization_value: In what interval (±) do we keep weights
 
 
 You can choose the most suitable q-table update function for you
@@ -127,7 +139,7 @@ ai.q_start_work(data)        # Gives the selected AI action (in our example it i
 > And if you want, you can write down the value of the error during training
 > (This cannot be done using q_learning)
 ```python
-errors.append( ai.learning(data, answer, get_error=True, type_error=1) )
+errors.append( ai.learning(data, answer) )
 ```
 
 
