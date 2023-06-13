@@ -14,7 +14,7 @@ class AI:
 
         self.alpha = 1e-1     # Альфа каэффицент (каэффицент скорости обучения) (настраивается самостоятельно)
         self.have_bias_neuron = False      # Определяет наличие нейрона смещения (True или False)
-        self.number_disabled_neurons = 0.0      # Какую долю нейронов "отключаем" при обучении
+        self.number_disabled_weights = 0.0      # Какую долю нейронов "отключаем" при обучении
 
         self.batch_size = 1     # Как много ошибок будем усреднять, чтобы на основе этой усреднённой ошибки изменять веса
         # Чем batch_size больше, тем "качество обучения" меньше, но скорость итераций обучения больше
@@ -100,8 +100,8 @@ class AI:
             result_layer_neurons = self.what_act_func(
                                         result_layer_neurons.dot(
                                             layer_weight * \
-                                            ( np.random.random(size=layer_weight.shape) >= self.number_disabled_neurons ) * \
-                                            (1 + self.number_disabled_neurons) )
+                                            (np.random.random(size=layer_weight.shape) >= self.number_disabled_weights) * \
+                                            (1 + self.number_disabled_weights) )
                                         )
 
 
@@ -419,7 +419,7 @@ class AI:
             file.write("end_act_func " + str(self.end_act_func) + "\n")
             file.write("alpha " + str(self.alpha) + "\n")
             file.write("have_bias_neuron " + str(self.have_bias_neuron) + "\n")
-            file.write("number_disabled_neurons " + str(self.number_disabled_neurons) + "\n")
+            file.write("number_disabled_weights " + str(self.number_disabled_weights) + "\n")
             file.write("architecture " +
                        "".join((str(self.architecture).split()))
                        + "\n")
@@ -499,7 +499,7 @@ class AI:
         self.architecture = self._find_among_data(AI_name, "architecture", True)
         self.alpha = float(self._find_among_data(AI_name, "alpha", True))
         self.have_bias_neuron = True if self._find_among_data(AI_name, "have_bias_neuron", True) == "True" else False
-        self.number_disabled_neurons = float(self._find_among_data(AI_name, "number_disabled_neurons", True))
+        self.number_disabled_weights = float(self._find_among_data(AI_name, "number_disabled_weights", True))
         self.batch_size = self._find_among_data(AI_name, "batch_size", True)
         self.act_func.min = self._find_among_data(AI_name, "value_range", True)[0]
         self.act_func.max = self._find_among_data(AI_name, "value_range", True)[1]
@@ -581,10 +581,15 @@ class AI:
 
     def print_how_many_parameters(self):
         parameters = []
-        for i in range(len(self.architecture) -1):
-            parameters.append(self.architecture[i] * self.architecture[i +1])
+        for layer in self.weights:
+                parameters.append(layer.shape[0] * layer.shape[1])
 
-        print(f"Parameters: {sum(parameters)} \t {self.architecture}")
+        print(f"Parameters: {sum(parameters)} \t\t {self.architecture} ", end="")
+
+        if self.have_bias_neuron:
+            print("+ bias", end="")
+
+        print()
 
 
 

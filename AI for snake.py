@@ -37,7 +37,7 @@ for _ in range(len_population):
 
     ai.batch_size = 1
     ai.alpha = 1e-4
-    ai.number_disabled_neurons = 0.1
+    ai.number_disabled_weights = 0.1
 
     AIs.append(ai)
 

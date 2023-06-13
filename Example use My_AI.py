@@ -16,7 +16,7 @@ ai.act_func.value_range(-100, 333)
 ai.end_act_func  = ai.act_func.ReLU_2
 
 
-ai.number_disabled_neurons = 0.0
+ai.number_disabled_weights = 0.0
 ai.alpha = 1e-7
 
 

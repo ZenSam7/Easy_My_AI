@@ -35,7 +35,7 @@ ai.create_weights( [number_of_inputs,
 ```python
 ai.alpha = 1e-2  # Alpha coefficient (learning rate coefficient)
 
-ai.number_disabled_neurons = 0.0  # What proportion of neurons we "turn off" during training
+ai.number_disabled_weights = 0.0  # What proportion of neurons we "turn off" during training
 # (This is necessary so that there is no overlearning (memorizing responses instead of finding correlations))
 
 ai.batch_size = 1  # Batch size in batch gradient descent
