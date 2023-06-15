@@ -176,9 +176,8 @@ class AI:
 
 
         # На сколько должны суммарно изменить веса
-        if type_error == 1:
-            delta_weight = ai_answer - answer
-        elif type_error == 2:
+        delta_weight = ai_answer - answer
+        if type_error == 2:
             delta_weight = ai_answer - answer
             delta_weight = np.power(delta_weight, 2) * \
                            (-1 * (delta_weight < 0) + 1 * (delta_weight >= 0)) # Тут сохраняем знак

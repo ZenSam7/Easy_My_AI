@@ -8,9 +8,9 @@ mnist = MNIST()
 
 ai = Code_My_AI.AI()
 
-ai.create_weights([784, 20, 10], add_bias_neuron=False)
+ai.create_weights([784, 20, 20, 10], add_bias_neuron=True)
 
-ai.what_act_func = ai.act_func.ReLU
+ai.what_act_func = ai.act_func.ReLU_2
 ai.end_act_func  = ai.act_func.Sigmoid
 
 ai.number_disabled_weights = 0.3
@@ -32,7 +32,7 @@ ai.alpha = 1e-3
 # ReLU_2  |  Sigmoid
 #   ✓?          ?
 # number_disabled_weights:  0.0  |  0.3   |   0.5
-#                            ?       ✓        ??
+#                            ✓?     ✓✓        ✓?
 # type_error:       1    |     2    |     3
 #                   ?         ???         ?
 # batch_size:     1      |     >1
