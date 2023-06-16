@@ -9,7 +9,7 @@ import numpy as np
 ai = Code_My_AI.AI()
 
 # Создаём архитектуру (сколько нейронов на каком слое)
-ai.create_weights([2, 10, 2], add_bias_neuron=True)
+ai.create_weights([2, 5, 5, 2], add_bias_neuron=True)
 
 ai.what_act_func = ai.act_func.ReLU_2
 ai.act_func.value_range(-1100, 333)
@@ -17,6 +17,7 @@ ai.end_act_func  = ai.act_func.ReLU_2
 
 
 ai.number_disabled_weights = 0.0
+ai.batch_size = 1
 ai.alpha = 1e-5
 
 
@@ -38,13 +39,14 @@ while 1:
 
 
     err = ai.learning(data, answer, get_error=True, type_error=1,
-                      type_regularization=1, regularization_value=1, regularization_coefficient=0)
+                      type_regularization=1, regularization_value=1, regularization_coefficient=0.1)
+
     if err != None:   # Если функция вернула ошибку
         errors.append(err)
 
 
     if learn_iteration % (2_000) == 0:
-        ai_ans = [i for i in ai.start_work(data).tolist()]
+        ai_ans = [int(i) for i in ai.start_work(data).tolist()]
         print(sum([np.sum(abs(i)) for i in ai.weights]))
 
         print("#", learn_iteration)
@@ -56,5 +58,5 @@ while 1:
         print()
 
         # Сохраняемся
-        ai.delete_data("Sum_ai")
-        ai.save_data("Sum_ai")
+        # ai.delete_data("Sum_ai")
+        # ai.save_data("Sum_ai")

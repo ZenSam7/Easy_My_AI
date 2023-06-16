@@ -7,6 +7,8 @@ class AI:
     def __init__(self):
         self.weights = []          # Появиться после вызова create_weights
         self.architecture = []     # Появиться после вызова create_weights
+        self.moments = 0       # Сохраняем значение предыдущего импульса
+        self.velocitys = 0     # Сохраняем значение предыдущей скорости
 
         self.act_func = self.ActivationFunctions()
         self.what_act_func = self.act_func.ReLU_2  # Какую функцию активации используем
@@ -37,6 +39,7 @@ class AI:
 
         self.have_bias_neuron = add_bias_neuron
         self.architecture = architecture
+        self.weights = []
 
         # Добавляем все веса между слоями нейронов
         for i in range(len(architecture) -1):
@@ -47,6 +50,9 @@ class AI:
                     min_weight, max_weight
                 )
             )
+
+        self.moments = [0 for _ in range(len(architecture))]
+        self.velocitys = [0 for _ in range(len(architecture))]
 
 
     def genetic_crossing_with(self, ai):
@@ -140,7 +146,8 @@ class AI:
 
     def learning(self, input_data: list, answer: list,
                  get_error=False, type_error=1,
-                 type_regularization=1, regularization_value=2, regularization_coefficient=0.1):
+                 type_regularization=1, regularization_value=2, regularization_coefficient=0.1,
+                 impulse_coefficient=0.9):
         """Метод обратного распространения ошибки для изменения весов в нейронной сети \n
         Ошибки могут быть: \n
         1: (regular:) |ai_answer - answer| / len(answer) \n
@@ -156,15 +163,17 @@ class AI:
         regularization_value: In what interval (±) do we keep weights \n
     ------------------ \n
 
-        regularization_coefficient: How hard the AI will try to keep the weights"""
+        regularization_coefficient: How hard the AI will try to keep the weights \n
+    ------------------ \n
+
+        impulse_coefficient: 0 < x < 1, This factor affects "remembering" the direction in which the gradient \
+            is moving (the direction the AI weights move towards the minimum error) (usually around 0.9)"""
 
 
         # Нормализуем веса (очень грубо)
         if np.any([ np.any( abs(i) >= 1e6 ) for i in self.weights ]):    # Если запредельные значения весов
-            # То уменьшаем все их
-            for i in range(len(self.weights)):  # На каждом слое
-                while np.any(abs(self.weights[i]) >= 1):    # До адекватного состояния
-                    self.weights[i] /= 10
+            # То пересоздаём веса
+            self.create_weights(self.architecture, self.have_bias_neuron)
 
             # И уменьшаем alpha
             self.alpha /= 10
@@ -182,11 +191,9 @@ class AI:
         # На сколько должны суммарно изменить веса
         delta_weight = ai_answer - answer
         if type_error == 2:
-            delta_weight = ai_answer - answer
             delta_weight = np.power(delta_weight, 2) * \
                            (-1 * (delta_weight < 0) + 1 * (delta_weight >= 0)) # Тут сохраняем знак
         elif type_error == 3:
-            delta_weight = ai_answer - answer
             delta_weight = np.power( np.log(ai_answer-answer +1), 2) * \
                            (-1 * (delta_weight < 0) + 1 * (delta_weight >= 0)) # Тут сохраняем знак
 
@@ -214,16 +221,25 @@ class AI:
                 for delta in self.packet_errors:
                     sum_delta += delta
 
-                delta_weight = sum_delta / answer.shape[0]
+                delta_weight = sum_delta / self.batch_size
 
-
-            for weight, layer_answer in zip(self.weights[::-1], answers[::-1]):
+            for weight, layer_answer, moment, velocity in \
+                    zip(self.weights[::-1], answers[::-1], self.moments[::-1], self.velocitys[::-1]):
                 # Превращаем вектор в матрицу
                 delta_weight = np.matrix(delta_weight)
                 layer_answer = np.matrix(layer_answer)
 
-                # Изменяем веса
-                weight -= ( self.alpha * delta_weight.T.dot(layer_answer) ).T
+
+                # Изменяем веса с оптимизацией Adam
+                gradient = ( delta_weight.T.dot(layer_answer) ).T
+                moment  =  impulse_coefficient * moment  +  (1 -impulse_coefficient) * gradient
+                velocity = impulse_coefficient * velocity + (1 -impulse_coefficient) * np.power(gradient, 2)
+
+                MOMENT = moment / (1 -impulse_coefficient)
+                VELOCITY = velocity / (1 -impulse_coefficient)
+
+                weight -= self.alpha * ( MOMENT / (np.sqrt(VELOCITY) + 1 ) )
+
 
                 # "Переносим" на другой слой и умножаем на производную
                 delta_weight = np.multiply(delta_weight.dot(weight.T),
@@ -272,7 +288,8 @@ class AI:
     def q_learning(self, state, reward_for_state,
                    num_update_function=1, learning_method=2.1,
                    type_error=1, recce_mode=False,
-                   type_regularization=1, regularization_value=2, regularization_coefficient=0.1):
+                   type_regularization=1, regularization_value=2, regularization_coefficient=0.1,
+                   impulse_coefficient=0.9):
         """ Глубокое Q-обучение (ИИ используется как предсказатель правильных действий)
 
 -------------------------- \n
@@ -308,8 +325,8 @@ class AI:
 
         2 : Делаем ответы которые больше вознаграждаются, более "правильным" \n
         Дробная часть числа означает, в какую степень будем возводить "стремление у лучшим результатам" (что это такое читай в P.s.) \
-        (чем степень больше, тем этот режим будет больше похож на режим 1. НАПРИМЕР: 2.2 означает, что мы используем метод обучения 2 и возводим в степень 2 \
-        "стремление у лучшим результатам", а 2.345 означает, что степень будет равна 3.45 ) \n
+        (чем степень больше, тем этот режим будет больше похож на режим 1. НАПРИМЕР: 2.2 означает, что мы \
+         используем метод обучения 2 и возводим в степень 2 "стремление у лучшим результатам", а 2.345 означает, что степень будет равна 3.45 ) \n
         P.s. Работает так: Сначала переводим значения вознаграждений в промежуток от 0 до 1 (т.е. где вместо максимума вознаграждения\
         - 1, в место минимума - 0, а остальные вознаграждения между ними (без потерь "расстояний" между числами)) \
         потом прибавляем 0.5 и возводим в степень "стремление у лучшим результатам" (уже искажаем "расстояние" между числами) \
@@ -350,7 +367,8 @@ class AI:
             # Изменяем веса (не забываем, что мы находимся в состоянии на 1 шаг назад)
             self.learning(self.last_state, answer, type_error=type_error,
                           type_regularization=type_regularization, regularization_value=regularization_value,
-                          regularization_coefficient=regularization_coefficient)
+                          regularization_coefficient=regularization_coefficient,
+                          impulse_coefficient=impulse_coefficient)
 
         else:
             # Иначе просто обновляем таблицу с изменёнными параметрами

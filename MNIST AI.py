@@ -8,19 +8,20 @@ mnist = MNIST()
 
 ai = Code_My_AI.AI()
 
-ai.create_weights([784, 10, 10], add_bias_neuron=True)
+ai.create_weights([784, 20, 20, 10], add_bias_neuron=True)
 
-ai.what_act_func = ai.act_func.ReLU_2
-ai.end_act_func  = ai.act_func.Tanh
+ai.what_act_func = ai.act_func.Sigmoid
+ai.end_act_func  = ai.act_func.Sigmoid
 
 ai.number_disabled_weights = 0.2
-ai.batch_size = 1
-ai.alpha = 1e-3
+ai.batch_size = 10
+ai.alpha = 1e-4
 
-# alpha:   1e-8   |   1e-6   |    1e-2
+
+# alpha:   1e-8   |   1e-6   |    1e-3
 #          ⨉⨉⨉       ⨉⨉       !✓!✓!✓!
-# regularization:     0   |   1   |   2
-#                     ✓      ⨉?       ?
+# regularization_coefficient:    0.0   |   0.1   |   0.3
+#                                 ✓        ⨉?       ⨉
 
 # Слоёв:   5-6  |   0-2
 #           ?        ✓
@@ -30,13 +31,13 @@ ai.alpha = 1e-3
 # add_bias_neuron: True   |   False
 #                   ?           ?
 # ReLU_2  |  Sigmoid
-#   ✓?          ?
+#   ✓           ✓
 # number_disabled_weights:  0.0  |  0.3   |   0.5
 #                            ✓?     ✓✓        ✓?
 # type_error:       1    |     2    |     3
-#                   ?         ???         ?
-# batch_size:     1      |     >1
-#                 ?            ?
+#                   ✓         ⨉⨉        ✓✓✓
+# batch_size:     1      |     10
+#                 ✓            ✓?
 
 
 name = "MNIST"
@@ -47,7 +48,7 @@ ai.print_how_many_parameters()
 
 print("Обучение...")
 
-for cycle in range(4):
+for cycle in range(1):
     print(f"Цикл #{cycle}")
 
     num, errors = 0, 0
@@ -59,7 +60,8 @@ for cycle in range(4):
         image = images.tolist()[0]
         label = labels.tolist()[0]
         ai.learning(image, label, type_error=1,
-                    type_regularization=1, regularization_value=10, regularization_coefficient=0.1)
+                    type_regularization=1, regularization_value=10, regularization_coefficient=0.0,
+                    impulse_coefficient=0.9)
 
         if np.argmax(ai.start_work(image)) != np.argmax(np.array(label)):
             errors += 1
@@ -67,13 +69,14 @@ for cycle in range(4):
         if num % int(max_train_images * show_progress) == 0:
             print(f">>> {int(num / max_train_images *100)}% \t\t",
                   f"Images: {num} \t\t",
-                  f"Error: {round((errors / (max_train_images * show_progress)) *100, 1)}%")
+                  f"Error: {round((errors / num) *100, 1)}% \t\t",
+                  f"Summ weights: {int( sum([np.sum(np.abs(i)) for i in ai.weights]) )}")
 
             errors = 0
 
             # # Сохраняемся
-            # ai.delete_data(name)
-            # ai.save_data(name)
+            ai.delete_data(name)
+            ai.save_data(name)
 
         if num == max_train_images:
             break
