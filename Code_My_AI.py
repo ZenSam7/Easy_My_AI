@@ -12,7 +12,7 @@ class AI:
         self.what_act_func = self.act_func.ReLU_2  # Какую функцию активации используем
         self.end_act_func  = self.act_func.Tanh    # Какую функцию активации используем для выходных значений
 
-        self.alpha = 1e-1     # Альфа каэффицент (каэффицент скорости обучения) (настраивается самостоятельно)
+        self.alpha = 1e-1     # Альфа коэффициент (коэффициент скорости обучения) (настраивается самостоятельно)
         self.have_bias_neuron = False      # Определяет наличие нейрона смещения (True или False)
         self.number_disabled_weights = 0.0      # Какую долю нейронов "отключаем" при обучении
 
@@ -30,8 +30,6 @@ class AI:
         self.states = []
         self.last_state = []
 
-        self.recce_mode = False
-
 
     def create_weights(self, architecture: list, add_bias_neuron=False, min_weight=-1, max_weight=1):
         """Создаёт матрицу со всеми весами между всеми элементами
@@ -45,15 +43,15 @@ class AI:
             self.weights.append(
                 self.act_func.normalize(
                     np.random.random(size = (architecture[i] + add_bias_neuron,
-                                                              architecture[i + 1])),
+                                            architecture[i + 1])),
                     min_weight, max_weight
                 )
             )
 
 
     def genetic_crossing_with(self, ai):
-        """Перемешевает веса между ЭТОЙ нейронкой и нейронкой В АРГУМЕНТЕ \n
-            P.s. Не обязательно, чтобы количество связей (размеры матриц весов) были обинаковы"""
+        """Перемешивает веса между ЭТОЙ нейронкой и нейронкой В АРГУМЕНТЕ \n
+            P.s. Не обязательно, чтобы количество связей (размеры матриц весов) были одинаковы"""
 
         for layer1, layer2 in zip(self.weights, ai.weights):
             for _ in range(layer1.shape[0] * layer1.shape[1]): # Для каждого элемента...
@@ -63,7 +61,7 @@ class AI:
                         layer2[np.random.randint(layer2.shape[0]), np.random.randint(layer2.shape[1])]
 
 
-    def get_mutations(self, mutation=0.01):
+    def get_mutations(self, mutation=0.05):
         """Создаёт рандомные веса в нейронке"""
 
         for layer in self.weights:                            # Для каждого слоя
@@ -86,15 +84,15 @@ class AI:
         # Проходимся по каждому (кроме последнего) слою весов
         for layer_weight in self.weights[:-1]:
             # Если есть нейрон смещения, то в правую часть матриц
-            # result_layer_neurons добавляем еденицы
-            # Чтобы можно было умножить еденицы на веса нейрона смещения
+            # result_layer_neurons добавляем единицы
+            # Чтобы можно было умножить единицы на веса нейрона смещения
             if self.have_bias_neuron:
                 result_layer_neurons = np.array(result_layer_neurons.tolist() + [1])
 
             if return_answers:
                 list_answers.append(result_layer_neurons)
 
-            # Процежеваем через функцию активации  ...
+            # Процеживаем через функцию активации  ...
             # ... Результат перемножения результата прошлого слоя на слой весов
             # И умножаем рандомные веса на 0 (+ компенсируем нули увеличением остальных весов)
             result_layer_neurons = self.what_act_func(
@@ -120,7 +118,7 @@ class AI:
                         result_layer_neurons.dot(self.weights[-1]))
 
 
-        # Если надо, возвращаем спосок с ответами от каждого слоя
+        # Если надо, возвращаем список с ответами от каждого слоя
         if return_answers:
             return result_layer_neurons, list_answers
         else:
@@ -140,7 +138,9 @@ class AI:
         return self.actions[ np.argmax(ai_result) ]
 
 
-    def learning(self, input_data: list, answer: list, get_error=False, type_error=1, regularization=1, regularization_value=100):
+    def learning(self, input_data: list, answer: list,
+                 get_error=False, type_error=1,
+                 type_regularization=1, regularization_value=2, regularization_coefficient=0.1):
         """Метод обратного распространения ошибки для изменения весов в нейронной сети \n
         Ошибки могут быть: \n
         1: (regular:) |ai_answer - answer| / len(answer) \n
@@ -149,11 +149,15 @@ class AI:
     ------------------ \n
 
         regularization: \n
-        1: delta += SameSign * sqrt( sum( (weights/regular_val) ^2) ) \n
-        2: delta += SameSign * sum( abs( weights * (abs(weights) >= regular_val) ) -regular_val ) \n
+        1: delta += SameSign * reg_coeff * sqrt( sum( (weights/regular_val) ^2) ) \n
+        2: delta += SameSign * reg_coeff * sum( abs( weights * (abs(weights) >= regular_val) ) -regular_val ) \n
     ------------------ \n
 
-        regularization_value: In what interval (±) do we keep weights"""
+        regularization_value: In what interval (±) do we keep weights \n
+    ------------------ \n
+
+        regularization_coefficient: How hard the AI will try to keep the weights"""
+
 
         # Нормализуем веса (очень грубо)
         if np.any([ np.any( abs(i) >= 1e6 ) for i in self.weights ]):    # Если запредельные значения весов
@@ -188,24 +192,29 @@ class AI:
 
 
         # Регуляризация (держим веса близкими к 0, чтобы не улетали в космос)
-        if regularization == 1:
+        if type_regularization == 1:
             delta_weight += (-1 * (delta_weight < 0) + 1 * (delta_weight >= 0)) * \
+                        regularization_coefficient *\
                         np.sqrt( np.sum([ np.sum(np.power(i/regularization_value, 2)) for i in self.weights ]) )
-        elif regularization == 2:
-            delta_weight += (-1 * (delta_weight < 0) + 1 * (delta_weight >= 0)) *\
-                        np.sum([ np.sum(np.abs( i * (np.abs(i) >= regularization_value) ) -regularization) for i in self.weights ])
+        elif type_regularization == 2:
+            delta_weight += (-1 * (delta_weight < 0) + 1 * (delta_weight >= 0)) * \
+                        regularization_coefficient * \
+                        np.sum([np.sum(np.abs( i * (np.abs(i) >= regularization_value) ) - regularization_value) for i in self.weights])
 
         delta_weight = np.matrix(delta_weight)  # Превращаем вектор в матрицу
 
 
 
-        self.packet_errors.append(np.sum(delta_weight))
+        self.packet_errors.append(delta_weight)
 
         if len(self.packet_errors) == self.batch_size:
             if self.batch_size != 1:
-                # Замением пакет ошибок на их среднее
-                delta_weight = np.mean(self.packet_errors)
-                delta_weight = np.repeat(delta_weight, len(answer))
+                # Заменим пакет ошибок на средний вектор ошибки
+                sum_delta = 0   # (пустой вектор)
+                for delta in self.packet_errors:
+                    sum_delta += delta
+
+                delta_weight = sum_delta / answer.shape[0]
 
 
             for weight, layer_answer in zip(self.weights[::-1], answers[::-1]):
@@ -227,12 +236,12 @@ class AI:
 
             if get_error:
                 if self.batch_size == 1:    # Без усреднения
-                    err = np.sum(np.abs(self.packet_errors)) / answer.shape[0]
+                    err = np.sum( np.abs(self.packet_errors) ) / answer.shape[0]
                     self.packet_errors.clear()
                     return err
 
                 else:       # С усреднением
-                    err = np.mean(np.abs(self.packet_errors)) / answer.shape[0]
+                    err = np.mean([np.abs(i) for i in self.packet_errors]) / answer.shape[0]
                     self.packet_errors.clear()
                     return err
 
@@ -243,13 +252,13 @@ class AI:
     def make_all_for_q_learning(self, actions: list, gamma=0.5, epsilon=0.0, q_alpha=0.1):
         """Создаём всё необходимое для Q-обучения \n
         Q-таблицу (таблица вознаграждений за действие) \n
-        Каэфицент важности будущего вознаграждения gamma \n
-        Каэфицент почти случайных действий epsilon \n
-        Каэфицент скорости изменения Q-таблицы q_alpha """
+        Коэффициент важности будущего вознаграждения gamma \n
+        Коэффициент почти случайных действий epsilon \n
+        Коэффициент скорости изменения Q-таблицы q_alpha """
 
         self.actions = actions
-        self.gamma = gamma      # Каэфицент на сколько важно будущее вознаграждение
-        self.epsilon = epsilon  # Каэфицент "разведки окружающей среды"
+        self.gamma = gamma      # Коэффициент на сколько важно будущее вознаграждение
+        self.epsilon = epsilon  # Коэффициент "разведки окружающей среды"
         self.q_alpha = q_alpha
 
         self.q = [[0 for _ in range(len(actions))]]    # Таблица состояний (заполняем нулевым состоянием)
@@ -260,8 +269,10 @@ class AI:
         self.last_reward = 0
 
 
-    def q_learning(self, state, reward_for_state, num_update_function=1, learning_method=2.1,
-                   type_error=1, recce_mode=False, regularization=1, regularization_value=100):
+    def q_learning(self, state, reward_for_state,
+                   num_update_function=1, learning_method=2.1,
+                   type_error=1, recce_mode=False,
+                   type_regularization=1, regularization_value=2, regularization_coefficient=0.1):
         """ Глубокое Q-обучение (ИИ используется как предсказатель правильных действий)
 
 -------------------------- \n
@@ -291,7 +302,7 @@ class AI:
         (которое приводит к лучшему ответу) ставиться максимальное значение функции активации \
         (self.act_func.max), а на остальные места минимум функции активации (self.act_func.min) \n
         P.s. Это неочень хорошо, т.к. игнорируются другие варианты, которые приносят либо столько же, либо немного меньше  \
-        вознаграждения (а вибирается только один "правильный"). НО ОН ХОРОШО ПОДХОДИТ, КОГДА У ВАС В ЗАДАЧЕ ИМЕЕТСЯ ИСКЛЮЧИТЕЛЬНО 1 \
+        вознаграждения (а выбирается только один "правильный"). НО ОН ХОРОШО ПОДХОДИТ, КОГДА У ВАС В ЗАДАЧЕ ИМЕЕТСЯ ИСКЛЮЧИТЕЛЬНО 1 \
         ПРАВИЛЬНЫЙ ОТВЕТ, А "БОЛЕЕ" И "МЕНЕЕ" ПРАВИЛЬНЫХ БЫТЬ НЕ МОЖЕТ \n
         \n
 
@@ -307,12 +318,12 @@ class AI:
         """
 
         STATE = self.states.index(self.last_state)
-        self.recce_mode = recce_mode
 
 
         # Q-обучение
 
         # Формируем "правильный" ответ
+        answer = [0 for _ in range(len(self.actions))]
         if learning_method == 1:
             answer = [self.act_func.min for _ in range(len(self.actions))]
 
@@ -338,7 +349,8 @@ class AI:
 
             # Изменяем веса (не забываем, что мы находимся в состоянии на 1 шаг назад)
             self.learning(self.last_state, answer, type_error=type_error,
-                          regularization=regularization, regularization_value=regularization_value)
+                          type_regularization=type_regularization, regularization_value=regularization_value,
+                          regularization_coefficient=regularization_coefficient)
 
         else:
             # Иначе просто обновляем таблицу с изменёнными параметрами
@@ -362,7 +374,7 @@ class AI:
         \n 5: Q(s,a) = R + γ Q’(s’, max a) \n
         """
 
-        # Если не находим состояние в прошлых состояниях (Q-таблице), то добовляем новое
+        # Если не находим состояние в прошлых состояниях (Q-таблице), то добавляем новое
         if not state in self.states:
             self.states.append(state)
             self.q.append([0 for _ in range(len(self.actions))])
@@ -452,14 +464,14 @@ class AI:
         from_bottom_to_top = -1 if from_bottom_to_top else 1
 
         # Если мы читаем снизу вверх, то когда найдём имя, останется лишь найти нужную переменную в ЭТОМ списке
-        reverlsed_file_list = []
+        reversed_file_list = []
 
         with open("Data of AIs.txt") as file:
             find_name = False
 
             for line in file.readlines()[::from_bottom_to_top]:
                 if from_bottom_to_top == -1:
-                    reverlsed_file_list.append(line)
+                    reversed_file_list.append(line)
 
                 # Если нашли название, то записываем данные
                 if not find_name and start_with_ai_name == line[5:-1]:
@@ -467,7 +479,7 @@ class AI:
 
                 if find_name:
                     if from_bottom_to_top == -1:
-                        for LINE in reverlsed_file_list[::from_bottom_to_top]:
+                        for LINE in reversed_file_list[::from_bottom_to_top]:
                             if what_find == LINE[:len(what_find)]:
                                 value = LINE[len(what_find) + 1:-1]
                                 if value[0] == "[":      # Либо список
@@ -605,8 +617,6 @@ class AI:
             if np.max(x) != 0:
                 result = result / np.max(result)
 
-
-
             # Потом от min до max
             result = result * (max - min) + min
 
@@ -633,52 +643,33 @@ class AI:
 
             if return_derivative:
                 return (x < min) * 0.01 + \
-                       np.multiply(min <= x, x <= max) + \
+                       np.multiply(min <= x, x <= max) *1 + \
                        (x > max) * 0.01
 
             else:
                 return (x < min) * 0.01 * x + \
                        np.multiply(min <= x, x <= max) * x + \
-                       (x > max) * 0.01 * x
-
-        def Curved(self, x, return_derivative=False):
-            """Не действует ограничение value_range"""
-
-            if return_derivative:
-                return x / (np.sqrt(2 * np.power(x,2) + 1)) + 1
-
-            else:
-                return ( np.sqrt(2* np.power(x,2) +1) -1 )/2 +x
-
-        def SoftPlus(self, x, return_derivative=False):
-            """Не действует ограничение value_range"""
-            min = self.min
-
-            if return_derivative:
-                return np.exp(x) / (np.exp(x) + 1)
-
-            else:
-                return np.log(1 + np.exp(x)) + min
+                       ((x > max) * 0.01 * x +0.99)
 
         def Softmax(self, x, return_derivative=False):
-            """Не действует ограничение value_range"""
-
-            if return_derivative:
-                return np.exp(x) / np.sum(np.exp(x))
-
-            else:
-                return np.exp(x) / np.sum(np.exp(x))
+            return np.exp(x) / np.sum(np.exp(x))
 
         def Tanh(self, x, return_derivative=False):
             min = self.min
             max = self.max
 
             if return_derivative:
-                return 0.5* (max-min) / np.power(np.cosh(*x), 2)
+                return 0.5* (max-min) / (np.power(np.cosh(x), 2))
 
             else:
-                return 0.5* ( (max-min) *np.tanh(x) +min+max)
+                return 0.5* ( (max-min) *np.tanh(x) +min+max )
 
         def Sigmoid(self, x, return_derivative=False):
-            # ))))
-            return self.Tanh(x, return_derivative)
+            min = self.min
+            max = self.max
+
+            if return_derivative:
+                return ( (max- min) * np.exp(-1*x) ) / (np.power(1 + np.exp(-1*x), 2))
+
+            else:
+                return (max - min) / (1 + np.exp(-1*x)) + min

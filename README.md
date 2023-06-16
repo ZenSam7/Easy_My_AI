@@ -51,12 +51,13 @@ ai.end_act_func = ai.act_func.Tanh  # (May be None)
 
 ####  
 ### • Train AI based on input and correct answer
-```python
-data  =  [0, 1, 2]   # Required as a list of numbers (required length: number of inputs)
-# (Input must be at least sometimes completely different from zero! (otherwise it will not learn))
-answer = [2, 1, 0]   # Required as a list of numbers (required length: number of outputs)
 
-ai.learning(data, answer, type_error=1, regularization=1, regularization_value=100)
+```python
+data = [0, 1, 2]  # Required as a list of numbers (required length: number of inputs)
+# (Input must be at least sometimes completely different from zero! (otherwise it will not learn))
+answer = [2, 1, 0]  # Required as a list of numbers (required length: number of outputs)
+
+ai.learning(data, answer, type_error=1, type_regularization=1, regularization_value=100)
 """
 Errors can be:
 1: (regular:) |ai_answer - answer| / len(answer) 
@@ -91,8 +92,7 @@ ai.make_all_for_q_learning(all_possible_actions, gamma, epsilon, q_alpha)
 # Also make sure the number of input neurons is equal to the size of the state list
 ai_state = [0, 1]  # For example, coordinates (Input must be at least sometimes completely different from zero! (otherwise it will not learn))
 
-ai.q_learning(ai_state, reward_for_state, num_update_function=1, learning_method=2.1,
-                   type_error=1, recce_mode=False, regularization=1, regularization_value=100)
+ai.q_learning(ai_state, reward_for_state, num_update_function=1, learning_method=2.1, type_error=1, recce_mode=False, type_regularization=1, regularization_value=100)
 """
 recce_mode - if set to True, enable "reconnaissance mode", i.e. in this mode, the AI does not learn, but only the Q-table is replenished (and random actions are performed)
 P.s. I recommend turning it on before training
@@ -138,8 +138,9 @@ ai.q_start_work(data)        # Gives the selected AI action (in our example it i
 ```
 > And if you want, you can write down the value of the error during training
 > (This cannot be done using q_learning)
+
 ```python
-errors.append( ai.learning(data, answer) )
+errors.append(ai.learning(data, answer))
 ```
 
 
