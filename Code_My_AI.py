@@ -55,6 +55,7 @@ class AI:
         self.velocitys = [0 for _ in range(len(architecture))]
 
 
+
     def genetic_crossing_with(self, ai):
         """Перемешивает веса между ЭТОЙ нейронкой и нейронкой В АРГУМЕНТЕ \n
             P.s. Не обязательно, чтобы количество связей (размеры матриц весов) были одинаковы"""
