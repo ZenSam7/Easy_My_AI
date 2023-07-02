@@ -183,7 +183,7 @@ class Snake:
 
     def get_blocks(self, visibility_range=3):
         """Возвращаем visibility_range ^2 значений, описывающие состояние клетки вокруг головы змеи
-            (если еда то 10, если стена то -10, иначе 0)"""
+            (если еда то 1, если стена то -1, иначе 0)"""
         data = []
 
         foods = [ [i[0],i[1]] for i in self.food_coords]
@@ -204,9 +204,9 @@ class Snake:
         for y in range(head[1] -remainder, head[1] +remainder +1):
             for x in range(head[0] - remainder, head[0] + remainder + 1):
                 if [x, y] in blocks:
-                    data.append(-10)
+                    data.append(-1)
                 elif [x, y] in foods:
-                    data.append(10)
+                    data.append(1)
                 else:
                     data.append(0)
 
