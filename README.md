@@ -167,10 +167,11 @@ ai.act_func.normalize(data, min_value, max_value)
 ####  
 ### • You can save, delete and load your own (or ready for examples) settings AI
 > Including weights and Q-table of course
+
 ```python
-ai.save_data("Name_AI")
-ai.delete_data("Name_AI")
-ai.load_data("Name_AI")
+ai.save("Name_AI")
+ai.delete("Name_AI")
+ai.load("Name_AI")
 ```
 
 

@@ -26,6 +26,7 @@ class AI:
         self.gamma = 0
         self.epsilon = 0
         self.q_alpha = 0
+        self.recce_mode = False
 
         self.q = []
         self.actions = []
@@ -53,8 +54,6 @@ class AI:
 
         self.moments = [0 for _ in range(len(architecture))]
         self.velocitys = [0 for _ in range(len(architecture))]
-
-
 
 
     def genetic_crossing_with(self, ai):
@@ -279,7 +278,10 @@ class AI:
         self.epsilon = epsilon  # Коэффициент "разведки окружающей среды"
         self.q_alpha = q_alpha
 
-        self.q = [[0 for _ in range(len(actions))]]    # Таблица состояний (заполняем нулевым состоянием)
+        # Таблица состояний (заполняем нулевым состоянием)
+        # Размеры: States ⨉ Actions
+        # # States — количество уникальных состояний (С каждым новым состояние пополняется)
+        self.q = [[0 for _ in range(len(actions))]]
 
         # Заполняем "первое" (несуществующее (т.к. мы в прошлом на 1 шаг)) состояние количеством входов
         self.states = [[-0.0 for _ in range(self.weights[0].shape[0] - self.have_bias_neuron)]]
@@ -337,6 +339,7 @@ class AI:
         """
 
         STATE = self.states.index(self.last_state)
+        self.recce_mode = recce_mode
 
 
         # Q-обучение
@@ -437,7 +440,7 @@ class AI:
             self.q[STATE][ACT] = REWARD + self.gamma * max(self.q[FUTURE_STATE])
 
 
-    def save_data(self, name_this_ai: str):
+    def save(self, name_this_ai: str):
         """Сохраняет всю необходимую информацию о текущей ИИ"""
 
         with open("Data of AIs.txt", "a+") as file:
@@ -522,7 +525,7 @@ class AI:
                                 return str(value)
 
 
-    def load_data(self, AI_name: str):
+    def load(self, AI_name: str):
         """Загружает все данные сохранённой ИИ"""
         """Она загружает последнее сохранение (последнее имя), если несколько одинаковых имён"""
 
@@ -584,7 +587,7 @@ class AI:
             self.end_act_func = self.act_func.Sigmoid
 
 
-    def delete_data(self, AI_name: str):
+    def delete(self, AI_name: str):
         """Удаляет последнее сохранение данный (если такое имя повторяется)"""
 
         # Копируем

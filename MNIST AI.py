@@ -75,8 +75,8 @@ for cycle in range(1):
             errors = 0
 
             # # Сохраняемся
-            ai.delete_data(name)
-            ai.save_data(name)
+            ai.delete(name)
+            ai.save(name)
 
         if num == max_train_images:
             break

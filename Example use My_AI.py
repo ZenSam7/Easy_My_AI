@@ -22,7 +22,7 @@ ai.alpha = 1e-5
 
 
 # Загружаем ии
-# ai.load_data("Sum_ai")
+# ai.load("Sum_ai")
 
 
 errors = []
@@ -58,5 +58,5 @@ while 1:
         print()
 
         # Сохраняемся
-        # ai.delete_data("Sum_ai")
-        # ai.save_data("Sum_ai")
+        # ai.delete("Sum_ai")
+        # ai.save("Sum_ai")
