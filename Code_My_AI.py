@@ -34,7 +34,7 @@ class AI:
         self.last_state = []
 
 
-    def create_weights(self, architecture: list, add_bias_neuron=False, min_weight=-1, max_weight=1):
+    def create_weights(self, architecture: list, add_bias_neuron=True, min_weight=-1, max_weight=1):
         """Создаёт матрицу со всеми весами между всеми элементами
         (Подавать надо список с количеством нейронов на каждом слое (архитектуру нейронки))"""
 
