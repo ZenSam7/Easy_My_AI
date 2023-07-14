@@ -1,6 +1,5 @@
 import Code_My_AI
-from AI_for_Snake import Code_Snake
-
+from Games import Code_Snake
 
 len_population = 10     # >2
 how_many_AI_cross = 2   # <len_population  &  ЧЁТНОЕ!!

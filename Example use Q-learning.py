@@ -1,6 +1,5 @@
 import Code_My_AI
-from Example_Q_learning import Game_for_Q_learning
-
+from Games import Game_for_Q_learning
 
 game = Game_for_Q_learning.Game(7, 4)
 
