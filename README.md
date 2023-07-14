@@ -1,8 +1,7 @@
 # DOCUMENTATION
-My_library is for learning how AI works (see source code: "Code_My_AI.py") and for creating your own AI in the easiest possible way (see: "Example use My_AI.py", "AI for snake.py" and "Example use Q-learning")
+My_AI is for learning how AI works (see source code: "Code_My_AI.py") and for creating your own AI in the easiest possible way (see: "Example use My_AI.py", "AI for snake.py" and "Example use Q-learning")
 
 
-####  
 # How to use my library: 👉
 ### • Import the main file "Code_My_AI.py" and Create an instance of the class AI
 ```python
@@ -11,8 +10,6 @@ import Code_My_AI
 ai = Code_My_AI.AI()
 ```
 
-
-####  
 ### • Create the AI architecture
 ```python
 ai.create_weights( [number_of_inputs,
@@ -33,19 +30,17 @@ ai.create_weights( [number_of_inputs,
 > You can change nothing, or change only a some of parameters
 
 ```python
-ai.alpha = 1e-2  # Alpha coefficient (learning rate coefficient)
+ai.alpha = 1e-2  # Alpha coefficient (learning rate)
 
-ai.number_disabled_weights = 0.0  # What proportion of neurons we "turn off" during training
+ai.number_disabled_weights = 0.0  # What proportion of weights we "turn off" during training
 # (This is necessary so that there is no overlearning (memorizing responses instead of finding correlations))
 
 ai.batch_size = 1  # Batch size in batch gradient descent
-# How many errors we will average in order to change the weights based on this average error
-# The larger the packet_size, the lower the "quality of training", but the speed of training iterations is greater
 
-ai.act_func.value_range(0, 1)  # What is the range of values in the output
+ai.act_func.value_range(0, 1)  # What is the range of activation functions
 
-# Which activation function we use for the output values
-ai.end_act_func = ai.act_func.Tanh  # (May be None)
+# Which activation function we use for the output values (May be None)
+ai.end_act_func = ai.act_func.Tanh
 ```
 
 
@@ -53,24 +48,27 @@ ai.end_act_func = ai.act_func.Tanh  # (May be None)
 ### • Train AI based on input and correct answer
 
 ```python
-data = [0, 1, 2]  # Required as a list of numbers (required length: number of inputs)
-# (Input must be at least sometimes completely different from zero! (otherwise it will not learn))
-answer = [2, 1, 0]  # Required as a list of numbers (required length: number of outputs)
+data = [0, 1, 2]   # Required as a list of numbers (required length: number of inputs)
+answer = [2, 1, 0] # Required as a list of numbers (required length: number of outputs)
 
-ai.learning(data, answer, type_error=1, type_regularization=1, regularization_value=100)
+ai.learning(
+    data, answer, get_error = False, type_error="regular",
+    type_regularization=1, regularization_value=10,
+    regularization_coefficient=0.1, impulse_coefficient=0.9
+            )
 """
-Errors can be:
-1: (regular:) |ai_answer - answer| / len(answer) 
-2: (quadratic:) (ai_answer - answer)^2 / len(answer)
-3: (logarithmic:) ln^2( (ai_answer - answer) +1 ) / len(answer)
+Errors can be: regular, quadratic, logarithmic
 
-Regularization can be:
-1: delta += SameSign * sqrt( sum((weights/10) ^2) )
-2: delta += SameSign * sum( abs( weight * (abs(weight) >= 10) -10 ) )
+Regularization can be: quadratic (the more weight, the more punish),
+                       penalty   (if weights exceed regularization_value, then we punish)
 
-regularization_value: in what interval (±) do we keep weights
+get_error: returns a list of errors
+
+impulse_coefficient: Momentum factor in Adam optimizer (usually around 0.7 ~ 0.99)
 """
 ```
+> And if you want to see for yourself what answer the AI gave out, then just pass the input data to this method:  ai.start_work(data)
+
 
 ####  
 ### • If there is no correct answer to your task, then use Q-learning, reward AI for good (reward_for_state > 0) and punish for bad (reward_for_state < 0)
@@ -81,97 +79,74 @@ regularization_value: in what interval (±) do we keep weights
 # Check that the number of output neurons is equal to the number of actions
 all_possible_actions = ["left", "right", "up", "down"]
 
-gamma = 0.4  # Coefficient of "confidence in experience"
+gamma = 0.4     # Coefficient of "confidence in experience"
 epsilon = 0.15  # 15% chance that the Agent (AI) will give a more random answer (Needed to "study" the environment)
-q_alpha = 0.2  # Q-table update rate
+q_alpha = 0.01  # Q-table update rate
 
 ai.make_all_for_q_learning(all_possible_actions, gamma, epsilon, q_alpha)
 
 # After ->
 
 # Also make sure the number of input neurons is equal to the size of the state list
-ai_state = [0, 1]  # For example, coordinates (Input must be at least sometimes completely different from zero! (otherwise it will not learn))
+ai_state = [0, 1]  # For example, coordinates
 
-ai.q_learning(ai_state, reward_for_state, num_update_function=1, learning_method=2.1, type_error=1, recce_mode=False, type_regularization=1, regularization_value=100)
+ai.q_learning(ai_state, reward_for_state,
+              num_update_function=1, learning_method=2.2,
+              type_error="regular", recce_mode=False,
+              type_regularization="quadratic", regularization_value=2, regularization_coefficient=0.1,
+              impulse_coefficient=0.9)
 """
-recce_mode - if set to True, enable "reconnaissance mode", i.e. in this mode, the AI does not learn, but only the Q-table is replenished (and random actions are performed)
+recce_mode - if set to True, enable "reconnaissance mode",
+i.e. in this mode, the AI does not learn, but only the Q-table is replenished
+(and random actions are performed)
 P.s. I recommend turning it on before training
 
-Errors can be:
-1: (regular:) |ai_answer - answer| / len(answer)
-(Standard)
-2: (quadratic:) (ai_answer - answer)^2 / len(answer)
-(For big mistakes we punish a lot, and score on small mistakes)
-3: (logarithmic:) ln^2( (ai_answer - answer) +1 ) / len(answer)
-(We punish for medium and large errors of the same, quite a bit by reducing small errors)
+Errors can be: regular, quadratic, logarithmic
 
-Regularization (Regularize the weights so that they are not too large):
-1: delta += SameSign * sqrt( sum( (weights/regular_val) ^2) )
-2: delta += SameSign * sum( abs( weights * (abs(weights) >= regular_val) ) -regular_val )
+Regularization can be: quadratic (the more weight, the more punish),
+                       penalty   (if weights exceed regularization_value, then we punish)
 
-regularization_value: In what interval (±) do we keep weights
+impulse_coefficient: Momentum factor in Adam optimizer (usually around 0.7 ~ 0.99)
 
 
 You can choose the most suitable q-table update function for you
-(Instead of 1, supply any other number that is in the description for this function)
 P.s. The difference between the functions is negligible
 
-Learning methods (the value of learning_method determines) :
-1 : As the "correct" answer, the one that is most rewarded is selected, and the place of action (which leads to the best answer) is set to the maximum value of the activation function, and to the other places the minimum of the activation function
-P.s. This is not very good, because. other options that bring either the same or a little less reward are ignored (and only one "correct" one is selected). BUT IT IS WELL SUITABLE WHEN YOU HAVE EXCLUSIVELY ONE CORRECT ANSWER IN THE PROBLEM AND THERE CANNOT BE "MORE" AND "LESS" CORRECT
+learning_method :
+1 : As the "correct" answer, the one that is most rewarded is selected
+P.s. This is not very good, because other options that bring either the
+     same or a little less reward are ignored (and only one "correct" one is selected).
+     BUT IT IS WELL SUITABLE WHEN YOU HAVE EXCLUSIVELY ONE CORRECT ANSWER
+     IN THE PROBLEM AND THERE CANNOT BE "MORE" AND "LESS" CORRECT
 
-2 : Making answers that are more rewarding more "correct" that we are using learning method 2 and raising to the power of 2 "striving for better results", and 2.345 means that the power will be 3.45 )
+2: Making more useful answers more “correct”
+(in the fractional part after 2, indicate the degree by which we notice the discrepancy
+between the “more” and “less” correct answers 
+(for example: 2.345 means a degree of difference of 3.45))
 
-
-BTW, if your AI learns very poorly (or does not learn at all), then look at the Q-table, if there are mostly (> 50%) negative numbers, then in this case reward more and punish less (so that there are more positive numbers )
+BTW, if your AI learns very badly (or does not learn at all), then look at the Q-table, if there are mostly (> 50%) negative numbers, then in this case you need to reward more and punish less (so that there are more positive numbers)
 """
 ```
-
-
-> And if you want to see for yourself what answer the AI gave out, then just pass the input data to this method:
-```python
-# If you are using backpropagation learning, then:
-ai.start_work(data)
-
-# And if you use q_learning, then:
-ai.q_start_work(data)        # Gives the selected AI action (in our example it is "left", "right", "up" or "down")
-```
-> And if you want, you can write down the value of the error during training
-> (This cannot be done using q_learning)
-
-```python
-errors.append(ai.learning(data, answer))
-```
+> And if you want to see for yourself what answer the AI gave out, then just pass the input data to this method:  ai.q_start_work(data) 
 
 
 ####  
-### • Or then you can choose (yourself, according to your parameters) the AI that coped with it better than others, and cross it with another (also good) AI
+#### • Or then you can create several AIs, and then cross the best of them, using the method:
 ```python
 better_ai_0.genetic_crossing_with(better_ai_1)
 ```
 
 
-### • Or you can change (mutate) the AI so that it doesn't stand still or hope that some of mutations turn out to be good
-> If you want to eliminate overlearning in this way (memorizing responses instead of finding correlations), then you better use number_disabled_neurons
+#### • Or you can change (mutate) the AI so that it doesn't stand still or hope that some of mutations turn out to be good
 ```python
 ai.get_mutations(0.05)  # Replacing 5% of all weights with random numbers
 ```
 
 ####  
-### • If your input data is analog (i.e. it can take any value and/or vary by a large range), then normalize it with a suitable range of values for your data.
+### • If your input data can take any value and/or vary over a large range, then normalize it with :
 ```python
+# (Better to normalize from 0 to 1 OR -1 to 1)
 ai.act_func.normalize(data, min_value, max_value)
-```
-
-
-####  
-### • You can save, delete and load your own (or ready for examples) settings AI
-> Including weights and Q-table of course
-
-```python
-ai.save("Name_AI")
-ai.delete("Name_AI")
-ai.load("Name_AI")
 ```
 
 

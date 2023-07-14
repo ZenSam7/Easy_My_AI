@@ -146,19 +146,19 @@ class AI:
 
 
     def learning(self, input_data: list, answer: list,
-                 get_error=False, type_error=1,
-                 type_regularization=1, regularization_value=2, regularization_coefficient=0.1,
+                 get_error=False, type_error="regular",
+                 type_regularization="quadratic", regularization_value=10, regularization_coefficient=0.1,
                  impulse_coefficient=0.9):
         """Метод обратного распространения ошибки для изменения весов в нейронной сети \n
-        Ошибки могут быть: \n
-        1: (regular:) |ai_answer - answer| / len(answer) \n
-        2: (quadratic:) (ai_answer - answer)^2 / len(answer) \n
-        3: (logarithmic:) ln^2( (ai_answer - answer) +1 ) / len(answer) \n
+        Errors can be: \n
+        regular: |ai_answer - answer| / len(answer) \n
+        quadratic: (ai_answer - answer)^2 / len(answer) \n
+        logarithmic: ln^2( (ai_answer - answer) +1 ) / len(answer) \n
     ------------------ \n
 
-        regularization: \n
-        1: delta += SameSign * reg_coeff * sqrt( sum( (weights/regular_val) ^2) ) \n
-        2: delta += SameSign * reg_coeff * sum( abs( weights * (abs(weights) >= regular_val) ) -regular_val ) \n
+        Regularization can be: \n
+        quadratic: delta += SameSign * reg_coeff * sqrt( sum( (weights/regular_val) ^2) ) \n
+        penalty: delta += SameSign * reg_coeff * sum( abs( weights * (abs(weights) >= regular_val) ) -regular_val ) \n
     ------------------ \n
 
         regularization_value: In what interval (±) do we keep weights \n
@@ -191,23 +191,24 @@ class AI:
 
         # На сколько должны суммарно изменить веса
         delta_weight = ai_answer - answer
-        if type_error == 2:
+        if type_error == "quadratic":
             delta_weight = np.power(delta_weight, 2) * \
                            (-1 * (delta_weight < 0) + 1 * (delta_weight >= 0)) # Тут сохраняем знак
-        elif type_error == 3:
+        elif type_error == "logarithmic":
             delta_weight = np.power( np.log(ai_answer-answer +1), 2) * \
                            (-1 * (delta_weight < 0) + 1 * (delta_weight >= 0)) # Тут сохраняем знак
 
 
         # Регуляризация (держим веса близкими к 0, чтобы не улетали в космос)
-        if type_regularization == 1:
+        if type_regularization == "quadratic":
             delta_weight += (-1 * (delta_weight < 0) + 1 * (delta_weight >= 0)) * \
                         regularization_coefficient *\
                         np.sqrt( np.sum([ np.sum(np.power(i/regularization_value, 2)) for i in self.weights ]) )
-        elif type_regularization == 2:
+        elif type_regularization == "penalty":
             delta_weight += (-1 * (delta_weight < 0) + 1 * (delta_weight >= 0)) * \
                         regularization_coefficient * \
-                        np.sum([np.sum(np.abs( i * (np.abs(i) >= regularization_value) ) - regularization_value) for i in self.weights])
+                        np.sum([np.sum(np.abs( i * (np.abs(i) >= regularization_value) ) -\
+                                       regularization_value) for i in self.weights])
 
         delta_weight = np.matrix(delta_weight)  # Превращаем вектор в матрицу
 
@@ -290,9 +291,9 @@ class AI:
 
 
     def q_learning(self, state, reward_for_state,
-                   num_update_function=1, learning_method=2.1,
-                   type_error=1, recce_mode=False,
-                   type_regularization=1, regularization_value=2, regularization_coefficient=0.1,
+                   num_update_function=1, learning_method=2.2,
+                   type_error="regular", recce_mode=False,
+                   type_regularization="quadratic", regularization_value=2, regularization_coefficient=0.1,
                    impulse_coefficient=0.9):
         """ Глубокое Q-обучение (ИИ используется как предсказатель правильных действий)
 
@@ -308,9 +309,9 @@ class AI:
 -------------------------- \n
 
         Ошибки могут быть: \n
-        1: regular: |ai_answer - answer| \n
-        2: quadratic: (ai_answer - answer)^2 \n
-        3: logarithmic: ln^2( (ai_answer - answer) +1 ) \n
+        regular: |ai_answer - answer| \n
+        quadratic: (ai_answer - answer)^2 \n
+        logarithmic: ln^2( (ai_answer - answer) +1 ) \n
 
 -------------------------- \n
 
