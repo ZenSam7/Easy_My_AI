@@ -1,6 +1,5 @@
 # DOCUMENTATION
-My_AI is for learning how AI works (see source code: "Code_My_AI.py") and for creating your own AI in the easiest possible way (see: "Example use My_AI.py", "AI for snake.py" and "Example use Q-learning")
-
+My_AI is for learning how AI works (see source code: "Code_My_AI.py") as well as building your own AI in the easiest way (see: "My_AI.py use case", "AI for snake.py" and "Example of using Q-learning"). I also wrote it only with numpy, and I implemented it completely myself (did not view / did not copy anyone's code)
 
 # How to use my library: 👉
 ### • Import the main file "Code_My_AI.py" and Create an instance of the class AI
