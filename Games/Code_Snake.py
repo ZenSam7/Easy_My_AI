@@ -5,8 +5,16 @@ from random import randint
 class Snake:
     """Набор функций для создания змеи"""
 
-    def __init__(self, window_width, window_height, cell_size, amount_food,
-                 game_over_function=None, eat_apple_function=None, display_game=False):
+    def __init__(
+        self,
+        window_width,
+        window_height,
+        cell_size,
+        amount_food,
+        game_over_function=None,
+        eat_apple_function=None,
+        display_game=False,
+    ):
         self.window_width = window_width
         self.window_height = window_height
         self.cell_size = cell_size
@@ -17,8 +25,8 @@ class Snake:
         self.amount_food = amount_food
 
         self.need_grow = False
-        self.generation = 0        # Номер поколения
-        self.num_steps = 0      # Количество шагов
+        self.generation = 0  # Номер поколения
+        self.num_steps = 0  # Количество шагов
         self.score = 0
         self.scores = [0]
 
@@ -29,10 +37,10 @@ class Snake:
         # Пока False -> ничего не выводим на экран (просто работаем с цифрами)
         self.display_game = display_game
 
-        self.spawn_food(self.amount_food)   # Создаём еду
+        self.spawn_food(self.amount_food)  # Создаём еду
 
         if self.display_game:
-            self.make_window()    # Создаём окно
+            self.make_window()  # Создаём окно
 
     def make_window(self):
         """Просто создаём окно"""
@@ -40,9 +48,8 @@ class Snake:
         pygame.init()
         # pygame.display.quit()  # Что бы лишнего не создавалось
 
-        self.wind = pygame.display.set_mode(
-            (self.window_width, self.window_height))
-        pygame.display.set_caption('Sneak with AI')
+        self.wind = pygame.display.set_mode((self.window_width, self.window_height))
+        pygame.display.set_caption("Sneak with AI")
 
     def move_snake(self, where_want_move: str):
         """Двигаем змею, куда хотим двигаться (если это можно)"""
@@ -55,17 +62,13 @@ class Snake:
 
         self.need_grow = False
 
-        if where_want_move == "left" and \
-                head[0] - 1 != neck[0]:
+        if where_want_move == "left" and head[0] - 1 != neck[0]:
             self.snake_body.append([head[0] - 1, head[1]])
-        elif where_want_move == "right" and \
-                head[0] + 1 != neck[0]:
+        elif where_want_move == "right" and head[0] + 1 != neck[0]:
             self.snake_body.append([head[0] + 1, head[1]])
-        elif where_want_move == "up" and \
-                head[1] - 1 != neck[1]:
+        elif where_want_move == "up" and head[1] - 1 != neck[1]:
             self.snake_body.append([head[0], head[1] - 1])
-        elif where_want_move == "down" and \
-                head[1] + 1 != neck[1]:
+        elif where_want_move == "down" and head[1] + 1 != neck[1]:
             self.snake_body.append([head[0], head[1] + 1])
         else:
             # Если хотим двигаться в тело - продолжаем двигаться в
@@ -110,18 +113,26 @@ class Snake:
         num_foods = self.amount_food if num_foods is None else num_foods
 
         for _ in range(num_foods):
-            coords = [randint(0, self.window_width // self.cell_size - 1),
-                      randint(0, self.window_height // self.cell_size - 1)]
+            coords = [
+                randint(0, self.window_width // self.cell_size - 1),
+                randint(0, self.window_height // self.cell_size - 1),
+            ]
 
             # Если еда заспавнилась в теле или в другой еде - пересоздаём
             while (coords in self.food_coords) or (coords in self.snake_body):
-                coords = [randint(0, self.window_width // self.cell_size - 1),
-                          randint(0, self.window_height // self.cell_size - 1)]
+                coords = [
+                    randint(0, self.window_width // self.cell_size - 1),
+                    randint(0, self.window_height // self.cell_size - 1),
+                ]
 
             self.food_coords.append(coords)
 
-    def draw(self, snake_color=(120, 130, 140), food_color=(
-            160, 50, 70), background_color=(40, 50, 60)):
+    def draw(
+        self,
+        snake_color=(120, 130, 140),
+        food_color=(160, 50, 70),
+        background_color=(40, 50, 60),
+    ):
         """Рисуем змею и еду, выводим номер поколения"""
 
         # Фон
@@ -129,20 +140,33 @@ class Snake:
 
         # Еда
         for food_cell in self.food_coords:
-            pygame.draw.rect(self.wind, food_color,
-                             (food_cell[0] * self.cell_size, food_cell[1] * self.cell_size,
-                              self.cell_size, self.cell_size))
+            pygame.draw.rect(
+                self.wind,
+                food_color,
+                (
+                    food_cell[0] * self.cell_size,
+                    food_cell[1] * self.cell_size,
+                    self.cell_size,
+                    self.cell_size,
+                ),
+            )
 
         # Змея
         for snake_cell in self.snake_body:
-            pygame.draw.rect(self.wind, snake_color,
-                             (snake_cell[0] * self.cell_size, snake_cell[1] * self.cell_size,
-                              self.cell_size, self.cell_size))
+            pygame.draw.rect(
+                self.wind,
+                snake_color,
+                (
+                    snake_cell[0] * self.cell_size,
+                    snake_cell[1] * self.cell_size,
+                    self.cell_size,
+                    self.cell_size,
+                ),
+            )
 
         # Выводим номер поколения
         font = pygame.font.Font(None, 40)  # Какой шрифт и размер надписи
-        text_SCORE = font.render(
-            f"Поколение #{self.generation}", True, (200, 200, 200))
+        text_SCORE = font.render(f"Поколение #{self.generation}", True, (200, 200, 200))
         self.wind.blit(text_SCORE, (0, 0))
 
         pygame.display.update()
@@ -177,7 +201,7 @@ class Snake:
 
     def get_blocks(self, visibility_range=3):
         """Возвращаем visibility_range ^2 значений, описывающие состояние клетки вокруг головы змеи
-            (если еда то 1, если стена то -1, иначе 0)"""
+        (если еда то 1, если стена то -1, иначе 0)"""
         data = []
 
         foods = [[i[0], i[1]] for i in self.food_coords]
@@ -188,7 +212,7 @@ class Snake:
         for i in range(self.window_width // self.cell_size):
             # Потолок
             blocks.append([i, -1])
-            blocks.append([i, self.window_height // self.cell_size])   # Пол
+            blocks.append([i, self.window_height // self.cell_size])  # Пол
         for i in range(self.window_height // self.cell_size):
             # Левая стена
             blocks.append([-1, i])
@@ -210,6 +234,9 @@ class Snake:
         return data
 
     def get_score(self):
-        Max, Min, Mean = max(self.scores), min(
-            self.scores), sum(self.scores) / len(self.scores)
+        Max, Min, Mean = (
+            max(self.scores),
+            min(self.scores),
+            sum(self.scores) / len(self.scores),
+        )
         return Max, Min, Mean

@@ -11,16 +11,16 @@ class Game:
 
         self.agent_coords = [0, 0]
         self.finish_coords = [
-            self.arena_size -
-            1,
-            self.arena_size -
-            1]  # Финиш - права снизу
+            self.arena_size - 1,
+            self.arena_size - 1,
+        ]  # Финиш - права снизу
         self.footprints = []  # Добавляем все клетки, на которых был агент
 
         self.walls_coords = []
         for _ in range(num_walls):  # Всего 10 стен
-            self.walls_coords.append([randint(0, self.arena_size - 1),
-                                      randint(0, self.arena_size - 1)])
+            self.walls_coords.append(
+                [randint(0, self.arena_size - 1), randint(0, self.arena_size - 1)]
+            )
 
         self.game_over_function = None
         self.win_function = None
@@ -33,9 +33,10 @@ class Game:
         pygame.init()
         pygame.display.quit()  # Что бы лишнего не создавалось
 
-        self.wind = pygame.display.set_mode((self.arena_size * self.cell_size,
-                                             self.arena_size * self.cell_size))
-        pygame.display.set_caption('Example_Q_learning AI')
+        self.wind = pygame.display.set_mode(
+            (self.arena_size * self.cell_size, self.arena_size * self.cell_size)
+        )
+        pygame.display.set_caption("Example_Q_learning AI")
 
     def draw(self, iteration=0):
         # Фон
@@ -43,30 +44,57 @@ class Game:
 
         # Следы
         for footprint in self.footprints:
-            pygame.draw.rect(self.wind, (70, 100, 90),
-                             (footprint[0] * self.cell_size, footprint[1] * self.cell_size,
-                              self.cell_size, self.cell_size))
+            pygame.draw.rect(
+                self.wind,
+                (70, 100, 90),
+                (
+                    footprint[0] * self.cell_size,
+                    footprint[1] * self.cell_size,
+                    self.cell_size,
+                    self.cell_size,
+                ),
+            )
 
         # Агент
-        pygame.draw.rect(self.wind, (130, 170, 140),
-                         (self.agent_coords[0] * self.cell_size, self.agent_coords[1] * self.cell_size,
-                          self.cell_size, self.cell_size))
+        pygame.draw.rect(
+            self.wind,
+            (130, 170, 140),
+            (
+                self.agent_coords[0] * self.cell_size,
+                self.agent_coords[1] * self.cell_size,
+                self.cell_size,
+                self.cell_size,
+            ),
+        )
 
         # Финиш
-        pygame.draw.rect(self.wind, (120, 160, 190),
-                         (self.finish_coords[0] * self.cell_size, self.finish_coords[1] * self.cell_size,
-                          self.cell_size, self.cell_size))
+        pygame.draw.rect(
+            self.wind,
+            (120, 160, 190),
+            (
+                self.finish_coords[0] * self.cell_size,
+                self.finish_coords[1] * self.cell_size,
+                self.cell_size,
+                self.cell_size,
+            ),
+        )
 
         # Стены
         for wall in self.walls_coords:
-            pygame.draw.rect(self.wind, (50, 90, 70),
-                             (wall[0] * self.cell_size, wall[1] * self.cell_size,
-                              self.cell_size, self.cell_size))
+            pygame.draw.rect(
+                self.wind,
+                (50, 90, 70),
+                (
+                    wall[0] * self.cell_size,
+                    wall[1] * self.cell_size,
+                    self.cell_size,
+                    self.cell_size,
+                ),
+            )
 
         # Выводим номер поколения
         font = pygame.font.Font(None, 40)  # Какой шрифт и размер надписи
-        text_SCORE = font.render(
-            f"Поколение #{iteration}", True, (200, 200, 200))
+        text_SCORE = font.render(f"Поколение #{iteration}", True, (200, 200, 200))
         self.wind.blit(text_SCORE, (0, 0))
 
         pygame.display.update()
@@ -74,8 +102,12 @@ class Game:
     def collision(self):
         coords = self.agent_coords
 
-        if coords[0] < 0 or coords[0] >= self.arena_size or\
-           coords[1] < 0 or coords[1] >= self.arena_size:
+        if (
+            coords[0] < 0
+            or coords[0] >= self.arena_size
+            or coords[1] < 0
+            or coords[1] >= self.arena_size
+        ):
             self.game_over()
 
         elif coords in self.walls_coords:

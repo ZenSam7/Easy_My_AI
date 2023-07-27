@@ -2,6 +2,7 @@ import Code_My_AI
 from mnist import MNIST
 import numpy as np
 from time import time
+
 start_time = time()
 
 mnist = MNIST()
@@ -59,18 +60,26 @@ for cycle in range(1):
 
         image = images.tolist()[0]
         label = labels.tolist()[0]
-        ai.learning(image, label, type_error=1,
-                    type_regularization=1, regularization_value=10, regularization_coefficient=0.0,
-                    impulse_coefficient=0.9)
+        ai.learning(
+            image,
+            label,
+            type_error=1,
+            type_regularization=1,
+            regularization_value=10,
+            regularization_coefficient=0.0,
+            impulse_coefficient=0.9,
+        )
 
         if np.argmax(ai.start_work(image)) != np.argmax(np.array(label)):
             errors += 1
 
         if num % int(max_train_images * show_progress) == 0:
-            print(f">>> {int(num / max_train_images *100)}% \t\t",
-                  f"Images: {num} \t\t",
-                  f"Error: {round((errors / num) *100, 1)}% \t\t",
-                  f"Summ weights: {int( sum([np.sum(np.abs(i)) for i in ai.weights]) )}")
+            print(
+                f">>> {int(num / max_train_images *100)}% \t\t",
+                f"Images: {num} \t\t",
+                f"Error: {round((errors / num) *100, 1)}% \t\t",
+                f"Summ weights: {int( sum([np.sum(np.abs(i)) for i in ai.weights]) )}",
+            )
 
             errors = 0
 

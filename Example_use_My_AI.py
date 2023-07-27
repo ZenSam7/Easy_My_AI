@@ -37,10 +37,17 @@ while True:
     # (data)
     answer = [data[0] - 11 * data[1] + 13, int(3.22 * data[0])]
 
-    err = ai.learning(data, answer, get_error=True, type_error=1,
-                      type_regularization=1, regularization_value=1, regularization_coefficient=0.1)
+    err = ai.learning(
+        data,
+        answer,
+        get_error=True,
+        type_error=1,
+        type_regularization=1,
+        regularization_value=1,
+        regularization_coefficient=0.1,
+    )
 
-    if err is not None:   # Если функция вернула ошибку
+    if err is not None:  # Если функция вернула ошибку
         errors.append(err)
 
     if learn_iteration % (2_000) == 0:

@@ -61,15 +61,14 @@ while True:
     #     ai.delete_data("Q")
     #     ai.save_data("Q")
 
-
-# ОТВЕТ ОТ НЕЙРОНКИ
+    # ОТВЕТ ОТ НЕЙРОНКИ
 
     data = [[i + 0.01 for i in game.agent_coords]]  # + game.walls_coords
     data = sum(data, [])
 
     game.step(ai.q_start_work(data))
 
-# ОБУЧАЕМ
+    # ОБУЧАЕМ
 
     ai.q_learning(data, reward, 2, 2.4, type_error=1, recce_mode=False)
 

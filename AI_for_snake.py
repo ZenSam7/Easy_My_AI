@@ -1,8 +1,8 @@
 import Code_My_AI
 from Games import Code_Snake
 
-len_population = 10     # >2
-how_many_AI_cross = 2   # <len_population  &  ЧЁТНОЕ!!
+len_population = 10  # >2
+how_many_AI_cross = 2  # <len_population  &  ЧЁТНОЕ!!
 
 
 SNAKES = []
@@ -18,6 +18,7 @@ for _ in range(len_population):
     def win():
         global reward
         reward = 100
+
     snake.game_over_function = end
     snake.eat_apple_function = win
 
@@ -64,9 +65,8 @@ while 1:
                     "\tMax Score:",
                     max,
                     "\t\t\t\t Mean Score:",
-                    round(
-                        mean,
-                        1))
+                    round(mean, 1),
+                )
             print()
 
             # Каждые 20 шагов скрещиваем 2 змеи и добавляем мутации, а потом продолжаем обучать Q-обучением
@@ -80,13 +80,13 @@ while 1:
 
                 SCORES.sort()
                 # Выбираем how_many_AI_cross наилучших
-                SCORES = SCORES[-1 * how_many_AI_cross:]
+                SCORES = SCORES[-1 * how_many_AI_cross :]
                 best_ais = []
 
                 for i in range(len_population):
                     _, _, mean = SNAKES[i].get_score()
                     SNAKES[i].scores = [0]  # Очищаем
-                    if mean in SCORES:      # Если ИИ совпадает с лучшими, то добавляем
+                    if mean in SCORES:  # Если ИИ совпадает с лучшими, то добавляем
                         best_ais.append(AIs[i])
 
                 # # Скрещиваем 1 с 2, 3 с 4 ...  Пока не останется одна, со всеми равномерно скрещенная, ИИ
@@ -100,9 +100,10 @@ while 1:
                 #
                 #         best_ais.insert(i, crossed_ai)
 
-                best_ai = best_ais[0]   # Просто вытаскиваем из списка
+                best_ai = best_ais[0]  # Просто вытаскиваем из списка
                 # Создаём клонов (с мутациями)
                 from copy import deepcopy
+
                 AIs.clear()
                 for _ in range(len_population):
                     best_ai.get_mutations(0.02)
@@ -116,7 +117,7 @@ while 1:
                     AIs[i].delete(version_snake)
                     AIs[i].save(version_snake)
 
-    # ОБУЧАЕМ
+        # ОБУЧАЕМ
 
         data = snake.get_blocks()
 
@@ -128,4 +129,5 @@ while 1:
             num_update_function=1,
             learning_method=2.3,
             type_error=1,
-            recce_mode=False)
+            recce_mode=False,
+        )
