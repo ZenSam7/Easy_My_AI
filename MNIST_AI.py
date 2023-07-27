@@ -11,7 +11,7 @@ ai = Code_My_AI.AI()
 ai.create_weights([784, 20, 20, 10], add_bias_neuron=True)
 
 ai.what_act_func = ai.act_func.Sigmoid
-ai.end_act_func  = ai.act_func.Sigmoid
+ai.end_act_func = ai.act_func.Sigmoid
 
 ai.number_disabled_weights = 0.2
 ai.batch_size = 10
@@ -84,7 +84,6 @@ for cycle in range(1):
     print()
 
 
-
 print("Тестирование")
 num, accuracy = 0, 0
 max_test_images = 6_000
@@ -104,4 +103,4 @@ for images, labels in mnist.test_set.minibatches(batch_size=1):
 print(f"Точность: {round(accuracy / max_test_images *100, 1)}%")
 print(f"Ошибка:   {round(100 - accuracy / max_test_images *100, 1)}% \n")
 
-print("Время:", round( (time() - start_time) / 60, 1), "мин")
+print("Время:", round((time() - start_time) / 60, 1), "мин")

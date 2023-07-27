@@ -1,6 +1,7 @@
 import pygame
 from random import randint
 
+
 class Game:
     """Функции для простого примера Q-обучения"""
 
@@ -9,20 +10,22 @@ class Game:
         self.cell_size = 100
 
         self.agent_coords = [0, 0]
-        self.finish_coords = [self.arena_size -1, self.arena_size -1] # Финиш - права снизу
+        self.finish_coords = [
+            self.arena_size -
+            1,
+            self.arena_size -
+            1]  # Финиш - права снизу
         self.footprints = []  # Добавляем все клетки, на которых был агент
 
         self.walls_coords = []
-        for _ in range(num_walls): # Всего 10 стен
-            self.walls_coords.append([randint(0, self.arena_size -1),
-                                      randint(0, self.arena_size -1)])
-
+        for _ in range(num_walls):  # Всего 10 стен
+            self.walls_coords.append([randint(0, self.arena_size - 1),
+                                      randint(0, self.arena_size - 1)])
 
         self.game_over_function = None
         self.win_function = None
 
         self.make_window()
-
 
     def make_window(self):
         """Просто создаём окно"""
@@ -30,18 +33,17 @@ class Game:
         pygame.init()
         pygame.display.quit()  # Что бы лишнего не создавалось
 
-        self.wind = pygame.display.set_mode((self.arena_size *self.cell_size,
-                                             self.arena_size *self.cell_size))
+        self.wind = pygame.display.set_mode((self.arena_size * self.cell_size,
+                                             self.arena_size * self.cell_size))
         pygame.display.set_caption('Example_Q_learning AI')
-
 
     def draw(self, iteration=0):
         # Фон
-        self.wind.fill((20,30,40))
+        self.wind.fill((20, 30, 40))
 
         # Следы
         for footprint in self.footprints:
-            pygame.draw.rect(self.wind, (70,100,90),
+            pygame.draw.rect(self.wind, (70, 100, 90),
                              (footprint[0] * self.cell_size, footprint[1] * self.cell_size,
                               self.cell_size, self.cell_size))
 
@@ -55,22 +57,19 @@ class Game:
                          (self.finish_coords[0] * self.cell_size, self.finish_coords[1] * self.cell_size,
                           self.cell_size, self.cell_size))
 
-
         # Стены
         for wall in self.walls_coords:
-            pygame.draw.rect(self.wind, (50,90,70),
+            pygame.draw.rect(self.wind, (50, 90, 70),
                              (wall[0] * self.cell_size, wall[1] * self.cell_size,
                               self.cell_size, self.cell_size))
 
-
         # Выводим номер поколения
         font = pygame.font.Font(None, 40)  # Какой шрифт и размер надписи
-        text_SCORE = font.render(f"Поколение #{iteration}", True, (200,200,200))
+        text_SCORE = font.render(
+            f"Поколение #{iteration}", True, (200, 200, 200))
         self.wind.blit(text_SCORE, (0, 0))
 
-
         pygame.display.update()
-
 
     def collision(self):
         coords = self.agent_coords
@@ -85,22 +84,19 @@ class Game:
         elif coords == self.finish_coords:
             self.win()
 
-
     def game_over(self):
-        if self.game_over_function != None:
+        if self.game_over_function is not None:
             self.game_over_function()
 
         self.agent_coords = [0, 0]
         self.footprints = [[0, 0]]
 
-
     def win(self):
-        if self.win_function != None:
+        if self.win_function is not None:
             self.win_function()
 
         self.agent_coords = [0, 0]
         self.footprints = [[0, 0]]
-
 
     def moving(self, where_want_move):
         self.footprints.append([i for i in self.agent_coords])
@@ -114,8 +110,6 @@ class Game:
         elif where_want_move == "down":
             self.agent_coords[1] += 1
 
-
     def step(self, where_want_move: str):
         self.moving(where_want_move)
         self.collision()
-
