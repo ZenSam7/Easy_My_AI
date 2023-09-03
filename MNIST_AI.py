@@ -11,10 +11,9 @@ ai = Code_My_AI.AI()
 
 ai.create_weights([784, 20, 20, 10], add_bias_neuron=True)
 
-ai.what_act_func = ai.act_func.Sigmoid
-ai.end_act_func = ai.act_func.Sigmoid
+ai.what_act_func = ai.kit_act_funcs.Sigmoid
 
-ai.number_disabled_weights = 0.2
+ai.number_disabled_weights = 0.0
 ai.batch_size = 10
 ai.alpha = 1e-4
 

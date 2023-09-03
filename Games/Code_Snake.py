@@ -202,6 +202,9 @@ class Snake:
     def get_blocks(self, visibility_range=3):
         """Возвращаем visibility_range ^2 значений, описывающие состояние клетки вокруг головы змеи
         (если еда то 1, если стена то -1, иначе 0)"""
+
+        assert visibility_range % 2 == 1, "visibility_range is not even number (because  head should be in center)"
+
         data = []
 
         foods = [[i[0], i[1]] for i in self.food_coords]
@@ -210,8 +213,7 @@ class Snake:
         # Записываем все препятствия, от которых можно убиться
         blocks = [[i[0], i[1]] for i in self.snake_body]
         for i in range(self.window_width // self.cell_size):
-            # Потолок
-            blocks.append([i, -1])
+            blocks.append([i, -1])  # Потолок
             blocks.append([i, self.window_height // self.cell_size])  # Пол
         for i in range(self.window_height // self.cell_size):
             # Левая стена

@@ -1,28 +1,28 @@
 import numpy as np
+import json
+import os
 
 
 class AI:
     """Набор функций для работы с самодельным ИИ"""
 
     def __init__(self):
-        self.weights = []  # Появиться после вызова create_weights
-        self.architecture = []  # Появиться после вызова create_weights
-        self.moments = 0  # Сохраняем значение предыдущего импульса
-        self.velocitys = 0  # Сохраняем значение предыдущей скорости
+        self.name = str(np.random.randint(2**31))
+        self.weights = []        # Появиться после вызова create_weights
+        self.architecture = []   # Появиться после вызова create_weights
+        self.moments = 0         # Сохраняем значение предыдущего импульса
+        self.velocitys = 0       # Сохраняем значение предыдущей скорости
 
-        self.act_func = self.ActivationFunctions()
-        self.what_act_func = self.act_func.ReLU_2  # Какую функцию активации используем
-        # Какую функцию активации используем для выходных значений
-        self.end_act_func = self.act_func.Tanh
+        # Какую функцию активации используем
+        self.kit_act_funcs = self.ActivationFunctions()
+        self.what_act_func = self.kit_act_funcs.ReLU_2
 
-        # Альфа коэффициент (коэффициент скорости обучения) (настраивается
-        # самостоятельно)
-        self.alpha = 1e-1
+        # Альфа коэффициент (коэффициент скорости обучения) (настраивается самостоятельно)
+        self.alpha = 1e-2
         # Определяет наличие нейрона смещения (True или False)
-        self.have_bias_neuron = False
-        self.number_disabled_weights = (
-            0.0  # Какую долю нейронов "отключаем" при обучении
-        )
+        self.have_bias_neuron = True
+        # Какую долю нейронов "отключаем" при обучении
+        self.number_disabled_weights = 0.0
 
         # Как много ошибок будем усреднять, чтобы на основе этой усреднённой
         # ошибки изменять веса
@@ -56,7 +56,7 @@ class AI:
         # Добавляем все веса между слоями нейронов
         for i in range(len(architecture) - 1):
             self.weights.append(
-                self.act_func.normalize(
+                self.kit_act_funcs.normalize(
                     np.random.random(
                         size=(architecture[i] + add_bias_neuron, architecture[i + 1])
                     ),
@@ -109,7 +109,7 @@ class AI:
         list_answers = []
 
         # Проходимся по каждому (кроме последнего) слою весов
-        for layer_weight in self.weights[:-1]:
+        for layer_weight in self.weights:
             # Если есть нейрон смещения, то в правую часть матриц
             # result_layer_neurons добавляем единицы
             # Чтобы можно было умножить единицы на веса нейрона смещения
@@ -124,30 +124,12 @@ class AI:
             # И умножаем рандомные веса на 0 (+ компенсируем нули увеличением
             # остальных весов)
             result_layer_neurons = self.what_act_func(
-                result_layer_neurons.dot(
-                    layer_weight
+                result_layer_neurons.dot(layer_weight
                     * (
                         np.random.random(size=layer_weight.shape)
                         >= self.number_disabled_weights
-                    )
-                    * (1 + self.number_disabled_weights)
-                )
-            )
-
-        # Добавляем ответ для нейрона смещения (единицу), для последнего
-        # перемножения (для end_act_func)
-        if self.have_bias_neuron:
-            result_layer_neurons = np.array(result_layer_neurons.tolist() + [1])
-        if return_answers:
-            list_answers.append(result_layer_neurons)
-
-        # Пропускаем выходные данные через последнюю функцию активации (Если
-        # есть)
-        if self.end_act_func is None:
-            result_layer_neurons = result_layer_neurons.dot(self.weights[-1])
-        else:
-            result_layer_neurons = self.end_act_func(
-                result_layer_neurons.dot(self.weights[-1])
+                      )
+                    * (1 + self.number_disabled_weights))
             )
 
         # Если надо, возвращаем список с ответами от каждого слоя
@@ -162,9 +144,8 @@ class AI:
         ai_result = self.start_work(input_data)
 
         # "Разведуем окружающую среду"
-        if (
-            np.random.random() < self.epsilon or self.recce_mode
-        ):  # С вероятностью epsilon
+        if (np.random.random() < self.epsilon or self.recce_mode):
+            # С вероятностью epsilon выбираем случайное действие
             ai_result = np.random.random(ai_result.shape)
 
         # Находим действие
@@ -182,25 +163,25 @@ class AI:
         impulse_coefficient=0.9,
     ):
         """Метод обратного распространения ошибки для изменения весов в нейронной сети \n
-        Errors can be: \n
-        regular: |ai_answer - answer| / len(answer) \n
-        quadratic: (ai_answer - answer)^2 / len(answer) \n
-        logarithmic: ln^2( (ai_answer - answer) +1 ) / len(answer) \n
+        Ошибки могут быть: \n
+        regular:     линейными \n
+        quadratic:   квадратичными \n
+        logarithmic: логарифмическими \n
     ------------------ \n
 
-        Regularization can be: \n
-        quadratic: delta += SameSign * reg_coeff * sqrt( sum( (weights/regular_val) ^2) ) \n
-        penalty: delta += SameSign * reg_coeff * sum( abs( weights * (abs(weights) >= regular_val) ) -regular_val ) \n
+        Регуляризация может быть: \n
+        quadratic: Чем больше веса, тем больше увеличиваем ошибку (во квадратичной зависимости)\n
+        penalty:   Если веса выходят за границу, то пропорционально увелициваем ошибку \n
     ------------------ \n
 
-        regularization_value: In what interval (±) do we keep weights \n
+        regularization_value: В какои диапазоне (±) держим веса \n
     ------------------ \n
 
-        regularization_coefficient: How hard the AI will try to keep the weights \n
+        regularization_coefficient: Как сильно следим за регуляризацией весов \n
     ------------------ \n
 
-        impulse_coefficient: 0 < x < 1, This factor affects "remembering" the direction in which the gradient \
-            is moving (the direction the AI weights move towards the minimum error) (usually around 0.9)"""
+        impulse_coefficient: 0 < x < 1, Этот коэффициент влияет на «запоминание» направления градиента\
+        движения (направление, в котором веса ИИ изменяются (к минимальной ошибке)) (обычно около 0,9)"""
 
         # Нормализуем веса (очень грубо)
         if np.any(
@@ -217,8 +198,7 @@ class AI:
         # Определяем наши входные данные как вектор
         input_data = np.array(input_data)
 
-        # То, что выдала нам нейросеть | Список с ответами от каждого слоя
-        # нейронов
+        # То, что выдала нам нейросеть | Список с ответами от каждого слоя нейронов
         ai_answer, answers = self.start_work(input_data, True)
 
         # На сколько должны суммарно изменить веса
@@ -238,28 +218,20 @@ class AI:
                 (-1 * (delta_weight < 0) + 1 * (delta_weight >= 0))
                 * regularization_coefficient
                 * np.sqrt(
-                    np.sum(
-                        [
-                            np.sum(np.power(i / regularization_value, 2))
-                            for i in self.weights
-                        ]
-                    )
-                )
-            )
+                    np.sum([np.sum(np.power(i / regularization_value, 2))
+                            for i in self.weights])
+                        ))
         elif type_regularization == "penalty":
             delta_weight += (
                 (-1 * (delta_weight < 0) + 1 * (delta_weight >= 0))
                 * regularization_coefficient
-                * np.sum(
-                    [
+                * np.sum([
                         np.sum(
                             np.abs(i * (np.abs(i) >= regularization_value))
                             - regularization_value
                         )
-                        for i in self.weights
-                    ]
-                )
-            )
+                        for i in self.weights]
+                    ))
 
         delta_weight = np.matrix(delta_weight)  # Превращаем вектор в матрицу
 
@@ -315,10 +287,7 @@ class AI:
                     return err
 
                 else:  # С усреднением
-                    err = (
-                        np.mean([np.abs(i) for i in self.packet_errors])
-                        / answer.shape[0]
-                    )
+                    err = np.mean([np.abs(i) for i in self.packet_errors]) / answer.shape[0]
                     self.packet_errors.clear()
                     return err
 
@@ -394,7 +363,7 @@ class AI:
         Методы обучения (значение learning_method определяет) : \n
         1 : В качестве "правильного" ответа выбирается то, которое максимально вознаграждается, и на место действия \
         (которое приводит к лучшему ответу) ставиться максимальное значение функции активации \
-        (self.act_func.max), а на остальные места минимум функции активации (self.act_func.min) \n
+        (self.kit_act_funcs.max), а на остальные места минимум функции активации (self.kit_act_funcs.min) \n
         P.s. Это неочень хорошо, т.к. игнорируются другие варианты, которые приносят либо столько же, либо немного меньше  \
         вознаграждения (а выбирается только один "правильный"). НО ОН ХОРОШО ПОДХОДИТ,\
         КОГДА У ВАС В ЗАДАЧЕ ИМЕЕТСЯ ИСКЛЮЧИТЕЛЬНО 1 ПРАВИЛЬНЫЙ ОТВЕТ, А "БОЛЕЕ" И "МЕНЕЕ" ПРАВИЛЬНЫХ БЫТЬ НЕ МОЖЕТ \n
@@ -421,20 +390,20 @@ class AI:
         # Формируем "правильный" ответ
         answer = [0 for _ in range(len(self.actions))]
         if learning_method == 1:
-            answer = [self.act_func.min for _ in range(len(self.actions))]
+            answer = [self.kit_act_funcs.min for _ in range(len(self.actions))]
 
             # На месте максимального значения из Q-таблицы ставим максимально
             # возможное значение как "правильный" ответ
-            answer[self.q[STATE].index(max(self.q[STATE]))] = self.act_func.max
+            answer[self.q[STATE].index(max(self.q[STATE]))] = self.kit_act_funcs.max
 
         elif 2 < learning_method < 3:
             # Искажаем "расстояние" между числами
-            answer = self.act_func.normalize(np.array(self.q[STATE]), 0, 2)
+            answer = self.kit_act_funcs.normalize(np.array(self.q[STATE]), 0, 2)
             answer = np.power(answer, (learning_method - 2) * 10)
 
             # Переводим в промежуток от min до max
-            answer = self.act_func.normalize(
-                np.array(self.q[STATE]), self.act_func.min, self.act_func.max
+            answer = self.kit_act_funcs.normalize(
+                np.array(self.q[STATE]), self.kit_act_funcs.min, self.kit_act_funcs.max
             )
 
             answer = answer.tolist()
@@ -528,187 +497,105 @@ class AI:
         elif num_update_function == 5:
             self.q[STATE][ACT] = REWARD + self.gamma * max(self.q[FUTURE_STATE])
 
-    def save(self, name_this_ai: str):
+    def save(self, ai_name=""):
         """Сохраняет всю необходимую информацию о текущей ИИ"""
 
-        with open("Data of AIs.txt", "a+") as file:
-            file.write("name " + name_this_ai + "\n")
+        name_ai = self.name if ai_name == "" else ai_name
 
-            file.write(
-                "weights "
-                + "".join((str([i.tolist() for i in self.weights]).split()))
-                + "\n"
-            )
-            file.write("what_act_func " + str(self.what_act_func) + "\n")
-            file.write("end_act_func " + str(self.end_act_func) + "\n")
-            file.write("alpha " + str(self.alpha) + "\n")
-            file.write("have_bias_neuron " + str(self.have_bias_neuron) + "\n")
-            file.write(
-                "number_disabled_weights " + str(self.number_disabled_weights) + "\n"
-            )
-            file.write(
-                "architecture " + "".join((str(self.architecture).split())) + "\n"
-            )
-            file.write("batch_size " + str(self.batch_size) + "\n")
-            file.write(
-                "value_range "
-                + "".join((str([self.act_func.min, self.act_func.max]).split()))
-                + "\n"
-            )
-            file.write("q_table " + "".join((str(self.q).split())) + "\n")
-            file.write("states " + "".join((str(self.states).split())) + "\n")
-            file.write("actions " + "".join((str(self.actions).split())) + "\n")
-            file.write("last_state " + "".join((str(self.last_state).split())) + "\n")
-            file.write("last_reward " + str(0) + "\n")
-            file.write("gamma " + str(self.gamma) + "\n")
-            file.write("epsilon " + str(self.epsilon) + "\n")
-            file.write("q_alpha " + str(self.q_alpha) + "\n")
+        # Записываем данны об ИИшке
+        def get_name_act_func(func):
+            func_str = str(func)
 
-            file.write("\n")
+            if "ReLU_2" in func_str:
+                return "ReLU_2"
+            elif "ReLU" in func_str:
+                return "ReLU"
+            elif "Softmax" in func_str:
+                return "Softmax"
+            elif "Tanh" in func_str:
+                return "Tanh"
+            elif "Sigmoid" in func_str:
+                return "Sigmoid"
 
-    def _find_among_data(
-        self, start_with_ai_name: str, what_find: str, from_bottom_to_top=True
-    ):
-        """Ищет среди сохранённых данных нужное нам слово (после имени), и возвращает его значение"""
+        ai_data = {}
 
-        # Если читаем снизу вверх, то читаем инвертированный файл (шаг == -1)
-        from_bottom_to_top = -1 if from_bottom_to_top else 1
+        ai_data["weights"] = [i.tolist() for i in self.weights]
+        ai_data["architecture"] = self.architecture
+        ai_data["have_bias_neuron"] = self.have_bias_neuron
 
-        # Если мы читаем снизу вверх, то когда найдём имя, останется лишь найти
-        # нужную переменную в ЭТОМ списке
-        reversed_file_list = []
+        ai_data["number_disabled_weights"] = self.number_disabled_weights
+        ai_data["alpha"] = self.alpha
+        ai_data["batch_size"] = self.batch_size
 
-        with open("Data of AIs.txt") as file:
-            find_name = False
+        ai_data["what_act_func"] = get_name_act_func(self.what_act_func)
+        ai_data["value_range"] = [self.kit_act_funcs.min, self.kit_act_funcs.max]
 
-            for line in file.readlines()[::from_bottom_to_top]:
-                if from_bottom_to_top == -1:
-                    reversed_file_list.append(line)
+        ai_data["q_table"] = self.q
 
-                # Если нашли название, то записываем данные
-                if not find_name and start_with_ai_name == line[5:-1]:
-                    find_name = True
+        ai_data["states"] = self.states
+        ai_data["last_state"] = self.last_state
+        ai_data["actions"] = self.actions
 
-                if find_name:
-                    if from_bottom_to_top == -1:
-                        for LINE in reversed_file_list[::from_bottom_to_top]:
-                            if what_find == LINE[: len(what_find)]:
-                                value = LINE[len(what_find) + 1 : -1]
-                                if value[0] == "[":  # Либо список
-                                    from ast import literal_eval
+        ai_data["last_reward"] = 0
+        ai_data["gamma"] = self.gamma
+        ai_data["epsilon"] = self.epsilon
+        ai_data["q_alpha"] = self.q_alpha
 
-                                    return literal_eval(value)
-                                elif value[0].isdigit():  # Либо число
-                                    return float(value)
-                                else:  # Либо название
-                                    return str(value)
+        with open(f"Saves AIs/{name_ai}.json", "w+") as save_file:
+            json.dump(ai_data, save_file)
 
-                    else:
-                        if what_find == line[0 : len(what_find)]:
-                            value = line[len(what_find) + 1 : -1]
-                            if value[0] == "[":  # Либо список
-                                from ast import literal_eval
-
-                                return literal_eval(value)
-                            elif value[0].isdigit():  # Либо число
-                                return float(value)
-                            else:  # Либо название
-                                return str(value)
-
-    def load(self, AI_name: str):
+    def load(self, ai_name=""):
         """Загружает все данные сохранённой ИИ"""
-        """Она загружает последнее сохранение (последнее имя), если несколько одинаковых имён"""
 
-        self.weights = [
-            np.array(i) for i in self._find_among_data(AI_name, "weights", True)
-        ]
-        self.architecture = self._find_among_data(AI_name, "architecture", True)
-        self.alpha = float(self._find_among_data(AI_name, "alpha", True))
-        self.have_bias_neuron = (
-            True
-            if self._find_among_data(AI_name, "have_bias_neuron", True) == "True"
-            else False
-        )
-        self.number_disabled_weights = float(
-            self._find_among_data(AI_name, "number_disabled_weights", True)
-        )
-        self.batch_size = self._find_among_data(AI_name, "batch_size", True)
-        self.act_func.min = self._find_among_data(AI_name, "value_range", True)[0]
-        self.act_func.max = self._find_among_data(AI_name, "value_range", True)[1]
-        self.q = self._find_among_data(AI_name, "q_table", True)
-        self.states = self._find_among_data(AI_name, "states", True)
-        self.actions = self._find_among_data(AI_name, "actions", True)
-        self.q_alpha = self._find_among_data(AI_name, "q_alpha", True)
-        self.epsilon = float(self._find_among_data(AI_name, "epsilon", True))
-        self.last_state = self._find_among_data(AI_name, "last_state", True)
-        self.last_reward = float(self._find_among_data(AI_name, "last_reward", True))
+        name_ai = self.name if ai_name == "" else ai_name
 
-        # Выясняем какая функция активации
+        # Записываем данны об ИИшке
+        def get_act_func_with_name(name):
+            if name == "ReLU_2":
+                return self.kit_act_funcs.ReLU_2
+            elif name == "ReLU":
+                return self.kit_act_funcs.ReLU
+            elif name == "Softmax":
+                return self.kit_act_funcs.Softmax
+            elif name == "Tanh":
+                return self.kit_act_funcs.Tanh
+            elif name == "Sigmoid":
+                return self.kit_act_funcs.Sigmoid
 
-        result = (
-            self._find_among_data(AI_name, "what_act_func", True)
-            .split()[2]
-            .split(".")[-1]
-        )
-        if result == "ReLU":
-            self.what_act_func = self.act_func.ReLU
-        elif result == "ReLU_2":
-            self.what_act_func = self.act_func.ReLU_2
-        elif result == "Gaussian":
-            self.what_act_func = self.act_func.Gaussian
-        elif result == "SoftPlus":
-            self.what_act_func = self.act_func.SoftPlus
-        elif result == "Curved":
-            self.what_act_func = self.act_func.Curved
-        elif result == "Tanh":
-            self.what_act_func = self.act_func.Tanh
-        elif result == "Sigmoid":
-            self.what_act_func = self.act_func.Sigmoid
+        with open(f"Saves AIs/{name_ai}.json", "r") as save_file:
+            ai_data = json.load(save_file)
 
-        # То же самое для end_act_func
-        result = self._find_among_data(AI_name, "end_act_func", True).split()
-        if result[0] != "None":
-            result = result[2].split(".")[-1]
+        self.weights = ai_data["weights"]
+        self.architecture = ai_data["architecture"]
+        self.have_bias_neuron = ai_data["have_bias_neuron"]
 
-        if result == "None":
-            self.end_act_func = None
-        elif result == "ReLU":
-            self.end_act_func = self.act_func.ReLU
-        elif result == "ReLU_2":
-            self.end_act_func = self.act_func.ReLU_2
-        elif result == "Gaussian":
-            self.end_act_func = self.act_func.Gaussian
-        elif result == "SoftPlus":
-            self.end_act_func = self.act_func.SoftPlus
-        elif result == "Curved":
-            self.end_act_func = self.act_func.Curved
-        elif result == "Tanh":
-            self.end_act_func = self.act_func.Tanh
-        elif result == "Sigmoid":
-            self.end_act_func = self.act_func.Sigmoid
+        self.number_disabled_weights = ai_data["number_disabled_weights"]
+        self.alpha = ai_data["alpha"]
+        self.batch_size = ai_data["batch_size"]
 
-    def delete(self, AI_name: str):
-        """Удаляет последнее сохранение данный (если такое имя повторяется)"""
+        self.what_act_func = get_act_func_with_name(ai_data["what_act_func"])
+        self.kit_act_funcs.min, self.kit_act_funcs.max = ai_data["value_range"][0], ai_data["value_range"][1]
 
-        # Копируем
-        with open("Data of AIs.txt", "r+") as file:
-            lines = file.readlines()
-            file.truncate(0)
+        self.q = ai_data["q_table"]
 
-        # Удаляем последние данные
-        for num in range(1, len(lines) + 1):
-            ind = len(lines) - num  # Снизу вверх
-            line = lines[ind]
+        self.states = ai_data["states"]
+        self.last_state = ai_data["last_state"]
+        self.actions = ai_data["actions"]
 
-            if line[5:-1] == AI_name:
-                for _ in range(19):
-                    lines.pop(ind)
-                break
+        self.last_reward = ai_data["last_reward"]
+        self.gamma = ai_data["gamma"]
+        self.epsilon = ai_data["epsilon"]
+        self.q_alpha = ai_data["q_alpha"]
 
-        # Записываем обратно
-        with open("Data of AIs.txt", "r+") as file:
-            for line in lines:
-                file.write(line)
+    def delete(self, ai_name=""):
+        """Удаляет сохранение"""
+
+        name_ai = self.name if ai_name == "" else ai_name
+
+        try:
+            os.remove(f"Saves AIs/{name_ai}.json")
+        except:
+            pass
 
     def print_how_many_parameters(self):
         parameters = []
@@ -740,11 +627,6 @@ class AI:
 
             return result
 
-        def value_range(self, min, max):
-            """Задаём область значений"""
-            self.min = min
-            self.max = max
-
         def ReLU(self, x, return_derivative=False):
             """Не действует ограничение value_range"""
 
@@ -757,33 +639,31 @@ class AI:
         def ReLU_2(self, x, return_derivative=False):
             if return_derivative:
                 return (
-                    (x < self.min) * 0.01
-                    + np.multiply(self.min <= x, x <= self.max) * 1
-                    + (x > self.max) * 0.01
-                )
+                    (x < 0) * 0.01 +
+                    np.multiply(0 <= x, x <= 1) * 1 +
+                    (x > 1) * 0.01
+                    )
 
             else:
                 return (
-                    (x < self.min) * 0.01 * x
-                    + np.multiply(self.min <= x, x <= self.max) * x
-                    + ((x > self.max) * 0.01 * x + 0.99)
-                )
+                    (x < 0) * 0.01 * x +
+                    np.multiply(0 <= x, x <= 1) * x +
+                    ((x > 1) * 0.01 * x + 0.99)
+                    )
 
         def Softmax(self, x, return_derivative=False):
             return np.exp(x) / np.sum(np.exp(x))
 
         def Tanh(self, x, return_derivative=False):
             if return_derivative:
-                return 0.5 * (self.max - self.min) / (np.power(np.cosh(x), 2))
+                return 1 / (np.power(np.cosh(x), 2))
 
             else:
-                return 0.5 * ((self.max - self.min) * np.tanh(x) + self.min + self.max)
+                return np.tanh(x)
 
         def Sigmoid(self, x, return_derivative=False):
             if return_derivative:
-                return ((self.max - self.min) * np.exp(-1 * x)) / (
-                    np.power(1 + np.exp(-1 * x), 2)
-                )
+                return np.exp(-1 * x) / (np.power(1 + np.exp(-1 * x), 2))
 
             else:
-                return (self.max - self.min) / (1 + np.exp(-1 * x)) + self.min
+                return 1 / (1 + np.exp(-1 * x))

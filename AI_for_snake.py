@@ -2,7 +2,7 @@ import Code_My_AI
 from Games import Code_Snake
 
 len_population = 10  # >2
-how_many_AI_cross = 2  # <len_population  &  ЧЁТНОЕ!!
+how_many_AI_cross = 2  # <len_population  &&  ЧЁТНОЕ!!
 
 
 SNAKES = []
@@ -26,11 +26,12 @@ for _ in range(len_population):
 
     # Создаём ИИ
     ai = Code_My_AI.AI()
-    ai.create_weights([9, 20, 20, 4])
+    ai.create_weights([25, 30, 30, 30, 4])
+    ai.name = "Snake_0.2"
 
-    ai.what_act_func = ai.act_func.Tanh
-    ai.end_act_func = ai.act_func.Tanh
-    ai.act_func.value_range(0, 1)
+    ai.what_act_func = ai.kit_act_funcs.Tanh
+    ai.end_act_func = ai.kit_act_funcs.Tanh
+    ai.kit_act_funcs.value_range(0, 1)
 
     actions = ["left", "right", "up", "down"]
     ai.make_all_for_q_learning(actions, gamma=0.1, epsilon=0.0, q_alpha=0.01)
@@ -80,7 +81,7 @@ while 1:
 
                 SCORES.sort()
                 # Выбираем how_many_AI_cross наилучших
-                SCORES = SCORES[-1 * how_many_AI_cross :]
+                SCORES = SCORES[-1 * how_many_AI_cross:]
                 best_ais = []
 
                 for i in range(len_population):
@@ -113,13 +114,13 @@ while 1:
 
                 # И сохраняемся
                 for i in range(len_population):
-                    version_snake = "Snake_0.1~" + str(i)
+                    version_snake = ai.name + "~" + str(i)
                     AIs[i].delete(version_snake)
                     AIs[i].save(version_snake)
 
         # ОБУЧАЕМ
 
-        data = snake.get_blocks()
+        data = snake.get_blocks(5)
 
         snake.step(ai.q_start_work(data))
 

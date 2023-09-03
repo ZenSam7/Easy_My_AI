@@ -36,10 +36,10 @@ ai.number_disabled_weights = 0.0  # What proportion of weights we "turn off" dur
 
 ai.batch_size = 1  # Batch size in batch gradient descent
 
-ai.act_func.value_range(0, 1)  # What is the range of activation functions
+ai.kit_act_funcs.value_range(0, 1)  # What is the range of activation functions
 
 # Which activation function we use for the output values (May be None)
-ai.end_act_func = ai.act_func.Tanh
+ai.end_act_func = ai.kit_act_funcs.Tanh
 ```
 
 
@@ -143,9 +143,10 @@ ai.get_mutations(0.05)  # Replacing 5% of all weights with random numbers
 
 ####  
 ### • If your input data can take any value and/or vary over a large range, then normalize it with :
+
 ```python
 # (Better to normalize from 0 to 1 OR -1 to 1)
-ai.act_func.normalize(data, min_value, max_value)
+ai.kit_act_funcs.normalize(data, min_value, max_value)
 ```
 
 
