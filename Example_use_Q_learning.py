@@ -9,13 +9,13 @@ actions = ["left", "right", "up", "down"]
 
 # Создаём ИИ
 ai = Code_My_AI.AI()
-ai.create_weights([14, 30, 30, 4], add_bias_neuron=False)
+ai.create_weights([2, 50, 50, 4], add_bias_neuron=False)
 
 ai.what_act_func = ai.kit_act_funcs.Sigmoid
 
 ai.alpha = 2e-4
 
-ai.make_all_for_q_learning(actions, 0.5, 0.02, 0.15)
+ai.make_all_for_q_learning(actions, 0.4, 0.02, 0.15)
 
 
 reward, generation, num_win, number_steps = 0, 0, 0, 0
@@ -52,7 +52,7 @@ while True:
         game.draw(generation)
 
         # Если слишком много шагов - убиваем
-        if number_steps >= 100:
+        if number_steps >= 120:
             game.game_over()
 
     # if learn_iteration % 5_000 == 0:
@@ -61,14 +61,14 @@ while True:
 
     # ОТВЕТ ОТ НЕЙРОНКИ
 
-    data = [[i + 0.001 for i in game.agent_coords]] + game.walls_coords
+    data = [[i + 0.001 for i in game.agent_coords]] # + game.walls_coords
     data = sum(data, [])
 
     game.step(ai.q_start_work(data))
 
     # ОБУЧАЕМ
 
-    ai.q_learning(data, reward, 2, 2.4, type_error="regular", recce_mode=False)
+    ai.q_learning(data, reward, 1, 2.4, type_error="regular", recce_mode=False)
 
     # Если не умерли и не победили, то 0 (т.е. штрафуем за лишние шаги)
     # (P.s. reward изменяется в game.win или game.game_over (в game.step), и если они не сработали, то reward как был, так и остаётся 0)

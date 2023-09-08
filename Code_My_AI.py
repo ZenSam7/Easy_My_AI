@@ -18,18 +18,19 @@ class AI:
         self.what_act_func = self.kit_act_funcs.ReLU_2
 
         # Альфа коэффициент (коэффициент скорости обучения) (настраивается самостоятельно)
-        self.alpha = 1e-2
+        self.alpha = 1e-3
         # Определяет наличие нейрона смещения (True или False)
         self.have_bias_neuron = True
         # Какую долю нейронов "отключаем" при обучении
         self.number_disabled_weights = 0.0
+        # Используем ли Softmax в конце
+        self.add_softmax = False
 
-        # Как много ошибок будем усреднять, чтобы на основе этой усреднённой
-        # ошибки изменять веса
+        # Как много градиентов будем усреднять
         self.batch_size = 1
-        # Чем batch_size больше, тем "качество обучения" меньше, но скорость
-        # итераций обучения больше
-        self.packet_errors = []  # Где мы будем эти ошибки складывать
+        # Где храним все градиенты
+        self.packet_gradients = []
+
         self.type_error = 1
 
         self.gamma = 0
@@ -121,22 +122,27 @@ class AI:
 
             # Процеживаем через функцию активации  ...
             # ... Результат перемножения результата прошлого слоя на слой весов
-            # И умножаем рандомные веса на 0 (+ компенсируем нули увеличением
-            # остальных весов)
+            # И умножаем рандомные веса на 0 (+ компенсируем нули увеличением остальных весов)
             result_layer_neurons = self.what_act_func(
                 result_layer_neurons.dot(layer_weight
                     * (
                         np.random.random(size=layer_weight.shape)
                         >= self.number_disabled_weights
                       )
-                    * (1 + self.number_disabled_weights))
+                    * (1 / (1- self.number_disabled_weights))
+                )
             )
+
+        # Добавляем в конец Softmax
+        # (надо сделать именно так, чтобы при обратном распространении Softmax не учитывался)
+        if self.add_softmax:
+            result_layer_neurons = self.kit_act_funcs.Softmax(result_layer_neurons)
 
         # Если надо, возвращаем список с ответами от каждого слоя
         if return_answers:
             return result_layer_neurons, list_answers
-        else:
-            return result_layer_neurons
+
+        return result_layer_neurons
 
     def q_start_work(self, input_data: list):
         """Возвращает action, на основе входных данных"""
@@ -185,7 +191,7 @@ class AI:
 
         # Нормализуем веса (очень грубо)
         if np.any(
-            [np.any(abs(i) >= 1e6) for i in self.weights]
+                [np.any(np.abs(i) >= 1e6) for i in self.weights]
         ):  # Если запредельные значения весов
             # То пересоздаём веса
             self.create_weights(self.architecture, self.have_bias_neuron)
@@ -205,94 +211,100 @@ class AI:
         delta_weight = ai_answer - answer
         if type_error == "quadratic":
             delta_weight = np.power(delta_weight, 2) * (
-                -1 * (delta_weight < 0) + 1 * (delta_weight >= 0)
+                    -1 * (delta_weight < 0) + 1 * (delta_weight >= 0)
             )  # Тут сохраняем знак
         elif type_error == "logarithmic":
             delta_weight = np.power(np.log(ai_answer - answer + 1), 2) * (
-                -1 * (delta_weight < 0) + 1 * (delta_weight >= 0)
+                    -1 * (delta_weight < 0) + 1 * (delta_weight >= 0)
             )  # Тут сохраняем знак
 
         # Регуляризация (держим веса близкими к 0, чтобы не улетали в космос)
         if type_regularization == "quadratic":
             delta_weight += (
-                (-1 * (delta_weight < 0) + 1 * (delta_weight >= 0))
-                * regularization_coefficient
-                * np.sqrt(
-                    np.sum([np.sum(np.power(i / regularization_value, 2))
-                            for i in self.weights])
-                        ))
+                    (-1 * (delta_weight < 0) + 1 * (delta_weight >= 0))
+                    * regularization_coefficient
+                    * np.sqrt(
+                np.sum([np.sum(np.power(i / regularization_value, 2))
+                        for i in self.weights])
+            ))
         elif type_regularization == "penalty":
             delta_weight += (
-                (-1 * (delta_weight < 0) + 1 * (delta_weight >= 0))
-                * regularization_coefficient
-                * np.sum([
-                        np.sum(
-                            np.abs(i * (np.abs(i) >= regularization_value))
-                            - regularization_value
-                        )
-                        for i in self.weights]
-                    ))
+                    (-1 * (delta_weight < 0) + 1 * (delta_weight >= 0))
+                    * regularization_coefficient
+                    * np.sum([
+                np.sum(
+                    np.abs(i * (np.abs(i) >= regularization_value))
+                    - regularization_value
+                )
+                for i in self.weights]
+            ))
 
         delta_weight = np.matrix(delta_weight)  # Превращаем вектор в матрицу
 
-        self.packet_errors.append(delta_weight)
-
-        if len(self.packet_errors) == self.batch_size:
-            if self.batch_size != 1:
-                # Заменим пакет ошибок на средний вектор ошибки
-                sum_delta = 0  # (пустой вектор)
-                for delta in self.packet_errors:
-                    sum_delta += delta
-
-                delta_weight = sum_delta / self.batch_size
-
-            for weight, layer_answer, moment, velocity in zip(
+        # Совершаем всю магию здесь
+        list_gradients = []
+        for weight, layer_answer, moment, velocity in zip(
                 self.weights[::-1],
                 answers[::-1],
                 self.moments[::-1],
                 self.velocitys[::-1],
-            ):
-                # Превращаем вектор в матрицу
-                delta_weight = np.matrix(delta_weight)
-                layer_answer = np.matrix(layer_answer)
+        ):
+            # Превращаем вектор в матрицу
+            delta_weight = np.matrix(delta_weight)
+            layer_answer = np.matrix(layer_answer)
 
-                # Изменяем веса с оптимизацией Adam
-                gradient = (delta_weight.T.dot(layer_answer)).T
-                moment = (
-                    impulse_coefficient * moment + (1 - impulse_coefficient) * gradient
-                )
-                velocity = impulse_coefficient * velocity + (
-                    1 - impulse_coefficient
-                ) * np.power(gradient, 2)
+            # Изменяем веса с оптимизацией Adam
+            gradient = (delta_weight.T.dot(layer_answer)).T
+            moment = impulse_coefficient * moment + (1 - impulse_coefficient) * gradient
+            velocity = impulse_coefficient * velocity + \
+                       (1 - impulse_coefficient) * np.power(gradient, 2)
 
-                MOMENT = moment / (1 - impulse_coefficient)
-                VELOCITY = velocity / (1 - impulse_coefficient)
+            MOMENT = moment / (1 - impulse_coefficient)
+            VELOCITY = velocity / (1 - impulse_coefficient)
 
-                weight -= self.alpha * (MOMENT / (np.sqrt(VELOCITY) + 1))
+            # "Переносим" на другой слой и умножаем на производную
+            delta_weight = np.multiply(
+                delta_weight.dot(weight.T), self.what_act_func(layer_answer, True)
+            )
 
-                # "Переносим" на другой слой и умножаем на производную
-                delta_weight = np.multiply(
-                    delta_weight.dot(weight.T), self.what_act_func(layer_answer, True)
-                )
+            # Записываем градиент
+            list_gradients.append(MOMENT / (np.sqrt(VELOCITY) + 1))
+            # weight -= self.alpha * (MOMENT / (np.sqrt(VELOCITY) + 1))
 
-                # К нейрону смещения не идут связи, поэтому обрезаем этот
-                # нейрон смещения
-                if self.have_bias_neuron == True:
-                    delta_weight = np.matrix(delta_weight.T.tolist()[0:-1]).T
+            # К нейрону смещения не идут связи, поэтому обрезаем этот нейрон смещения
+            if self.have_bias_neuron == True:
+                delta_weight = np.matrix(delta_weight.T.tolist()[0:-1]).T
 
-            if get_error:
-                if self.batch_size == 1:  # Без усреднения
-                    err = np.sum(np.abs(self.packet_errors)) / answer.shape[0]
-                    self.packet_errors.clear()
-                    return err
 
-                else:  # С усреднением
-                    err = np.mean([np.abs(i) for i in self.packet_errors]) / answer.shape[0]
-                    self.packet_errors.clear()
-                    return err
+        self.packet_gradients.append(list_gradients[::-1])
+
+        # Изменяем веса
+        if len(self.packet_gradients) == self.batch_size:
+            # Усредняем градиенты (если надо)
+            if self.batch_size != 1:
+                list_gradients = []
+                for num_layer_weight in range(len(self.weights)):
+                    # Усредняем градиенты поочереди
+                    # (сначала все градиенты для первого слоя весов,
+                    #   потом для второго слоя весов...)
+                    mean_grads = np.mean(
+                        [grads[num_layer_weight] for grads in self.packet_gradients],
+                        axis=0
+                    )
+
+                    # Добавляем усреднённый градиент
+                    list_gradients.append(mean_grads)
 
             else:
-                self.packet_errors.clear()
+                list_gradients = self.packet_gradients[0]
+
+            # Наконец-то изменяем веса
+            for weight, gradient in zip(self.weights, list_gradients):
+                # Увеличиваем alpha, т.к. мы реже изменяем веса, а значит
+                # обучение проиходит медленнее
+                weight -= (self.alpha * self.batch_size) * gradient
+
+            self.packet_gradients.clear()
 
     def make_all_for_q_learning(
         self, actions: list, gamma=0.5, epsilon=0.0, q_alpha=0.1
@@ -452,8 +464,8 @@ class AI:
             self.states.append(state)
             self.q.append([0 for _ in range(len(self.actions))])
 
-        # Откатываем наше состояние на 1 шаг назад (Текущее (по реальному
-        # времени) == Будущее, а Прошлое == Настоящее)
+        # Откатываем наше состояние на 1 шаг назад
+        # (Текущее (по реальному времени) == Будущее, а Прошлое == Настоящее)
         REWARD = self.last_reward
         # "Текущее" на самом деле прошлое
         STATE = self.states.index(self.last_state)
@@ -565,7 +577,7 @@ class AI:
         with open(f"Saves AIs/{name_ai}.json", "r") as save_file:
             ai_data = json.load(save_file)
 
-        self.weights = ai_data["weights"]
+        self.weights = [np.array(i) for i in ai_data["weights"]]
         self.architecture = ai_data["architecture"]
         self.have_bias_neuron = ai_data["have_bias_neuron"]
 

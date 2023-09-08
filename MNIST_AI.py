@@ -9,13 +9,15 @@ mnist = MNIST()
 
 ai = Code_My_AI.AI()
 
-ai.create_weights([784, 20, 20, 10], add_bias_neuron=True)
+ai.create_weights([784, 30, 30, 10], add_bias_neuron=True)
+ai.name = "MNIST"
 
 ai.what_act_func = ai.kit_act_funcs.Sigmoid
+ai.add_softmax = True
 
 ai.number_disabled_weights = 0.0
-ai.batch_size = 10
-ai.alpha = 1e-4
+ai.batch_size = 5
+ai.alpha = 5e-4
 
 
 # alpha:   1e-8   |   1e-6   |    1e-3
@@ -40,16 +42,17 @@ ai.alpha = 1e-4
 #                 ✓            ✓?
 
 
-name = "MNIST"
-# ai.save_data(name)
-# ai.load_data(name)
+# ai.save()
+# ai.load()
 
 ai.print_how_many_parameters()
 
-print("Обучение...")
+print("\nОбучение...")
 
-for cycle in range(1):
-    print(f"Цикл #{cycle}")
+# TODO: Умножение матриц на gpu или cpu (с возможностью выбрать)
+
+for cycle in range(2):
+    print(f"Эпоха #{cycle}")
 
     num, errors = 0, 0
     max_train_images, show_progress = 60_000, 0.10
@@ -63,8 +66,6 @@ for cycle in range(1):
             image,
             label,
             type_error=1,
-            type_regularization=1,
-            regularization_value=10,
             regularization_coefficient=0.0,
             impulse_coefficient=0.9,
         )
@@ -76,15 +77,15 @@ for cycle in range(1):
             print(
                 f">>> {int(num / max_train_images *100)}% \t\t",
                 f"Images: {num} \t\t",
-                f"Error: {round((errors / num) *100, 1)}% \t\t",
+                f"Error: {round((errors / (max_train_images * show_progress)) *100, 1)}% \t\t",
                 f"Summ weights: {int( sum([np.sum(np.abs(i)) for i in ai.weights]) )}",
             )
 
             errors = 0
 
-            # # Сохраняемся
-            ai.delete(name)
-            ai.save(name)
+            # Сохраняемся
+            ai.delete()
+            ai.save()
 
         if num == max_train_images:
             break

@@ -30,8 +30,7 @@ for _ in range(len_population):
     ai.name = "Snake_0.2"
 
     ai.what_act_func = ai.kit_act_funcs.Tanh
-    ai.end_act_func = ai.kit_act_funcs.Tanh
-    ai.kit_act_funcs.value_range(0, 1)
+    ai.add_softmax = True
 
     actions = ["left", "right", "up", "down"]
     ai.make_all_for_q_learning(actions, gamma=0.1, epsilon=0.0, q_alpha=0.01)
