@@ -48,8 +48,6 @@ ai.print_how_many_parameters()
 
 print("\nОбучение...")
 
-# TODO: Умножение матриц на gpu или cpu (с возможностью выбрать)
-
 for cycle in range(10):
     print(f"Эпоха #{cycle}")
 

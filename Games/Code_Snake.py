@@ -112,6 +112,12 @@ class Snake:
         elif head[1] < 0 or head[1] >= self.window_height // self.cell_size:
             self.game_over()
 
+        # Если змея заполонила весь экран, то мы выиграли
+        if len(self.snake_body) >= (self.window_height/self.cell_size) *\
+                (self.window_width/self.cell_size) -self.amount_food:
+            self.eat_apple_function()
+            self.game_over()
+
     def spawn_food(self, num_foods=None):
         """Создаём еду"""
         num_foods = self.amount_food if num_foods is None else num_foods
