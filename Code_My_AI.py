@@ -162,7 +162,7 @@ class AI:
         input_data: list,
         answer: list,
         get_error=False,
-        type_error="regular",
+        type_error="quadratic",
         type_regularization="quadratic",
         regularization_value=10,
         regularization_coefficient=0.1,

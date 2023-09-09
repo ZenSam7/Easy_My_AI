@@ -1,5 +1,6 @@
 import pygame
 from random import randint
+from time import sleep
 
 
 class Snake:
@@ -13,6 +14,7 @@ class Snake:
         amount_food,
         game_over_function=None,
         eat_apple_function=None,
+        max_num_steps=100,
         display_game=False,
     ):
         self.window_width = window_width
@@ -23,6 +25,8 @@ class Snake:
         self.snake_body = [[0, 0], [1, 0], [2, 0]]
         self.food_coords = []
         self.amount_food = amount_food
+
+        self.max_num_steps = max_num_steps
 
         self.need_grow = False
         self.generation = 0  # Номер поколения
@@ -171,6 +175,9 @@ class Snake:
 
         pygame.display.update()
 
+        # Ждём немного, чтобы человек мог понять что происходит
+        sleep(0.08)
+
     def game_over(self):
         """Сбрасываем все переменные"""
         if self.game_over_function is not None:
@@ -196,7 +203,7 @@ class Snake:
             self.draw()
 
         self.num_steps += 1
-        if self.num_steps > 500:  # Если змея сделала слишком много шагов, то убиваем
+        if self.num_steps > self.max_num_steps:  # Если змея сделала слишком много шагов, то убиваем
             self.game_over()
 
     def get_blocks(self, visibility_range=3):
@@ -241,4 +248,5 @@ class Snake:
             min(self.scores),
             sum(self.scores) / len(self.scores),
         )
+        self.scores = [0]
         return Max, Min, Mean
