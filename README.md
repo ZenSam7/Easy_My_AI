@@ -108,7 +108,7 @@ Regularization can be: quadratic (the more weight, the more punish),
 impulse_coefficient: Momentum factor in Adam optimizer (usually around 0.7 ~ 0.99)
 
 
-You can choose the most suitable q-table update function for you
+You can choose the most suitable q_table-table update function for you
 P.s. The difference between the functions is negligible
 
 learning_method :

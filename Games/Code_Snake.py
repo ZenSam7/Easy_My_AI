@@ -182,7 +182,7 @@ class Snake:
         pygame.display.update()
 
         # Ждём немного, чтобы человек мог понять что происходит
-        sleep(0.08)
+        sleep(0.09)
 
     def game_over(self):
         """Сбрасываем все переменные"""
@@ -248,11 +248,25 @@ class Snake:
 
         return data
 
-    def get_score(self):
-        Max, Min, Mean = (
-            max(self.scores),
-            min(self.scores),
-            sum(self.scores) / len(self.scores),
-        )
-        self.scores = [0]
-        return Max, Min, Mean
+
+    def get_future_state(self, where_want_move):
+        snake_body = self.snake_body.copy()
+        food_coords = self.food_coords.copy()
+        score, generation, num_steps = self.score, self.generation, self.num_steps
+
+
+        self.move_snake(where_want_move)
+        self.collision()
+
+        future_state = self.get_blocks()
+
+
+        self.snake_body, self.food_coords = snake_body, food_coords
+        self.score, self.generation, self.num_steps = score, generation, num_steps
+
+        return future_state
+
+    def get_max_mean_score(self):
+        MAX, MEAN = max(self.scores), sum(self.scores) / len(self.scores)
+        self.scores = []
+        return MAX, MEAN

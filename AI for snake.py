@@ -1,10 +1,9 @@
 import Code_My_AI
 from Games import Code_Snake
-import numpy as np
 
 
 # Создаём Змейку
-snake = Code_Snake.Snake(600, 400, 100, 3, max_num_steps=50, display_game=False)
+snake = Code_Snake.Snake(600, 400, 100, 2, max_num_steps=100, display_game=False)
 
 def end():
     global reward
@@ -19,22 +18,20 @@ snake.eat_apple_function = win
 
 # Создаём ИИ
 ai = Code_My_AI.AI()
-ai.create_weights([9, 20, 20, 4], add_bias_neuron=True)
+ai.create_weights([9, 40, 40, 40, 4], add_bias_neuron=True)
 
-ai.what_act_func = ai.kit_act_funcs.Tanh
-
-ai.alpha = 1e-5
+ai.what_act_func = ai.kit_act_func.Sigmoid
+ai.end_act_func = ai.kit_act_func.Softmax
 
 actions = ["left", "right", "up", "down"]
-ai.make_all_for_q_learning(actions, 0.3, 0.1, 0.1)
+ai.make_all_for_q_learning(actions, 0.3, 0.0, 0.1)
 
 
-# Обычная         (обучена) ("Snake"):    9, 25, 25, 4
-ai.name = "Snake_test"
+ai.name = "Snake_better"
 ai.load()
 
-# ai.load("Snake_original")
-# ai.save("Snake")
+ai.alpha = 5e-5
+ai.batch_size = 1
 
 
 learn_iteration = 0
@@ -44,18 +41,17 @@ while 1:
 
     if learn_iteration % 20_000 == 0:
         # Выводим максимальный и средний счёт змейки за 10_000 шагов
-        max, _, mean = snake.get_score()
-        print(learn_iteration//10_000, "\t",
-              "Max:", max, "\t\t",
-              "Mean:", round(mean, 1), "\t\t",
-              f"Summ weights: {int( sum([np.sum(np.abs(i)) for i in ai.weights]) )}")
+        max, mean = snake.get_max_mean_score()
+        print(learn_iteration // 20_000, "\t\t", "Max:",max, "\t\t", "Mean:", round(mean, 1))
 
         ai.update()
 
+    # ЗАПИСЫВАЕТ ДАННЫЕ В ОТВЕТ
     data = snake.get_blocks()
 
     action = ai.q_start_work(data)
     snake.step(action)
 
-
-    ai.q_learning(data, reward, 1)
+    # ОБУЧАЕМ
+    ai.q_learning(data, reward, snake.get_future_state(action),
+                  num_update_function=1, learning_method=1)

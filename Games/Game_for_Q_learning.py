@@ -145,3 +145,25 @@ class Game:
     def step(self, where_want_move: str):
         self.moving(where_want_move)
         self.collision()
+
+    def get_future_coords(self, where_want_move):
+        future_agent_coords = [i for i in self.agent_coords]
+
+        if where_want_move == "up":
+            future_agent_coords[1] -= 1
+        elif where_want_move == "right":
+            future_agent_coords[0] += 1
+        elif where_want_move == "left":
+            future_agent_coords[0] -= 1
+        elif where_want_move == "down":
+            future_agent_coords[1] += 1
+
+        if future_agent_coords[0] < 0 or future_agent_coords[0] >= self.arena_size or \
+                future_agent_coords[1] < 0 or future_agent_coords[1] >= self.arena_size:
+            future_agent_coords = [0, 0]
+        elif future_agent_coords in self.walls_coords:
+            future_agent_coords = [0, 0]
+        elif future_agent_coords == self.finish_coords:
+            future_agent_coords = [0, 0]
+
+        return future_agent_coords
