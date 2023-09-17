@@ -1,6 +1,6 @@
 import numpy as np
 import json
-
+from profilehooks import profile
 
 class AI:
     """Набор функций для работы с самодельным ИИ"""
@@ -219,16 +219,20 @@ class AI:
 
             self.packet_gradients.clear()
 
-    def q_start_work(self, input_data: list):
+    def q_start_work(self, input_data: list, return_index=False):
         """Возвращает action, на основе входных данных"""
 
         ai_result = self.start_work(input_data).tolist()
 
         # "Разведуем окружающую среду" (берём случайное действие)
-        if (self.recce_mode) or (self.epsilon != 0) and (np.random.random() < self.epsilon):
+        if (self.epsilon != 0) and (np.random.random() < self.epsilon):
+            if return_index:
+                return np.random.randint(len(self.actions))
             return self.actions[np.random.randint(len(self.actions))]
 
         # Находим действие
+        if return_index:
+            return np.argmax(ai_result)
         return self.actions[np.argmax(ai_result)]
 
     def make_all_for_q_learning(self, actions: list, gamma=0.1, epsilon=0.1, q_alpha=0.1):
@@ -248,9 +252,14 @@ class AI:
                    learning_method=2.1,
                    squared_error=False,
                    recce_mode=False,
+                   update_q_table=True,
                    ):
         """
         ИИ используется как предсказатель правильных действий\n
+
+        update_q_table - обновлять Q-таблицу
+        (СОВЕТУЮ ПОСТАВИТЬ recce_mode=True, А ПОТОМ update_q_table=False;
+        Т.К. МОЖНО БУДЕТ ОЧЕНЬ СИЛЬНО СОКРАТИТЬ ВРЕМЯ НА ОБНОВЛЕНИИ Q-ТАБЛИЦЫ)
 
         --------------------------
 
@@ -291,17 +300,31 @@ class AI:
         (чем степень больше, тем меньше учитываются остальные результаты))
         """
 
+
         # Если не находим состояние в прошлых состояниях (Q-таблице), то добовляем новое
-        if not state in self.states:
-            self.states.append(state)
-            self.q_table.append([0 for _ in range(len(self.actions))])
-        if not future_state in self.states:
-            self.states.append(future_state)
-            self.q_table.append([0 for _ in range(len(self.actions))])
+        if update_q_table or recce_mode:
+            if not state in self.states:
+                self.states.append(state)
+                self.q_table.append([0 for _ in range(len(self.actions))])
+            if not future_state in self.states:
+                self.states.append(future_state)
+                self.q_table.append([0 for _ in range(len(self.actions))])
 
-        STATE = self.states.index(state)
-        self.recce_mode = recce_mode
+        # Если state нет в Q-таблице, то просто не обучаем ИИшку на этом состоянии
+        try:
+            STATE = self.states.index(state)
+            if update_q_table or recce_mode:
+                # FUTURE_STATE используется только для обновления таблицы,
+                # а значит, не считаем его без надобности (self.states.index() занимает много времени)
+                FUTURE_STATE = self.states.index(future_state)
+        except ValueError:
+            return
 
+        if recce_mode:
+            Epsilon, self.epsilon = self.epsilon, 2
+            self._update_q_table(STATE, state, reward_for_state, FUTURE_STATE, num_update_function)
+            self.epsilon = Epsilon
+            return
 
         # Q-обучение
 
@@ -323,18 +346,13 @@ class AI:
 
             answer = self.kit_act_func.normalize(answer).tolist()
 
-        if recce_mode:
-            Epsilon, self.epsilon = self.epsilon, 1
-            self._update_q_table(state, reward_for_state, num_update_function)
-            self.epsilon = Epsilon
+        # Обновляем Q-таблицу
+        if update_q_table:
+            self._update_q_table(STATE, state, reward_for_state, FUTURE_STATE, num_update_function)
+        # Изменяем веса
+        self.learning(state, answer, squared_error=squared_error)
 
-        else:
-            # Обновляем Q-таблицу
-            self._update_q_table(state, reward_for_state, future_state, num_update_function)
-            # Изменяем веса
-            self.learning(state, answer, squared_error=squared_error)
-
-    def _update_q_table(self, state, reward_for_state, future_state, num_function):
+    def _update_q_table(self, STATE, state, reward_for_state, FUTURE_STATE, num_function):
         """Формулы для обновления Q-таблицы \n
 
         --------------------------
@@ -346,47 +364,46 @@ class AI:
         \n 5: Q(s,a) = R + γ Q’(s’,a’) \n
         \n 6: Q(s,a) = R + γ Q’(s’, max a) \n
         """
-        action = self.q_start_work(state)
-        state = [i for i in state]
 
-        STATE = self.states.index(state)
-        ACT = self.actions.index(action)
+        STATE = STATE
+        FUTURE_STATE = FUTURE_STATE
+        ACT = self.q_start_work(state, True)
 
-        future_state = [i for i in future_state]
+        Future_state = self.states[FUTURE_STATE]
 
 
         if num_function == 1:
             self.q_table[STATE][ACT] = self.q_table[STATE][ACT] + \
                                        self.q_alpha * (reward_for_state + \
-                                           self.gamma * max(self.q_table[self.states.index(future_state)]) - \
+                                           self.gamma * max(self.q_table[FUTURE_STATE]) - \
                                            self.q_table[STATE][ACT])
 
         elif num_function == 2:
             self.q_table[STATE][ACT] = (1 - self.q_alpha) * self.q_table[STATE][ACT] + \
                                        self.q_alpha * (reward_for_state + \
-                                           self.gamma * max(self.q_table[self.states.index(future_state)]))
+                                           self.gamma * max(self.q_table[FUTURE_STATE]))
 
         elif num_function == 3:
             self.q_table[STATE][ACT] = self.q_table[STATE][ACT] + self.q_alpha * (reward_for_state + \
                                           self.gamma *
-                                          self.q_table[self.states.index(future_state)][self.actions.index(
-                                          self.q_start_work(future_state))] - \
+                                          self.q_table[FUTURE_STATE][
+                                          self.q_start_work(Future_state, True)] - \
                                           self.q_table[STATE][ACT])
 
         elif num_function == 4:
             self.q_table[STATE][ACT] = self.q_table[STATE][ACT] + \
                                        self.q_alpha * (reward_for_state + \
-                                       self.gamma * sum(self.q_table[self.states.index(future_state)]) - \
+                                       self.gamma * sum(self.q_table[FUTURE_STATE]) - \
                                        self.q_table[STATE][ACT])
 
         elif num_function == 5:
             self.q_table[STATE][ACT] = reward_for_state + self.gamma * \
-                                       self.q_table[self.states.index(future_state)][self.actions.index(
-                                        self.q_start_work(future_state))]
+                                       self.q_table[FUTURE_STATE][
+                                        self.q_start_work(Future_state, True)]
 
         elif num_function == 6:
             self.q_table[STATE][ACT] = reward_for_state + self.gamma *\
-                                       max(self.q_table[self.states.index(future_state)])
+                                       max(self.q_table[FUTURE_STATE])
 
     def save(self, ai_name=""):
         """Сохраняет всю необходимую информацию о текущей ИИ"""
@@ -503,7 +520,9 @@ class AI:
         for layer in self.weights:
             parameters.append(layer.shape[0] * layer.shape[1])
 
-        print(f"Parameters: {sum(parameters)} \t\t {self.architecture} ", end="")
+        print(f"{self.name} \t\t",
+              f"Parameters: {sum(parameters)} \t\t",
+              f" {self.architecture} ", end="")
 
         if self.have_bias_neuron:
             print("+ bias", end="")
@@ -523,7 +542,6 @@ class AI:
             # От min до max
             result = result * (max - min) + min
             return result
-
 
         def ReLU(self, x, return_derivative=False):
             """Не действует ограничение value_range"""

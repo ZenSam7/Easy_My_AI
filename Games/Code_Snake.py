@@ -1,7 +1,8 @@
 import pygame
 from random import randint
 from time import sleep
-
+import numpy as np
+from profilehooks import profile
 
 class Snake:
     """Набор функций для создания змеи"""
@@ -212,7 +213,7 @@ class Snake:
         if self.num_steps > self.max_num_steps:  # Если змея сделала слишком много шагов, то убиваем
             self.game_over()
 
-    def get_blocks(self, visibility_range=3):
+    def get_blocks(self, visibility_range=3, add_nose=True):
         """Возвращаем visibility_range ^2 значений, описывающие состояние клетки вокруг головы змеи
         (если еда то 1, если стена то -1, иначе 0)"""
 
@@ -246,8 +247,12 @@ class Snake:
                 else:
                     data.append(0)
 
-        return data
+        # Добавляем шум к входным данным
+        if add_nose:
+            for i in range(len(data)):
+                data[i] += np.random.random()/100
 
+        return data
 
     def get_future_state(self, where_want_move):
         snake_body = self.snake_body.copy()
@@ -268,5 +273,5 @@ class Snake:
 
     def get_max_mean_score(self):
         MAX, MEAN = max(self.scores), sum(self.scores) / len(self.scores)
-        self.scores = []
+        self.scores.clear()
         return MAX, MEAN
