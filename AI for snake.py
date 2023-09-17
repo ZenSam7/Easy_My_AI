@@ -22,7 +22,7 @@ snake.eat_apple_function = win
 
 # Создаём ИИ
 ai = Code_My_AI.AI()
-ai.create_weights([9, 40, 40, 4], add_bias_neuron=True)
+ai.create_weights([25, 80, 80, 80, 4], add_bias_neuron=True)
 
 ai.what_act_func = ai.kit_act_func.Tanh
 ai.end_act_func = ai.kit_act_func.Softmax
@@ -31,12 +31,12 @@ actions = ["left", "right", "up", "down"]
 ai.make_all_for_q_learning(actions, 0.4, 0.0, 0.1)
 
 
-ai.name = "Snake_test"
+ai.name = "Snake_5x5"
 # ai.print_how_many_parameters()
-ai.load()
+# ai.load()
 
 ai.alpha = 1e-4
-ai.batch_size = 1
+ai.batch_size = 10
 
 
 learn_iteration = 0
@@ -57,13 +57,12 @@ while 1:
         ai.update()
 
     # ЗАПИСЫВАЕТ ДАННЫЕ В ОТВЕТ
-    data = snake.get_blocks(3)
+    data = snake.get_blocks(5)
 
     action = ai.q_start_work(data)
     snake.step(action)
 
     # ОБУЧАЕМ
     ai.q_learning(data, reward, snake.get_future_state(action),
-                  # recce_mode=True, update_q_table=True,
-                  recce_mode=False, update_q_table=True,
+                  recce_mode=False, update_q_table=False,
                   num_update_function=1, learning_method=1)

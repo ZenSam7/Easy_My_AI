@@ -91,23 +91,26 @@ class AI:
         # Сохраняем список всех ответов от нейронов каждого слоя
         list_answers = []
 
+        try:
+            # Проходимся по каждому (кроме последнего) слою весов
+            for layer_weight in self.weights[:-1]:
+                # Если есть нейрон смещения, то в правую часть матриц
+                # result_layer_neurons добавляем еденицы
+                # Чтобы можно было умножить еденицы на веса нейрона смещения
+                if self.have_bias_neuron:
+                    result_layer_neurons = np.array(result_layer_neurons.tolist() + [1])
 
-        # Проходимся по каждому (кроме последнего) слою весов
-        for layer_weight in self.weights[:-1]:
-            # Если есть нейрон смещения, то в правую часть матриц
-            # result_layer_neurons добавляем еденицы
-            # Чтобы можно было умножить еденицы на веса нейрона смещения
-            if self.have_bias_neuron:
-                result_layer_neurons = np.array(result_layer_neurons.tolist() + [1])
+                if return_answers:
+                    list_answers.append(result_layer_neurons)
 
-            if return_answers:
-                list_answers.append(result_layer_neurons)
+                # Процежеваем через функцию активации  ...
+                # ... Результат перемножения результата прошлого слоя на слой весов
+                result_layer_neurons = self.what_act_func(
+                                            result_layer_neurons.dot(layer_weight) )
 
-            # Процежеваем через функцию активации  ...
-            # ... Результат перемножения результата прошлого слоя на слой весов
-            result_layer_neurons = self.what_act_func(
-                                        result_layer_neurons.dot(layer_weight) )
-
+        except ValueError:
+            print("Проверьте размерность входных/выходных данных и "
+                  "количество входных/выходных нейронов у ИИшки")
 
         # Добавляем ответ (единицу) для нейрона смещения, для последнего перемножения
         if self.have_bias_neuron:
@@ -397,7 +400,6 @@ class AI:
 
     def save(self, ai_name=""):
         """Сохраняет всю необходимую информацию о текущей ИИ"""
-
         name_ai = self.name if ai_name == "" else ai_name
 
         # Записываем данны об ИИшке
@@ -439,12 +441,17 @@ class AI:
         ai_data["epsilon"] = self.epsilon
         ai_data["q_alpha"] = self.q_alpha
 
-        with open(f"Saves AIs/{name_ai}.json", "w+") as save_file:
-            json.dump(ai_data, save_file)
+        # Сохраняем ИИшку ЛЮБОЙ ценой
+        try:
+            with open(f"Saves AIs/{name_ai}.json", "w+") as save_file:
+                json.dump(ai_data, save_file)
+        except BaseException as e:
+            with open(f"Saves AIs/{name_ai}.json", "w+") as save_file:
+                json.dump(ai_data, save_file)
+            raise e
 
     def load(self, ai_name=""):
         """Загружает все данные сохранённой ИИ"""
-
         name_ai = self.name if ai_name == "" else ai_name
 
         # Записываем данны об ИИшке
@@ -487,7 +494,7 @@ class AI:
             self.q_alpha = ai_data["q_alpha"]
 
         except FileNotFoundError:
-            raise f"Сохранение {name_ai} не найдено"
+            print(f"Сохранение {name_ai} не найдено")
 
     def delete(self, ai_name=""):
         """Удаляет сохранение"""
