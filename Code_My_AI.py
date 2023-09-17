@@ -1,6 +1,5 @@
 import numpy as np
 import json
-from profilehooks import profile
 
 class AI:
     """Набор функций для работы с самодельным ИИ"""
@@ -18,10 +17,11 @@ class AI:
         self.have_bias_neuron = True      # Определяет наличие нейрона смещения
         self.number_disabled_weights = 0.0      # Какую долю весов "отключаем" при обучении
 
-        # Как много ошибок будем усреднять, чтобы на основе этой усреднённой ошибки изменять веса
+        # Чем больше, тем "качество" обучения больше (но до определённого момента)
+        # (Не влияет на скорость обучения)
         self.batch_size = 1
-        self.packet_gradients = []  # Где мы будем эти ошибки складывать
-        self.packet_errors = []
+        self.packet_delta_weight = []
+        self.packet_layer_answers = []
 
         self.q_table = []         # Q-table
         self.states = []    # Все состояния
@@ -145,8 +145,6 @@ class AI:
 
         # Определяем наш ответ как вектор
         answer = np.array(answer)
-        # Определяем наши входные данные как вектор
-        input_data = np.array(input_data)
 
         # То, что выдала нам нейросеть | Список с ответами от каждого слоя нейронов
         ai_answer, answers = self.start_work(input_data, True)
@@ -159,15 +157,35 @@ class AI:
                            # Оставляем знак ↑
 
 
-        # Совершаем всю магию здесь
-        list_gradients = []
+        # Реализуем batch_size
+        if len(self.packet_delta_weight) != self.batch_size:
+            self.packet_delta_weight.append(delta_weight)
+            self.packet_layer_answers.append(answers)
+            return
 
+        else:
+            # Когда набрали нужное количество кладываем все данные
+            delta_weight = np.sum(self.packet_delta_weight, axis=0)
+
+            # Складываем ответы от каждого слоя из пакета
+            summ_answers = [np.array(ans) for ans in self.packet_layer_answers[0]]
+
+            for layer_index in range(len(self.packet_layer_answers[0])):
+                for list_answers in self.packet_layer_answers[1:]: # Первые ответы уже в summ_answers
+                    summ_answers[layer_index] += np.array(list_answers[layer_index])
+
+            answers = summ_answers
+
+            self.packet_delta_weight.clear()
+            self.packet_layer_answers.clear()
+
+        # Совершаем всю магию здесь
         for weight, layer_answer in zip(self.weights[::-1], answers[::-1]):
             # Превращаем векторы в матрицу
             layer_answer = np.matrix(layer_answer)
             delta_weight = np.matrix(delta_weight)
 
-            gradients = layer_answer.T.dot(delta_weight)
+            gradient = layer_answer.T.dot(delta_weight)
 
             # Матрица, предотвращающая переобучение
             # Умножаем изменение веса рандомных нейронов на 0
@@ -175,11 +193,11 @@ class AI:
                 dropout_mask = np.random.random(size=(layer_answer.shape[1], delta_weight.shape[1])) \
                                >= self.number_disabled_weights
 
-                gradients = np.multiply(dropout_mask, # Отключаем изменение некоторых связей
+                gradient = np.multiply(dropout_mask, # Отключаем изменение некоторых связей
                                         layer_answer.T.dot(delta_weight))
 
-            # Записываем градиент
-            list_gradients.append(gradients)
+            # Изменяем веса
+            weight -= self.alpha * gradient
 
             # К нейрону смещения не идут связи, поэтому обрезаем этот нейрон смещения
             if self.have_bias_neuron:
@@ -190,34 +208,6 @@ class AI:
             delta_weight = delta_weight.dot(weight.T)
             delta_weight.dot(self.what_act_func(layer_answer, True).T)
 
-
-        self.packet_gradients.append(list_gradients[::-1])
-
-        # Изменяем веса
-        if len(self.packet_gradients) == self.batch_size:
-            # Складываем градиенты (если надо)
-            if self.batch_size != 1:
-                list_gradients = []
-                for num_layer_weight in range(len(self.weights)):
-                    # Складываем градиенты поочереди
-                    # (сначала все градиенты для первого слоя весов,
-                    #   потом для второго слоя весов...)
-                    mean_grads = np.sum(
-                        [grads[num_layer_weight] for grads in self.packet_gradients],
-                        axis=0
-                    )
-
-                    # Добавляем суммарный градиент
-                    list_gradients.append(mean_grads)
-
-            else:
-                list_gradients = self.packet_gradients[0]
-
-            # Наконец-то изменяем веса
-            for weight, gradient in zip(self.weights, list_gradients):
-                weight -= self.alpha * gradient
-
-            self.packet_gradients.clear()
 
     def q_start_work(self, input_data: list, return_index=False):
         """Возвращает action, на основе входных данных"""
@@ -235,7 +225,7 @@ class AI:
             return np.argmax(ai_result)
         return self.actions[np.argmax(ai_result)]
 
-    def make_all_for_q_learning(self, actions: list, gamma=0.1, epsilon=0.1, q_alpha=0.1):
+    def make_all_for_q_learning(self, actions: list, gamma=0.3, epsilon=0.0, q_alpha=0.1):
         """Создаём всё необходимое для Q-обучения \n
         Q-таблицу (таблица вознаграждений за действие), каэфицент вознаграждения gamma, \
         каэфицент почти случайных действий epsilon, и каэфицент скорости изменения Q-таблицы q_alpha """
