@@ -1,6 +1,10 @@
 import numpy as np
 import json
 
+class ImpossibleContinueLearning(Exception):
+    pass
+
+
 class AI:
     """Набор функций для работы с самодельным ИИ"""
     def __init__(self):
@@ -38,6 +42,7 @@ class AI:
 
         self.have_bias_neuron = add_bias_neuron
         self.architecture = architecture
+        self.weights = []
 
         # Добавляем все веса между слоями нейронов
         for i in range(len(architecture) - 1):
@@ -106,11 +111,12 @@ class AI:
                 # Процежеваем через функцию активации  ...
                 # ... Результат перемножения результата прошлого слоя на слой весов
                 result_layer_neurons = self.what_act_func(
-                                            result_layer_neurons.dot(layer_weight) )
+                    result_layer_neurons.dot(layer_weight) )
 
         except ValueError:
             print("Проверьте размерность входных/выходных данных и "
                   "количество входных/выходных нейронов у ИИшки")
+            raise ImpossibleContinueLearning
 
         # Добавляем ответ (единицу) для нейрона смещения, для последнего перемножения
         if self.have_bias_neuron:
@@ -135,9 +141,14 @@ class AI:
 
     def learning(self, input_data: list, answer: list,
                  get_error=False,
-                 squared_error=False,
-                 use_adam=True):
+                 squared_error=False):
         """Метод обратного распространения ошибки для изменения весов в нейронной сети \n"""
+
+        # Определяем наш ответ как вектор
+        answer = np.array(answer)
+
+        # То, что выдала нам нейросеть | Список с ответами от каждого слоя нейронов
+        ai_answer, answers = self.start_work(input_data, True)
 
         # Нормализуем веса (очень грубо)
         if np.any(np.abs(self.weights[0]) >= 1e6):    # Если запредельные значения весов
@@ -145,12 +156,6 @@ class AI:
             self.create_weights(self.architecture, self.have_bias_neuron)
             # И уменьшаем alpha
             self.alpha /= 10
-
-        # Определяем наш ответ как вектор
-        answer = np.array(answer)
-
-        # То, что выдала нам нейросеть | Список с ответами от каждого слоя нейронов
-        ai_answer, answers = self.start_work(input_data, True)
 
         # На сколько должны суммарно изменить веса
         delta_weight = ai_answer - answer
@@ -214,7 +219,6 @@ class AI:
 
     def q_start_work(self, input_data: list, return_index=False):
         """Возвращает action, на основе входных данных"""
-
         ai_result = self.start_work(input_data).tolist()
 
         # "Разведуем окружающую среду" (берём случайное действие)
@@ -246,13 +250,15 @@ class AI:
                    squared_error=False,
                    recce_mode=False,
                    update_q_table=True,
+                   add_new_states=True,
                    ):
         """
         ИИ используется как предсказатель правильных действий\n
 
         update_q_table - обновлять Q-таблицу
-        (СОВЕТУЮ ПОСТАВИТЬ recce_mode=True, А ПОТОМ update_q_table=False;
-        Т.К. МОЖНО БУДЕТ ОЧЕНЬ СИЛЬНО СОКРАТИТЬ ВРЕМЯ НА ОБНОВЛЕНИИ Q-ТАБЛИЦЫ)
+        add_new_states - добавлять новые состояния в Q-таблицу
+        (СОВЕТУЮ ПОСТАВИТЬ recce_mode=True, А ПОТОМ add_new_states=False;
+        Т.К. МОЖНО БУДЕТ ОЧЕНЬ СИЛЬНО СОКРАТИТЬ ВРЕМЯ НА ОБУЧЕНИЕ)
 
         --------------------------
 
@@ -295,7 +301,7 @@ class AI:
 
 
         # Если не находим состояние в прошлых состояниях (Q-таблице), то добовляем новое
-        if update_q_table or recce_mode:
+        if add_new_states or recce_mode:
             if not state in self.states:
                 self.states.append(state)
                 self.q_table.append([0 for _ in range(len(self.actions))])
@@ -306,7 +312,7 @@ class AI:
         # Если state нет в Q-таблице, то просто не обучаем ИИшку на этом состоянии
         try:
             STATE = self.states.index(state)
-            if update_q_table or recce_mode:
+            if update_q_table or add_new_states or recce_mode:
                 # FUTURE_STATE используется только для обновления таблицы,
                 # а значит, не считаем его без надобности (self.states.index() занимает много времени)
                 FUTURE_STATE = self.states.index(future_state)
@@ -339,11 +345,12 @@ class AI:
 
             answer = self.kit_act_func.normalize(answer).tolist()
 
-        # Обновляем Q-таблицу
-        if update_q_table:
-            self._update_q_table(STATE, state, reward_for_state, FUTURE_STATE, num_update_function)
         # Изменяем веса
-        self.learning(state, answer, squared_error=squared_error)
+        if self.learning(state, answer, squared_error=squared_error):
+            return
+        # Обновляем Q-таблицу
+        if (update_q_table or add_new_states):
+            self._update_q_table(STATE, state, reward_for_state, FUTURE_STATE, num_update_function)
 
     def _update_q_table(self, STATE, state, reward_for_state, FUTURE_STATE, num_function):
         """Формулы для обновления Q-таблицы \n
