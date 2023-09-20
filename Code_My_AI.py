@@ -1,5 +1,8 @@
 import numpy as np
 import json
+from enum import Enum
+from typing import Callable, List
+
 
 class ImpossibleContinueLearning(Exception):
     pass
@@ -12,6 +15,7 @@ class AI:
         self.weights = []          # Появиться после вызова create_weights
 
         self.kit_act_func = self.ActivationFunctions()
+        self.kit_upd_q_table = self.FuncsUpdateQTable
         # Какую функцию активации используем
         self.what_act_func = self.kit_act_func.Tanh
         # Какую функцию активации используем для выходных значений
@@ -35,7 +39,8 @@ class AI:
         self.epsilon = 0
         self.q_alpha = 0.1
 
-    def create_weights(self, architecture: list, add_bias_neuron=True,
+
+    def create_weights(self, architecture: List[int], add_bias_neuron=True,
                        min_weight=-1, max_weight=1):
         """Создаёт матрицу со всеми весами между всеми элементами
         (Подавать надо список с количеством нейронов на каждом слое (архитектуру нейронки))"""
@@ -56,6 +61,7 @@ class AI:
                 )
             )
 
+
     def genetic_crossing_with(self, ai):
         """Перемешивает веса между ЭТОЙ нейронкой и нейронкой В АРГУМЕНТЕ \n
         P.s. Не обязательно, чтобы количество связей (размеры матриц весов) были одинаковы
@@ -74,6 +80,7 @@ class AI:
                         np.random.randint(layer2.shape[1]),
                     ]
 
+
     def get_mutations(self, mutation=0.05):
         """Создаёт рандомные веса в нейронке"""
 
@@ -88,7 +95,8 @@ class AI:
                         np.random.random() - np.random.random()
                     )
 
-    def start_work(self, input_data: list, return_answers=False):
+
+    def start_work(self, input_data: List[int], return_answers=False) -> np.ndarray:
         """Возвращает результат работы нейронки, из входных данных"""
         # Определяем входные данные как вектор
         result_layer_neurons = np.array(input_data)
@@ -139,7 +147,8 @@ class AI:
         else:
             return result_layer_neurons
 
-    def learning(self, input_data: list, answer: list,
+
+    def learning(self, input_data: List[int], answer: List[int],
                  get_error=False,
                  squared_error=False):
         """Метод обратного распространения ошибки для изменения весов в нейронной сети \n"""
@@ -217,7 +226,7 @@ class AI:
             delta_weight.dot(self.what_act_func(layer_answer, True).T)
 
 
-    def q_start_work(self, input_data: list, return_index=False):
+    def q_start_work(self, input_data: List[int], return_index=False) -> str:
         """Возвращает action, на основе входных данных"""
         ai_result = self.start_work(input_data).tolist()
 
@@ -232,10 +241,24 @@ class AI:
             return np.argmax(ai_result)
         return self.actions[np.argmax(ai_result)]
 
-    def make_all_for_q_learning(self, actions: list, gamma=0.3, epsilon=0.0, q_alpha=0.1):
+
+    def make_all_for_q_learning(self, actions: List[str],
+                func_update_q_table: Callable,
+                gamma=0.3, epsilon=0.0, q_alpha=0.1):
         """Создаём всё необходимое для Q-обучения \n
         Q-таблицу (таблица вознаграждений за действие), каэфицент вознаграждения gamma, \
-        каэфицент почти случайных действий epsilon, и каэфицент скорости изменения Q-таблицы q_alpha """
+        каэфицент почти случайных действий epsilon, и каэфицент скорости изменения Q-таблицы q_alpha
+
+        --------------------------
+
+        func_update_q_table - это функция обновления Q-таблицы (выбирается из kit_upd_q_table) \n
+        \n standart:   Q(s,a) = Q(s,a) + α[r + γ(max Q(s’,a')) - Q(s,a)] \n
+        \n future:     Q(s,a) = Q(s,a) + α[r + γ Q(s’,a') - Q(s,a)] \n
+        \n future_sum: Q(s,a) = Q(s,a) + α[r + γ(Expected Q(s’,a')) - Q(s,a)] \n
+        \n simple:     Q(s,a) = R + γ Q’(s’,a’) \n
+        \n simple_max: Q(s,a) = R + γ Q’(s’, max a) \n
+
+        \n"""
 
         self.actions = actions
         self.gamma = gamma      # Каэфицент "доверия опыту"
@@ -243,9 +266,10 @@ class AI:
         self.q_alpha = q_alpha
 
         self.q_table = []    # Таблица состояний
+        self.func_update_q_table = func_update_q_table
 
-    def q_learning(self, state, reward_for_state, future_state,
-                   num_update_function=1,
+
+    def q_learning(self, state: list, reward_for_state: float, future_state: list,
                    learning_method=2.1,
                    squared_error=False,
                    recce_mode=False,
@@ -259,18 +283,6 @@ class AI:
         add_new_states - добавлять новые состояния в Q-таблицу
         (СОВЕТУЮ ПОСТАВИТЬ recce_mode=True, А ПОТОМ add_new_states=False;
         Т.К. МОЖНО БУДЕТ ОЧЕНЬ СИЛЬНО СОКРАТИТЬ ВРЕМЯ НА ОБУЧЕНИЕ)
-
-        --------------------------
-
-        num_function - это номер функции обновления Q-таблицы: \n
-        \n 1: Q(s,a) = Q(s,a) + α[r + γ(max Q(s’,a')) - Q(s,a)] \n
-        \n 2: Q(s,a) = (1 - α) Q(s,a) + α[r + γ(max Q(s’,a))] \n
-        \n 3: Q(s,a) = Q(s,a) + α[r + γ Q(s’,a') - Q(s,a)] \n
-        \n 4: Q(s,a) = Q(s,a) + α[r + γ(Expected Q(s’,a')) - Q(s,a)] \n
-        \n 5: Q(s,a) = R + γ Q’(s’,a’) \n
-        \n 6: Q(s,a) = R + γ Q’(s’, max a) \n
-
-        \n
 
         -------------------------- \n
 
@@ -298,7 +310,6 @@ class AI:
         (чтобы ИИ больше стремился именно к лучшим результатам и совсем немного учитывал остальные \
         (чем степень больше, тем меньше учитываются остальные результаты))
         """
-
 
         # Если не находим состояние в прошлых состояниях (Q-таблице), то добовляем новое
         if add_new_states or recce_mode:
@@ -345,65 +356,39 @@ class AI:
 
             answer = self.kit_act_func.normalize(answer).tolist()
 
+        else:
+            raise "Неверный метод обучения"
+
         # Изменяем веса
         if self.learning(state, answer, squared_error=squared_error):
             return
+
         # Обновляем Q-таблицу
         if (update_q_table or add_new_states):
-            self._update_q_table(STATE, state, reward_for_state, FUTURE_STATE, num_update_function)
+            self._update_q_table(STATE, state, reward_for_state, FUTURE_STATE)
 
-    def _update_q_table(self, STATE, state, reward_for_state, FUTURE_STATE, num_function):
-        """Формулы для обновления Q-таблицы \n
 
-        --------------------------
-
-        \n 1: Q(s,a) = Q(s,a) + α[r + γ(max Q(s’,a')) - Q(s,a)] \n
-        \n 2: Q(s,a) = (1 - α) Q(s,a) + α[r + γ(max Q(s’,a))] \n
-        \n 3: Q(s,a) = Q(s,a) + α[r + γ Q(s’,a') - Q(s,a)] \n
-        \n 4: Q(s,a) = Q(s,a) + α[r + γ(Expected Q(s’,a')) - Q(s,a)] \n
-        \n 5: Q(s,a) = R + γ Q’(s’,a’) \n
-        \n 6: Q(s,a) = R + γ Q’(s’, max a) \n
-        """
-
+    def _update_q_table(self, STATE: int, state: list, reward_for_state: float, FUTURE_STATE: int):
         STATE = STATE
         FUTURE_STATE = FUTURE_STATE
         ACT = self.q_start_work(state, True)
 
-        Future_state = self.states[FUTURE_STATE]
+        future_state = self.states[FUTURE_STATE]
 
+        all_kwargs = {
+            "q_table": self.q_table,
+            "q_start_work": self.q_start_work,
+            "q_alpha": self.q_alpha,
+            "reward_for_state": reward_for_state,
+            "gamma": self.gamma,
+            "STATE": STATE,
+            "ACT": ACT,
+            "FUTURE_STATE": FUTURE_STATE,
+            "future_state": future_state,
+        }
 
-        if num_function == 1:
-            self.q_table[STATE][ACT] = self.q_table[STATE][ACT] + \
-                                       self.q_alpha * (reward_for_state + \
-                                           self.gamma * max(self.q_table[FUTURE_STATE]) - \
-                                           self.q_table[STATE][ACT])
+        self.q_table[STATE][ACT] = self.func_update_q_table(**all_kwargs)
 
-        elif num_function == 2:
-            self.q_table[STATE][ACT] = (1 - self.q_alpha) * self.q_table[STATE][ACT] + \
-                                       self.q_alpha * (reward_for_state + \
-                                           self.gamma * max(self.q_table[FUTURE_STATE]))
-
-        elif num_function == 3:
-            self.q_table[STATE][ACT] = self.q_table[STATE][ACT] + self.q_alpha * (reward_for_state + \
-                                          self.gamma *
-                                          self.q_table[FUTURE_STATE][
-                                          self.q_start_work(Future_state, True)] - \
-                                          self.q_table[STATE][ACT])
-
-        elif num_function == 4:
-            self.q_table[STATE][ACT] = self.q_table[STATE][ACT] + \
-                                       self.q_alpha * (reward_for_state + \
-                                       self.gamma * sum(self.q_table[FUTURE_STATE]) - \
-                                       self.q_table[STATE][ACT])
-
-        elif num_function == 5:
-            self.q_table[STATE][ACT] = reward_for_state + self.gamma * \
-                                       self.q_table[FUTURE_STATE][
-                                        self.q_start_work(Future_state, True)]
-
-        elif num_function == 6:
-            self.q_table[STATE][ACT] = reward_for_state + self.gamma *\
-                                       max(self.q_table[FUTURE_STATE])
 
     def save(self, ai_name=""):
         """Сохраняет всю необходимую информацию о текущей ИИ"""
@@ -519,6 +504,7 @@ class AI:
         self.delete(ai_name)
         self.save(ai_name)
 
+
     def print_how_many_parameters(self):
         parameters = []
         for layer in self.weights:
@@ -534,10 +520,53 @@ class AI:
         print()
 
 
+    class FuncsUpdateQTable(Enum):
+        """Формулы для обновления Q-таблицы: \n
+
+        \n standart:   Q(s,a) = Q(s,a) + α[r + γ(max Q(s’,a')) - Q(s,a)] \n
+        \n future:     Q(s,a) = Q(s,a) + α[r + γ Q(s’,a') - Q(s,a)] \n
+        \n future_sum: Q(s,a) = Q(s,a) + α[r + γ(Expected Q(s’,a')) - Q(s,a)] \n
+        \n simple:     Q(s,a) = R + γ Q’(s’,a’) \n
+        \n simple_max: Q(s,a) = R + γ Q’(s’, max a) \n
+        """
+
+        @staticmethod
+        def standart(q_table=[], STATE=0, ACT=0, FUTURE_STATE=0,
+                     q_alpha=0.0, reward_for_state=0, gamma=0.0, **kwargs):
+            return q_table[STATE][ACT] + \
+                q_alpha * (reward_for_state + gamma * \
+                           max(q_table[FUTURE_STATE]) - q_table[STATE][ACT])
+
+        @staticmethod
+        def future(q_table=[], STATE=0, ACT=0, FUTURE_STATE=0,
+                   q_alpha=0.0, reward_for_state=0, gamma=0.0,
+                   q_start_work=None, future_state=[], **kwargs):
+            return q_table[STATE][ACT] + \
+                q_alpha * (reward_for_state + gamma * \
+                           q_table[FUTURE_STATE][q_start_work(future_state, True)] - q_table[STATE][ACT])
+
+        @staticmethod
+        def future_sum(q_table=[], STATE=0, ACT=0, FUTURE_STATE=0,
+                       q_alpha=0.0, reward_for_state=0, gamma=0.0, **kwargs):
+            return q_table[STATE][ACT] + \
+                q_alpha * (reward_for_state + gamma * sum(q_table[FUTURE_STATE]) - q_table[STATE][ACT])
+
+        @staticmethod
+        def simple(q_table=[], FUTURE_STATE=0,
+                   reward_for_state=0, gamma=0.0,
+                   q_start_work=None, future_state=[], **kwargs):
+            return reward_for_state + \
+                gamma * q_table[FUTURE_STATE][q_start_work(future_state, True)]
+
+        @staticmethod
+        def simple_max(q_table=[], FUTURE_STATE=0,
+                       reward_for_state=0, gamma=0.0, **kwargs):
+            return reward_for_state + gamma * max(q_table[FUTURE_STATE])
+
     class ActivationFunctions:
         """Набор функций активации и их производных"""
 
-        def normalize(self, x, min=0, max=1):
+        def normalize(self, x: np.ndarray, min=0, max=1):
             # Нормализуем от 0 до 1
             result = x - np.min(x)
             if np.max(x) != 0:
@@ -547,7 +576,7 @@ class AI:
             result = result * (max - min) + min
             return result
 
-        def ReLU(self, x, return_derivative=False):
+        def ReLU(self, x: np.ndarray, return_derivative=False):
             """Не действует ограничение value_range"""
 
             if return_derivative:
@@ -555,7 +584,7 @@ class AI:
 
             return (x > 0) * x
 
-        def ReLU_2(self, x, return_derivative=False):
+        def ReLU_2(self, x: np.ndarray, return_derivative=False):
             if return_derivative:
                 return (x < 0) * 0.01 + \
                        np.multiply(0 <= x, x <= 1) + \
@@ -565,16 +594,16 @@ class AI:
                    np.multiply(0 <= x, x <= 1) * x + \
                    (x > 1) * 0.01 * x
 
-        def Softmax(self, x, return_derivative=False):
+        def Softmax(self, x: np.ndarray, return_derivative=False):
             return np.exp(x) / np.sum(np.exp(x))
 
-        def Tanh(self, x, return_derivative=False):
+        def Tanh(self, x: np.ndarray, return_derivative=False):
             if return_derivative:
                 return 1 / (10 * np.power(np.cosh(.1*x), 2))
 
             return np.tanh(.1*x)
 
-        def Sigmoid(self, x, return_derivative=False):
+        def Sigmoid(self, x: np.ndarray, return_derivative=False):
             if return_derivative:
                 return np.exp(-.1*x) / (10 * np.power(1 + np.exp(-.1*x), 2))
 

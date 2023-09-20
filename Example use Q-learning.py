@@ -19,7 +19,7 @@ ai.batch_size = 1
 
 ai.alpha = 5e-4
 
-ai.make_all_for_q_learning(actions, 0.5, 0.05, 0.1)
+ai.make_all_for_q_learning(actions, ai.kit_upd_q_table.standart, 0.5, 0.05, 0.1)
 
 
 reward, generation, num_win, number_steps = 0, 0, 0, 0
@@ -67,8 +67,7 @@ while 1:
 
 ###################### ОБУЧАЕМ
 
-    ai.q_learning(data, reward, game.get_future_coords(where_move),
-                  num_update_function=3, learning_method=1)
+    ai.q_learning(data, reward, game.get_future_coords(where_move), learning_method=1)
 
     # Если не умерли и не победили, то 0 (т.е. штрафуем за лишние шаги)
     # (P.s. reward изменяется в game.win или game.game_over (в game.step),
