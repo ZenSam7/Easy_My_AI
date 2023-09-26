@@ -10,14 +10,14 @@ actions = ["left", "right", "up", "down"]
 
 # Создаём ИИ
 ai = Code_My_AI.AI()
-ai.create_weights([2, 40, 40, 4], add_bias_neuron=True)
+ai.create_weights([2, 30, 30, 4], add_bias_neuron=True)
 
-ai.what_act_func = ai.kit_act_func.Sigmoid
+ai.what_act_func = ai.kit_act_func.Tanh
 ai.end_act_func = ai.kit_act_func.Softmax
 
-ai.batch_size = 1
+ai.batch_size = 10
 
-ai.alpha = 5e-4
+ai.alpha = 1e-3
 
 ai.make_all_for_q_learning(actions, ai.kit_upd_q_table.standart, 0.5, 0.05, 0.1)
 
@@ -67,7 +67,7 @@ while 1:
 
 ###################### ОБУЧАЕМ
 
-    ai.q_learning(data, reward, game.get_future_coords(where_move), learning_method=1)
+    ai.q_learning(data, reward, game.get_future_coords(where_move), learning_method=2.5)
 
     # Если не умерли и не победили, то 0 (т.е. штрафуем за лишние шаги)
     # (P.s. reward изменяется в game.win или game.game_over (в game.step),

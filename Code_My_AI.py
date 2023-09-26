@@ -32,12 +32,12 @@ class AI:
         self.packet_layer_answers = []
 
         self.q_table = {}     # Q-table
-        # self.states = []    # Все состояния
         self.actions = []     # Все действия
         self.recce_mode = False
         self.gamma = 0.1
         self.epsilon = 0
         self.q_alpha = 0.1
+        self.func_update_q_table = self.kit_upd_q_table.standart
 
 
     def create_weights(self, architecture: List[int], add_bias_neuron=True,
@@ -101,30 +101,29 @@ class AI:
         # Определяем входные данные как вектор
         result_layer_neurons = np.array(input_data)
 
+        if result_layer_neurons.shape[0] != self.weights[0].shape[0] -self.have_bias_neuron:
+            raise ImpossibleContinueLearning(
+                "Размерность входных данных не совпадает с количеством входных нейронов у ИИшки")
+
         # Сохраняем список всех ответов от нейронов каждого слоя
         list_answers = []
 
-        try:
-            # Проходимся по каждому (кроме последнего) слою весов
-            for layer_weight in self.weights[:-1]:
-                # Если есть нейрон смещения, то в правую часть матриц
-                # result_layer_neurons добавляем еденицы
-                # Чтобы можно было умножить еденицы на веса нейрона смещения
-                if self.have_bias_neuron:
-                    result_layer_neurons = np.array(result_layer_neurons.tolist() + [1])
+        # Проходимся по каждому (кроме последнего) слою весов
+        for layer_weight in self.weights[:-1]:
+            # Если есть нейрон смещения, то в правую часть матриц
+            # result_layer_neurons добавляем еденицы
+            # Чтобы можно было умножить еденицы на веса нейрона смещения
+            if self.have_bias_neuron:
+                result_layer_neurons = np.append(result_layer_neurons, 1)
 
-                if return_answers:
-                    list_answers.append(result_layer_neurons)
+            if return_answers:
+                list_answers.append(result_layer_neurons)
 
-                # Процежеваем через функцию активации  ...
-                # ... Результат перемножения результата прошлого слоя на слой весов
-                result_layer_neurons = self.what_act_func(
-                    result_layer_neurons.dot(layer_weight) )
+            # Процежеваем через функцию активации  ...
+            # ... Результат перемножения результата прошлого слоя на слой весов
+            result_layer_neurons = self.what_act_func(
+                result_layer_neurons.dot(layer_weight) )
 
-        except ValueError:
-            print("Проверьте размерность входных/выходных данных и "
-                  "количество входных/выходных нейронов у ИИшки")
-            raise ImpossibleContinueLearning
 
         # Добавляем ответ (единицу) для нейрона смещения, для последнего перемножения
         if self.have_bias_neuron:
@@ -144,8 +143,8 @@ class AI:
         # Если надо, возвращаем спосок с ответами от каждого слоя
         if return_answers:
             return result_layer_neurons, list_answers
-        else:
-            return result_layer_neurons
+
+        return result_layer_neurons
 
 
     def learning(self, input_data: List[int], answer: List[int],
@@ -160,7 +159,7 @@ class AI:
         ai_answer, answers = self.start_work(input_data, True)
 
         # Нормализуем веса (очень грубо)
-        if np.any(np.abs(self.weights[0]) >= 1e6):    # Если запредельные значения весов
+        if np.any(np.abs(self.weights[0]) >= 1e4):    # Если запредельные значения весов
             # То пересоздаём веса
             self.create_weights(self.architecture, self.have_bias_neuron)
             # И уменьшаем alpha
@@ -180,21 +179,22 @@ class AI:
             self.packet_layer_answers.append(answers)
             return
 
-        else:
-            # Когда набрали нужное количество кладываем все данные
-            delta_weight = np.sum(self.packet_delta_weight, axis=0)
+        # Когда набрали нужное количество усредняем все данные
+        delta_weight = np.sum(self.packet_delta_weight, axis=0)
 
-            # Складываем ответы от каждого слоя из пакета
-            summ_answers = [np.array(ans) for ans in self.packet_layer_answers[0]]
+        # Усредняем ответы от каждого слоя из пакета
+        summ_answers = [np.array(ans) for ans in self.packet_layer_answers[0]]
 
-            for layer_index in range(len(self.packet_layer_answers[0])):
-                for list_answers in self.packet_layer_answers[1:]: # Первые ответы уже в summ_answers
-                    summ_answers[layer_index] += np.array(list_answers[layer_index])
+        for layer_index in range(len(self.packet_layer_answers[0])):
+            for list_answers in self.packet_layer_answers[1:]: # Первые ответы уже в summ_answers
+                summ_answers[layer_index] += np.array(list_answers[layer_index])
 
-            answers = summ_answers
+        answers = [i / self.batch_size for i in summ_answers]
+        # answers = summ_answers
 
-            self.packet_delta_weight.clear()
-            self.packet_layer_answers.clear()
+
+        self.packet_delta_weight.clear()
+        self.packet_layer_answers.clear()
 
         # Совершаем всю магию здесь
         for weight, layer_answer in zip(self.weights[::-1], answers[::-1]):
@@ -216,7 +216,7 @@ class AI:
             # Изменяем веса
             weight -= self.alpha * gradient
 
-            # К нейрону смещения не идут связи, поэтому обрезаем этот нейрон смещения
+            # К нейрону смещения не идут связи, поэтому отрезаем этот нейрон смещения
             if self.have_bias_neuron:
                 weight = weight[0:-1]
                 layer_answer = np.matrix(layer_answer.tolist()[0][0:-1])
@@ -273,15 +273,9 @@ class AI:
                    learning_method=2.2,
                    squared_error=False,
                    recce_mode=False,
-                   update_q_table=True,
                    ):
         """
         ИИ используется как предсказатель правильных действий\n
-
-        update_q_table - обновлять Q-таблицу
-        add_new_states - добавлять новые состояния в Q-таблицу
-        (СОВЕТУЮ ПОСТАВИТЬ recce_mode=True, А ПОТОМ add_new_states=False;
-        Т.К. МОЖНО БУДЕТ ОЧЕНЬ СИЛЬНО СОКРАТИТЬ ВРЕМЯ НА ОБУЧЕНИЕ)
 
         -------------------------- \n
 
@@ -353,8 +347,7 @@ class AI:
             return
 
         # Обновляем Q-таблицу
-        if (update_q_table or add_new_states):
-            self._update_q_table(state, reward_for_state, future_state)
+        self._update_q_table(state, reward_for_state, future_state)
 
 
     def _update_q_table(self, state: list, reward_for_state: float, future_state: int):
@@ -417,7 +410,6 @@ class AI:
         ai_data["weights"] = [i.tolist() for i in self.weights]
 
         ai_data["q_table"] = self.q_table
-        # ai_data["states"] = self.states
         # ai_data["last_state"] = self.last_state
         ai_data["actions"] = self.actions
 
@@ -493,7 +485,6 @@ class AI:
 
             self.q_table = ai_data["q_table"]
 
-            self.states = ai_data["states"]
             # self.last_state = ai_data["last_state"]
             self.actions = ai_data["actions"]
 
@@ -587,8 +578,8 @@ class ActivationFunctions:
     def normalize(x: np.ndarray, min=0, max=1):
         # Нормализуем от 0 до 1
         result = x - np.min(x)
-        if np.max(x) != 0:
-            result = result / np.max(result)
+        if np.max(result) != 0:
+                result = result / np.max(result)
 
         # От min до max
         result = result * (max - min) + min
