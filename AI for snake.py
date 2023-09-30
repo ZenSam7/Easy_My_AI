@@ -29,12 +29,12 @@ ai.what_act_func = ai.kit_act_func.Tanh
 ai.end_act_func = ai.kit_act_func.Softmax
 
 actions = ["left", "right", "up", "down"]
-ai.make_all_for_q_learning(actions, ai.kit_upd_q_table.future_sum, 0.2, 0.02, 0.2)
+ai.make_all_for_q_learning(actions, ai.kit_upd_q_table.standart, 0.1, 0.01, 0.1)
 
 ai.load()
 ai.print_how_many_parameters()
 
-ai.alpha = 1e-3
+ai.alpha = 2e-6
 ai.batch_size = 10
 
 ai.epsilon = 0.02

@@ -1,6 +1,5 @@
 import numpy as np
 import json
-from enum import Enum
 from typing import Callable, List
 
 
@@ -14,8 +13,8 @@ class AI:
         self.name = str(np.random.randint(2**31))
         self.weights = []          # Появиться после вызова create_weights
 
-        self.kit_act_func = ActivationFunctions
-        self.kit_upd_q_table = FuncsUpdateQTable
+        self.kit_act_func = ActivationFunctions()
+        self.kit_upd_q_table = FuncsUpdateQTable()
         # Какую функцию активации используем
         self.what_act_func = self.kit_act_func.Tanh
         # Какую функцию активации используем для выходных значений
@@ -528,7 +527,7 @@ class AI:
         print()
 
 
-class FuncsUpdateQTable(Enum):
+class FuncsUpdateQTable:
     """Формулы для обновления Q-таблицы: \n
 
     \n standart:   Q(s,a) = Q(s,a) + α[r + γ(max Q(s’,a')) - Q(s,a)] \n
@@ -538,44 +537,38 @@ class FuncsUpdateQTable(Enum):
     \n simple_max: Q(s,a) = R + γ Q’(s’, max a) \n
     """
 
-    @staticmethod
-    def standart(q_table={}, state_str=None, act=0, future_state_str=None,
+    def standart(self, q_table={}, state_str=None, act=0, future_state_str=None,
                  q_alpha=0.0, reward_for_state=0, gamma=0.0, **kwargs):
         return q_table[state_str][act] + \
             q_alpha * (reward_for_state + gamma * \
                        max(q_table[future_state_str]) - q_table[state_str][act])
 
-    @staticmethod
-    def future(q_table={}, state_str=None, act=0, future_state=None, future_state_str=None,
+    def future(self, q_table={}, state_str=None, act=0, future_state=None, future_state_str=None,
                q_alpha=0.0, reward_for_state=0, gamma=0.0,
                q_start_work=None, **kwargs):
         return q_table[state_str][act] + \
             q_alpha * (reward_for_state + gamma * \
                        q_table[future_state_str][q_start_work(future_state, True)] - q_table[state_str][act])
 
-    @staticmethod
-    def future_sum(q_table={}, state_str=None, act=0, future_state_str=None,
+    def future_sum(self, q_table={}, state_str=None, act=0, future_state_str=None,
                    q_alpha=0.0, reward_for_state=0, gamma=0.0, **kwargs):
         return q_table[state_str][act] + q_alpha * \
             (reward_for_state + gamma * sum(q_table[future_state_str]) - q_table[state_str][act])
 
-    @staticmethod
-    def simple(q_table={}, future_state_str=None, future_state=None,
+    def simple(self, q_table={}, future_state_str=None, future_state=None,
                reward_for_state=0, gamma=0.0,
                q_start_work=None, **kwargs):
         return reward_for_state + \
             gamma * q_table[future_state_str][q_start_work(future_state, True)]
 
-    @staticmethod
-    def simple_max(q_table={}, future_state_str=None,
+    def simple_max(self, q_table={}, future_state_str=None,
                    reward_for_state=0, gamma=0.0, **kwargs):
         return reward_for_state + gamma * max(q_table[future_state_str])
 
 class ActivationFunctions:
     """Набор функций активации и их производных"""
 
-    @staticmethod
-    def normalize(x: np.ndarray, min=0, max=1):
+    def normalize(self, x: np.ndarray, min=0, max=1):
         # Нормализуем от 0 до 1
         result = x - np.min(x)
         if np.max(result) != 0:
@@ -585,8 +578,7 @@ class ActivationFunctions:
         result = result * (max - min) + min
         return result
 
-    @staticmethod
-    def ReLU(x: np.ndarray, return_derivative=False):
+    def ReLU(self, x: np.ndarray, return_derivative=False):
         """Не действует ограничение value_range"""
 
         if return_derivative:
@@ -594,8 +586,7 @@ class ActivationFunctions:
 
         return (x > 0) * x
 
-    @staticmethod
-    def ReLU_2(x: np.ndarray, return_derivative=False):
+    def ReLU_2(self, x: np.ndarray, return_derivative=False):
         if return_derivative:
             return (x < 0) * 0.01 + \
                 np.multiply(0 <= x, x <= 1) + \
@@ -605,19 +596,16 @@ class ActivationFunctions:
             np.multiply(0 <= x, x <= 1) * x + \
             (x > 1) * 0.01 * x
 
-    @staticmethod
-    def Softmax(x: np.ndarray, return_derivative=False):
+    def Softmax(self, x: np.ndarray, return_derivative=False):
         return np.exp(x) / np.sum(np.exp(x))
 
-    @staticmethod
-    def Tanh(x: np.ndarray, return_derivative=False):
+    def Tanh(self, x: np.ndarray, return_derivative=False):
         if return_derivative:
             return 1 / (10 * np.power(np.cosh(.1 * x), 2))
 
         return np.tanh(.1 * x)
 
-    @staticmethod
-    def Sigmoid(x: np.ndarray, return_derivative=False):
+    def Sigmoid(self, x: np.ndarray, return_derivative=False):
         if return_derivative:
             return np.exp(-.1 * x) / (10 * np.power(1 + np.exp(-.1 * x), 2))
 
