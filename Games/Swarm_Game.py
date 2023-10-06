@@ -85,7 +85,7 @@ class Agent:
         self.ai.create_weights(settings["architecture"],
                                add_bias_neuron=settings["add_bias_neuron"])
         self.ai.what_act_func = self.ai.kit_act_funcs.Tanh
-        self.ai.alpha = settings["alpha"]
+        self.ai._alpha = settings["alpha"]
 
     def move(self, agents_coords):
         """Двигаем Агента"""
@@ -105,9 +105,7 @@ class Agent:
                 nearest_neighbor = coords
 
         # Вичисляем изменение поворота от ИИ
-        ai_angle = self.ai.start_work(
-            [*self.coords, *nearest_neighbor]
-        )[0]/self.angle_delta
+        ai_angle = self.ai.start_work([*self.coords, *nearest_neighbor])[0] / self.angle_delta
         self.angle_move += ai_angle * math.pi
 
         # Двигаемся (Если вышли за границу - спавним посередине)

@@ -16,8 +16,8 @@ ai.kit_act_func.value_range(0, 2000)
 ai.end_act_func = ai.kit_act_func.ReLU_2
 
 
-ai.number_disabled_weights = 0.0
-ai.alpha = 1e-9
+ai._number_disabled_weights = 0.0
+ai._alpha = 1e-9
 
 
 # Загружаем ии

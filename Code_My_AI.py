@@ -1,46 +1,137 @@
 import numpy as np
 import json
-from typing import Callable, List
+from typing import Callable, List, Dict, Tuple, Optional
+from inspect import signature
 
 
-class ImpossibleContinueLearning(Exception):
+class ImpossibleContinue(Exception):
     pass
+
+
+class _MyProp(object):
+    """Чтобы использовать кастомные свойства, надо сделать так, чтобы от этого класса наследовался класс,
+    в котором уже и будут храниться/использоваться мои свойства"""
+
+    @staticmethod
+    def name_closures(my_property: Callable) -> Callable:
+        """Принимает свойство, в которое мы хотим впихнуть имя атрибута.
+        P.s. чтобы мы могли через это свойство изменить атрибут, нам нужно его имя
+        (чтобы использовать в self.__dict__), которое мы добавим в функцию как атрибут класса
+
+        В функцию, как и в класс можно добавлять атрибуты
+        Т.к. в python'е —— всё объект"""
+
+        def my_property_with_name(*args, name_attr: str, **kwargs):
+            # Добавляем атрибут
+            my_property.name_attr = name_attr
+            print(1, my_property.name_attr)
+            return my_property
+
+        return my_property_with_name
+
+
+    @classmethod
+    @name_closures.__func__
+    def from_0_to_1(cls, *args):
+        """Свойство"""
+        value = args[-1]
+
+        print(cls.from_0_to_1, locals())
+
+        if not 0 <= value <= 1:
+            raise ImpossibleContinue(f"Число {value} вне диапазона [0; 1]")
+
+        cls.__dict__["_" + from_0_to_1.name_attr] = value
+
+    @classmethod
+    @name_closures.__func__
+    def non_negative(cls, name_attr: str, value: float):
+        """Свойство"""
+        if value < 0:
+            raise ImpossibleContinue(f"Число {value} не должно быть отрицательным")
+
+        cls.__dict__["_" + name_attr] = value
+
+
+    @classmethod
+    def property_getter(cls, arg) -> float:
+        """
+        У нас отдельно есть alpha и _alpha (аналогично с batch_size, number_disabled_weights ...)
+
+        Внутри класса мы используем _alpha (_batch_size, _number_disabled_weights ...),
+        т.к. я с этим коэффициентом ничего страшного не сделаю,
+        а для пользователя мы даём доступ к alpha, имеющий свойство from_0_to_1 (или non_negative),
+        которые, если вдруг что, могут обезопасить ИИшку от некорректных коэффициентов
+
+        Поэтому когда мы хотим вернуть аргумент alpha, мы возвращаем его численное ЗНАЧЕНИЕ,
+        которое находится внутри класса (в атрибуте _alpha), а когда мы (как пользователь)
+        захотим изменить alpha, мы пропустим это значение через его свойство (from_0_to_1 или non_negative)
+        """
+
+        return cls.__dict__["_" + arg]
+
+    @staticmethod
+    def property_deleter(*arg):
+        print(f"Слышь, пёс! {arg} нельзя удалять! Он вообще-то используется!!!")
+        pass
+
+    @staticmethod
+    def get(my_property: Callable, name_attr: str, doc: Optional[str] = None) -> property:
+        """Собираем по кусочкам всё что нужно для создания моего кастомного property \n
+        (В качестве property надо вставлять нужное свойство из этого же класса)"""
+
+        return property(fget=_MyProp.property_getter, fset=my_property(name_attr=name_attr),
+                        fdel=_MyProp.property_deleter, doc=doc)
 
 
 class AI:
     """Набор функций для работы с самодельным ИИ"""
-    def __init__(self):
-        self.name = str(np.random.randint(2**31))
-        self.weights = []          # Появиться после вызова create_weights
 
-        self.kit_act_func = ActivationFunctions()
-        self.kit_upd_q_table = FuncsUpdateQTable()
+    # alpha: float = _MyProp.get(_MyProp.from_0_to_1, "alpha", "Коэффициент скорости обучения")
+    # batch_size: int = _MyProp.get(_MyProp.non_negative, "batch_size", "Какую долю весов \"отключаем\" при обучении")
+    # number_disabled_weights: float = _MyProp.get(_MyProp.from_0_to_1, "number_disabled_weights",
+    #                                               "Какую долю весов \"отключаем\" при обучении")
+
+
+    def __init__(self, **kwargs):
+        """В качестве **kwarg принимает аргументы для create_weights и name"""
+
+        # Альфа коэффициент (коэффициент скорости обучения)
+        self._alpha: float = 1e-2
+        # Чем больше, тем скорость и "качество" обучения больше (до определённого момента)
+        self._batch_size: int = 1
+        # Какую долю весов "отключаем" при обучении
+        self._number_disabled_weights: float = 0.0
+
+        self.have_bias_neuron: bool = True
+
+        self.weights: List[np.matrix] = []  # Появиться после вызова create_weights
+
+        self.kit_act_func: Callable = ActivationFunctions()
+        self.kit_upd_q_table: Callable = FuncsUpdateQTable()
+
         # Какую функцию активации используем
-        self.what_act_func = self.kit_act_func.Tanh
+        self.what_act_func: Callable = self.kit_act_func.Tanh
         # Какую функцию активации используем для выходных значений
-        self.end_act_func  = self.kit_act_func.Tanh
+        self.end_act_func: Callable = self.kit_act_func.Tanh
 
-        self.alpha = 1e-2     # Альфа каэффицент (каэффицент скорости обучения)
-        self.have_bias_neuron = True      # Определяет наличие нейрона смещения
-        self.number_disabled_weights = 0.0      # Какую долю весов "отключаем" при обучении
+        self._packet_delta_weight: List[np.ndarray] = []
+        self._packet_layer_answers: List[np.ndarray] = []
 
-        # Чем больше, тем "качество" обучения больше (но до определённого момента)
-        # (Не влияет на скорость обучения)
-        self.batch_size = 1
-        self.packet_delta_weight = []
-        self.packet_layer_answers = []
-
-        self.q_table = {}     # Q-table
-        self.actions = []     # Все действия
-        self.recce_mode = False
-        self.gamma = 0.1
-        self.epsilon = 0
-        self.q_alpha = 0.1
-        self.func_update_q_table = self.kit_upd_q_table.standart
+        # Будем ли совершить случайные действия во время обучения (для "исследования" мира)
+        self.recce_mode: bool = False
 
 
-    def create_weights(self, architecture: List[int], add_bias_neuron=True,
-                       min_weight=-1, max_weight=1):
+        self.name: str = str(np.random.randint(2 ** 31))
+        # Даём имя, если мы его прописывали в kwargs
+        self.name = kwargs["name"] if "name" in kwargs else self.name
+
+        # Сразу создаём архитектуру
+        self.create_weights(**kwargs)
+
+
+    def create_weights(self, architecture: List[int], add_bias_neuron: bool = True,
+                       min_weight: float = -1, max_weight: float = 1, **kwargs):
         """Создаёт матрицу со всеми весами между всеми элементами
         (Подавать надо список с количеством нейронов на каждом слое (архитектуру нейронки))"""
 
@@ -62,9 +153,9 @@ class AI:
 
 
     def genetic_crossing_with(self, ai):
-        """Перемешивает веса между ЭТОЙ нейронкой и нейронкой В АРГУМЕНТЕ \n
-        P.s. Не обязательно, чтобы количество связей (размеры матриц весов) были одинаковы
-        """
+        """ai = Экземпляр такого-же класса AI, как и ЭТА нейронка\n
+        Перемешивает веса между ЭТОЙ нейронкой и нейронкой В АРГУМЕНТЕ \n
+        P.s. Не обязательно, чтобы архитектуры были одинаковы"""
 
         for layer1, layer2 in zip(self.weights, ai.weights):
             # Для каждого элемента...
@@ -80,8 +171,9 @@ class AI:
                     ]
 
 
-    def get_mutations(self, mutation=0.05):
-        """Создаёт рандомные веса в нейронке"""
+    def get_mutations(self, mutation: float = 0.05):
+        """Создаёт рандомные веса в нейронке
+        (Заменяем mutation весов на случайные числа)"""
 
         for layer in self.weights:  # Для каждого слоя
             for _ in range(layer.shape[0] * layer.shape[1]):  # Для каждого элемента
@@ -91,17 +183,17 @@ class AI:
                         np.random.randint(layer.shape[0]),
                         np.random.randint(layer.shape[1]),
                     ] = (
-                        np.random.random() - np.random.random()
+                            np.random.random() - np.random.random()
                     )
 
 
-    def start_work(self, input_data: List[int], return_answers=False) -> np.ndarray:
+    def start_work(self, input_data: List[int], _return_answers: bool = False) -> np.ndarray:
         """Возвращает результат работы нейронки, из входных данных"""
         # Определяем входные данные как вектор
         result_layer_neurons = np.array(input_data)
 
         if result_layer_neurons.shape[0] != self.weights[0].shape[0] -self.have_bias_neuron:
-            raise ImpossibleContinueLearning(
+            raise ImpossibleContinue(
                 "Размерность входных данных не совпадает с количеством входных нейронов у ИИшки")
 
         # Сохраняем список всех ответов от нейронов каждого слоя
@@ -115,7 +207,7 @@ class AI:
             if self.have_bias_neuron:
                 result_layer_neurons = np.append(result_layer_neurons, 1)
 
-            if return_answers:
+            if _return_answers:
                 list_answers.append(result_layer_neurons)
 
             # Процежеваем через функцию активации  ...
@@ -127,7 +219,7 @@ class AI:
         # Добавляем ответ (единицу) для нейрона смещения, для последнего перемножения
         if self.have_bias_neuron:
             result_layer_neurons = np.array(result_layer_neurons.tolist() + [1])
-        if return_answers:
+        if _return_answers:
             list_answers.append(result_layer_neurons)
 
 
@@ -136,19 +228,18 @@ class AI:
             result_layer_neurons = result_layer_neurons.dot(self.weights[-1])
         else:
             result_layer_neurons = self.end_act_func(
-                        result_layer_neurons.dot(self.weights[-1]))
+                result_layer_neurons.dot(self.weights[-1]))
 
 
         # Если надо, возвращаем спосок с ответами от каждого слоя
-        if return_answers:
+        if _return_answers:
             return result_layer_neurons, list_answers
 
         return result_layer_neurons
 
 
     def learning(self, input_data: List[int], answer: List[int],
-                 get_error=False,
-                 squared_error=False):
+                 squared_error: bool = False):
         """Метод обратного распространения ошибки для изменения весов в нейронной сети \n"""
 
         # Определяем наш ответ как вектор
@@ -162,38 +253,38 @@ class AI:
             # То пересоздаём веса
             self.create_weights(self.architecture, self.have_bias_neuron)
             # И уменьшаем alpha
-            self.alpha /= 10
+            self._alpha /= 10
 
         # На сколько должны суммарно изменить веса
         delta_weight = ai_answer - answer
         if squared_error:
             delta_weight = np.power(ai_answer - answer, 2) * \
                            (-1* ((ai_answer - answer) <0) + 1*((ai_answer - answer) >=0) )
-                           # Оставляем знак ↑
+            # Оставляем знак ↑
 
 
         # Реализуем batch_size
-        if len(self.packet_delta_weight) != self.batch_size:
-            self.packet_delta_weight.append(delta_weight)
-            self.packet_layer_answers.append(answers)
+        if len(self._packet_delta_weight) != self._batch_size:
+            self._packet_delta_weight.append(delta_weight)
+            self._packet_layer_answers.append(answers)
             return
 
         # Когда набрали нужное количество усредняем все данные
-        delta_weight = np.sum(self.packet_delta_weight, axis=0)
+        delta_weight = np.sum(self._packet_delta_weight, axis=0)
 
         # Усредняем ответы от каждого слоя из пакета
-        summ_answers = [np.array(ans) for ans in self.packet_layer_answers[0]]
+        summ_answers = [np.array(ans) for ans in self._packet_layer_answers[0]]
 
-        for layer_index in range(len(self.packet_layer_answers[0])):
-            for list_answers in self.packet_layer_answers[1:]: # Первые ответы уже в summ_answers
+        for layer_index in range(len(self._packet_layer_answers[0])):
+            for list_answers in self._packet_layer_answers[1:]: # Первые ответы уже в summ_answers
                 summ_answers[layer_index] += np.array(list_answers[layer_index])
 
-        answers = [i / self.batch_size for i in summ_answers]
+        answers = [i / self._batch_size for i in summ_answers]
         # answers = summ_answers
 
 
-        self.packet_delta_weight.clear()
-        self.packet_layer_answers.clear()
+        self._packet_delta_weight.clear()
+        self._packet_layer_answers.clear()
 
         # Совершаем всю магию здесь
         for weight, layer_answer in zip(self.weights[::-1], answers[::-1]):
@@ -205,15 +296,15 @@ class AI:
 
             # Матрица, предотвращающая переобучение
             # Умножаем изменение веса рандомных нейронов на 0
-            if self.number_disabled_weights > 0:
+            if self._number_disabled_weights > 0:
                 dropout_mask = np.random.random(size=(layer_answer.shape[1], delta_weight.shape[1])) \
-                               >= self.number_disabled_weights
+                               >= self._number_disabled_weights
 
                 gradient = np.multiply(dropout_mask, # Отключаем изменение некоторых связей
-                                        layer_answer.T.dot(delta_weight))
+                                       layer_answer.T.dot(delta_weight))
 
             # Изменяем веса
-            weight -= self.alpha * gradient
+            weight -= self._alpha * gradient
 
             # К нейрону смещения не идут связи, поэтому отрезаем этот нейрон смещения
             if self.have_bias_neuron:
@@ -225,53 +316,57 @@ class AI:
             delta_weight.dot(self.what_act_func(layer_answer, True).T)
 
 
-    def q_start_work(self, input_data: List[int], return_index=False) -> str:
+    def q_start_work(self, input_data: List[int], _return_index_act: bool = False) -> str:
         """Возвращает action, на основе входных данных"""
         ai_result = self.start_work(input_data).tolist()
 
         # "Разведуем окружающую среду" (берём случайное действие)
         if (self.epsilon != 0) and (np.random.random() < self.epsilon):
-            if return_index:
+            if _return_index_act:
                 return np.random.randint(len(self.actions))
             return self.actions[np.random.randint(len(self.actions))]
 
         # Находим действие
-        if return_index:
+        if _return_index_act:
             return np.argmax(ai_result)
         return self.actions[np.argmax(ai_result)]
 
 
-    def make_all_for_q_learning(self, actions: List[str],
-                func_update_q_table: Callable,
-                gamma=0.3, epsilon=0.0, q_alpha=0.1):
-        """Создаём всё необходимое для Q-обучения \n
-        Q-таблицу (таблица вознаграждений за действие), каэфицент вознаграждения gamma, \
-        каэфицент почти случайных действий epsilon, и каэфицент скорости изменения Q-таблицы q_alpha
+    def make_all_for_q_learning(self, actions: Tuple[str],
+                                func_update_q_table: Callable = None,
+                                gamma: float = 0.0, epsilon: float = 0.0, q_alpha: float = 0.1):
+        """Создаём всё необходимое для Q-обучения
+        Q-таблицу (таблица вознаграждений за действие), коэффициент вознаграждения gamma, \
+        коэффициент почти случайных действий epsilon, и коэффициент скорости изменения Q-таблицы q_alpha\n
 
-        --------------------------
+        func_update_q_table - это функция обновления Q-таблицы (выбирается из kit_upd_q_table)
 
-        func_update_q_table - это функция обновления Q-таблицы (выбирается из kit_upd_q_table) \n
+        \n
         \n standart:   Q(s,a) = Q(s,a) + α[r + γ(max Q(s’,a')) - Q(s,a)] \n
         \n future:     Q(s,a) = Q(s,a) + α[r + γ Q(s’,a') - Q(s,a)] \n
         \n future_sum: Q(s,a) = Q(s,a) + α[r + γ(Expected Q(s’,a')) - Q(s,a)] \n
         \n simple:     Q(s,a) = R + γ Q’(s’,a’) \n
         \n simple_max: Q(s,a) = R + γ Q’(s’, max a) \n
-
-        \n"""
+        """
 
         self.actions = actions
-        self.gamma = gamma      # Каэфицент "доверия опыту"
-        self.epsilon = epsilon  # Каэфицент "разведки окружающей среды"
+        self.gamma = gamma      # Коэффициент "доверия опыту"
+        self.epsilon = epsilon  # Коэффициент "разведки окружающей среды"
         self.q_alpha = q_alpha
 
-        self.q_table = {}    # Хэш-Таблица состояний
-        self.func_update_q_table = func_update_q_table
+        # Хэш-Таблица состояний-вознаграждений
+        self.q_table = {}
+
+        if func_update_q_table is None:
+            func_update_q_table = self.kit_upd_q_table.standart
+        else:
+            self.func_update_q_table = func_update_q_table
 
 
-    def q_learning(self, state: list, reward_for_state: float, future_state: list,
-                   learning_method=2.2,
-                   squared_error=False,
-                   recce_mode=False,
+    def q_learning(self, state: List[float], reward_for_state: float, future_state: List[float],
+                   learning_method: float = 1,
+                   squared_error: bool = False,
+                   recce_mode: bool = False,
                    ):
         """
         ИИ используется как предсказатель правильных действий\n
@@ -348,12 +443,11 @@ class AI:
         # Обновляем Q-таблицу
         self._update_q_table(state, reward_for_state, future_state)
 
+    def _update_q_table(self, state: List[float], reward_for_state: float, future_state: List[str]):
+        state_str: str = str(state)
+        future_state_str: str = str(future_state)
 
-    def _update_q_table(self, state: list, reward_for_state: float, future_state: int):
-        state_str = str(state)
-        future_state_str = str(future_state)
-
-        act = self.q_start_work(state, True)
+        act: int = self.q_start_work(state, True)
 
         all_kwargs = {
             "q_table": self.q_table,
@@ -365,46 +459,34 @@ class AI:
             "state_str": state_str,
             "future_state": future_state,
             "future_state_str": future_state_str,
-            "act": act,
+            "ind_act": act,
         }
 
         self.q_table[state_str][act] = self.func_update_q_table(**all_kwargs)
 
 
-    def save(self, ai_name=""):
-        """Сохраняет всю необходимую информацию о текущей ИИ"""
-        name_ai = self.name if ai_name == "" else ai_name
+    def save(self, ai_name: Optional[str] = None):
+        """Сохраняет всю необходимую информацию о текущей ИИ
+
+        (Если не передать имя, то сохранит ИИшку под именем, заданным при создании,
+        если передать имя, то сохранит именно под этим)"""
+        name_ai = self.name if ai_name is None else ai_name
 
         # Записываем данны об ИИшке
-        def get_name_act_func(func):
+        def get_name_func(func, kit):
+            names_funcs = [f for f in dir(kit)
+                           if callable(getattr(kit, f))
+                           and not f.startswith("__")]
+
             func_str = str(func)
 
-            if "ReLU_2" in func_str:
-                return "ReLU_2"
-            elif "ReLU" in func_str:
-                return "ReLU"
-            elif "Softmax" in func_str:
-                return "Softmax"
-            elif "Tanh" in func_str:
-                return "Tanh"
-            elif "Sigmoid" in func_str:
-                return "Sigmoid"
-
-        def get_name_upd_func(func):
-            func_str = str(func)
-
-            if "standart" in func_str:
-                return "standart"
-            elif "future" in func_str:
-                return "future"
-            elif "future_sum" in func_str:
-                return "future_sum"
-            elif "simple" in func_str:
-                return "simple"
-            elif "simple_max" in func_str:
-                return "simple_max"
+            for name_func in names_funcs:
+                if name_func in func_str:
+                    return name_func
 
         ai_data = {}
+
+        ai_data["name"] = name_ai
 
         ai_data["weights"] = [i.tolist() for i in self.weights]
 
@@ -415,13 +497,14 @@ class AI:
         ai_data["architecture"] = self.architecture
         ai_data["have_bias_neuron"] = self.have_bias_neuron
 
-        ai_data["number_disabled_neurons"] = self.number_disabled_weights
-        ai_data["alpha"] = self.alpha
-        ai_data["batch_size"] = self.batch_size
+        ai_data["number_disabled_neurons"] = self._number_disabled_weights
+        ai_data["alpha"] = self._alpha
+        ai_data["batch_size"] = self._batch_size
 
-        ai_data["what_activation_function"] = get_name_act_func(self.what_act_func)
-        ai_data["end_activation_function"] = get_name_act_func(self.end_act_func)
-        ai_data["func_update_q_table"] = get_name_upd_func(self.func_update_q_table)
+        ai_data["what_activation_function"] = get_name_func(self.what_act_func, self.kit_act_func)
+        ai_data["end_activation_function"] = get_name_func(self.end_act_func, self.kit_act_func)
+        ai_data["func_update_q_table"] = get_name_func(self.func_update_q_table, self.kit_upd_q_table) \
+            if self.func_update_q_table else None
 
         # ai_data["last_reward"] = 0
         ai_data["gamma"] = self.gamma
@@ -437,50 +520,41 @@ class AI:
                 json.dump(ai_data, save_file)
             raise e
 
-    def load(self, ai_name=""):
-        """Загружает все данные сохранённой ИИ"""
-        name_ai = self.name if ai_name == "" else ai_name
+    def load(self, ai_name: Optional[str] = None):
+        """Загружает все данные сохранённой ИИ
+
+        (Если не передать имя, то загрузит сохранение текущей ИИшки,
+        если передать имя, то загрузит чужое сохранение)"""
+        name_ai = self.name if ai_name is None else ai_name
+
+        def get_func_with_name(name, kit):
+            if name == None:
+                return None
+
+            return getattr(kit, name)
+
 
         # Записываем данны об ИИшке
-        def get_act_func_with_name(name):
-            if name == "ReLU_2":
-                return self.kit_act_func.ReLU_2
-            elif name == "ReLU":
-                return self.kit_act_func.ReLU
-            elif name == "Softmax":
-                return self.kit_act_func.Softmax
-            elif name == "Tanh":
-                return self.kit_act_func.Tanh
-            elif name == "Sigmoid":
-                return self.kit_act_func.Sigmoid
-
-        def get_upd_func_with_name(name):
-            if name == "standart":
-                return self.kit_upd_q_table.standart
-            elif name == "future":
-                return self.kit_upd_q_table.future
-            elif name == "future_sum":
-                return self.kit_upd_q_table.future_sum
-            elif name == "simple":
-                return self.kit_upd_q_table.simple
-            elif name == "simple_max":
-                return self.kit_upd_q_table.simple_max
-
         try:
             with open(f"Saves AIs/{name_ai}.json", "r") as save_file:
                 ai_data = json.load(save_file)
+
+            self.name = ai_data["name"]
 
             self.weights = [np.array(i) for i in ai_data["weights"]]
             self.architecture = ai_data["architecture"]
             self.have_bias_neuron = ai_data["have_bias_neuron"]
 
-            self.number_disabled_weights = ai_data["number_disabled_neurons"]
-            self.alpha = ai_data["alpha"]
-            self.batch_size = ai_data["batch_size"]
+            self._number_disabled_weights = ai_data["number_disabled_neurons"]
+            self._alpha = ai_data["alpha"]
+            self._batch_size = ai_data["batch_size"]
 
-            self.what_act_func = get_act_func_with_name(ai_data["what_activation_function"])
-            self.end_act_func = get_act_func_with_name(ai_data["end_activation_function"])
-            self.func_update_q_table = get_upd_func_with_name(ai_data["func_update_q_table"])
+            self.what_act_func = get_func_with_name(
+                ai_data["what_activation_function"], self.kit_act_func)
+            self.end_act_func = get_func_with_name(
+                ai_data["end_activation_function"], self.kit_act_func)
+            self.func_update_q_table = get_func_with_name(
+                ai_data["func_update_q_table"], self.kit_upd_q_table)
 
             self.q_table = ai_data["q_table"]
 
@@ -495,34 +569,42 @@ class AI:
         except FileNotFoundError:
             print(f"Сохранение {name_ai} не найдено")
 
-    def delete(self, ai_name=""):
-        """Удаляет сохранение"""
+    def delete(self, ai_name: Optional[str] = None):
+        """Удаляет сохранение
 
-        name_ai = self.name if ai_name == "" else ai_name
+        (Если не передать имя, то удалит сохранение текущей ИИшки,
+        если передать имя, то удалит другое сохранение)"""
+        name_ai = self.name if ai_name is None else ai_name
 
         try:
             os.remove(f"Saves AIs/{name_ai}.json")
-        except :
+        except:
             pass
 
-    def update(self, ai_name=""):
-        """Обновляем сохранение"""
+    def update(self, ai_name: Optional[str] = None):
+        """Обновляем сохранение
+
+        (Если не передать имя, то обновить сохранение текущей ИИшки,
+        если передать имя, то обновить другое сохранение)"""
 
         self.delete(ai_name)
         self.save(ai_name)
 
 
     def print_how_many_parameters(self):
-        parameters = []
-        for layer in self.weights:
-            parameters.append(layer.shape[0] * layer.shape[1])
+        """Выводит в консол в формате:
+        Parameters: 123456\t\t Architecture: [1, 2, 3, 4]\t\t + bias"""
 
-        print(f"{self.name} \t\t",
-              f"Parameters: {sum(parameters)} \t\t",
-              f" {self.architecture} ", end="")
+        all_parameters = []
+        for layer in self.weights:
+            all_parameters.append(layer.shape[0] * layer.shape[1])
+
+        print(f"{self.name}\t\t",
+              f"Parameters: {sum(all_parameters)}\t\t",
+              f"{self.architecture}", end="")
 
         if self.have_bias_neuron:
-            print("+ bias", end="")
+            print(" + bias", end="")
 
         print()
 
@@ -537,38 +619,37 @@ class FuncsUpdateQTable:
     \n simple_max: Q(s,a) = R + γ Q’(s’, max a) \n
     """
 
-    def standart(self, q_table={}, state_str=None, act=0, future_state_str=None,
-                 q_alpha=0.0, reward_for_state=0, gamma=0.0, **kwargs):
-        return q_table[state_str][act] + \
+    def standart(self, q_table: Dict[str, List[float]], state_str: str, ind_act: int, future_state_str: str,
+                 q_alpha: float, reward_for_state: float, gamma: float, **kwargs):
+        return q_table[state_str][ind_act] + \
             q_alpha * (reward_for_state + gamma * \
-                       max(q_table[future_state_str]) - q_table[state_str][act])
+                       max(q_table[future_state_str]) - q_table[state_str][ind_act])
 
-    def future(self, q_table={}, state_str=None, act=0, future_state=None, future_state_str=None,
-               q_alpha=0.0, reward_for_state=0, gamma=0.0,
-               q_start_work=None, **kwargs):
-        return q_table[state_str][act] + \
+    def future(self, q_table: Dict[str, List[float]], state_str: str, ind_act: int, future_state: List[float],
+               future_state_str: str, q_alpha: float, reward_for_state: float, gamma: float,
+               q_start_work: Callable, **kwargs):
+        return q_table[state_str][ind_act] + \
             q_alpha * (reward_for_state + gamma * \
-                       q_table[future_state_str][q_start_work(future_state, True)] - q_table[state_str][act])
+                       q_table[future_state_str][q_start_work(future_state, True)] - q_table[state_str][ind_act])
 
-    def future_sum(self, q_table={}, state_str=None, act=0, future_state_str=None,
-                   q_alpha=0.0, reward_for_state=0, gamma=0.0, **kwargs):
-        return q_table[state_str][act] + q_alpha * \
-            (reward_for_state + gamma * sum(q_table[future_state_str]) - q_table[state_str][act])
+    def future_sum(self, q_table: Dict[str, List[float]], state_str: str, ind_act: int,
+                   future_state_str: str, q_alpha: float, reward_for_state: float, gamma: float, **kwargs):
+        return q_table[state_str][ind_act] + q_alpha * \
+            (reward_for_state + gamma * sum(q_table[future_state_str]) - q_table[state_str][ind_act])
 
-    def simple(self, q_table={}, future_state_str=None, future_state=None,
-               reward_for_state=0, gamma=0.0,
-               q_start_work=None, **kwargs):
+    def simple(self, q_table: Dict[str, List[float]], future_state_str: str, future_state: List[float],
+               reward_for_state: float, gamma: float, q_start_work: Callable, **kwargs):
         return reward_for_state + \
             gamma * q_table[future_state_str][q_start_work(future_state, True)]
 
-    def simple_max(self, q_table={}, future_state_str=None,
-                   reward_for_state=0, gamma=0.0, **kwargs):
+    def simple_max(self, q_table: Dict[str, List[float]], future_state_str: str,
+                   reward_for_state: float, gamma: float, **kwargs):
         return reward_for_state + gamma * max(q_table[future_state_str])
 
 class ActivationFunctions:
     """Набор функций активации и их производных"""
 
-    def normalize(self, x: np.ndarray, min=0, max=1):
+    def normalize(self, x: np.ndarray, min: float = 0, max: float = 1):
         # Нормализуем от 0 до 1
         result = x - np.min(x)
         if np.max(result) != 0:
@@ -578,7 +659,7 @@ class ActivationFunctions:
         result = result * (max - min) + min
         return result
 
-    def ReLU(self, x: np.ndarray, return_derivative=False):
+    def ReLU(self, x: np.ndarray, return_derivative: bool = False):
         """Не действует ограничение value_range"""
 
         if return_derivative:
@@ -586,7 +667,7 @@ class ActivationFunctions:
 
         return (x > 0) * x
 
-    def ReLU_2(self, x: np.ndarray, return_derivative=False):
+    def ReLU_2(self, x: np.ndarray, return_derivative: bool = False):
         if return_derivative:
             return (x < 0) * 0.01 + \
                 np.multiply(0 <= x, x <= 1) + \
@@ -596,16 +677,16 @@ class ActivationFunctions:
             np.multiply(0 <= x, x <= 1) * x + \
             (x > 1) * 0.01 * x
 
-    def Softmax(self, x: np.ndarray, return_derivative=False):
+    def Softmax(self, x: np.ndarray, return_derivative: bool = False):
         return np.exp(x) / np.sum(np.exp(x))
 
-    def Tanh(self, x: np.ndarray, return_derivative=False):
+    def Tanh(self, x: np.ndarray, return_derivative: bool = False):
         if return_derivative:
             return 1 / (10 * np.power(np.cosh(.1 * x), 2))
 
         return np.tanh(.1 * x)
 
-    def Sigmoid(self, x: np.ndarray, return_derivative=False):
+    def Sigmoid(self, x: np.ndarray, return_derivative: bool = False):
         if return_derivative:
             return np.exp(-.1 * x) / (10 * np.power(1 + np.exp(-.1 * x), 2))
 

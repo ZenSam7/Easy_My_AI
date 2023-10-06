@@ -15,13 +15,13 @@ ai.name = "MNIST"
 ai.what_act_func = ai.kit_act_func.Tanh
 ai.end_act_func = ai.kit_act_func.Softmax
 
-ai.number_disabled_weights = 0.0
+ai._number_disabled_weights = 0.0
 
 # ai.load()
 ai.print_how_many_parameters()
 
-ai.batch_size = 1
-ai.alpha = 1e-4
+ai._batch_size = 1
+ai._alpha = 1e-4
 
 
 

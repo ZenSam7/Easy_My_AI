@@ -29,12 +29,12 @@ ai.create_weights( [number_of_inputs,
 > You can change nothing, or change only a some of parameters
 
 ```python
-ai.alpha = 1e-2  # Alpha coefficient (learning rate)
+ai._alpha = 1e-2  # Alpha coefficient (learning rate)
 
-ai.number_disabled_weights = 0.0  # What proportion of weights we "turn off" during training
+ai._number_disabled_weights = 0.0  # What proportion of weights we "turn off" during training
 # (This is necessary so that there is no overlearning (memorizing responses instead of finding correlations))
 
-ai.batch_size = 1  # Batch size in batch gradient descent
+ai._batch_size = 1  # Batch size in batch gradient descent
 
 ai.kit_act_funcs.value_range(0, 1)  # What is the range of activation functions
 

@@ -15,9 +15,9 @@ ai.create_weights([2, 30, 30, 4], add_bias_neuron=True)
 ai.what_act_func = ai.kit_act_func.Tanh
 ai.end_act_func = ai.kit_act_func.Softmax
 
-ai.batch_size = 10
+ai._batch_size = 10
 
-ai.alpha = 1e-3
+ai._alpha = 1e-3
 
 ai.make_all_for_q_learning(actions, ai.kit_upd_q_table.standart, 0.5, 0.05, 0.1)
 

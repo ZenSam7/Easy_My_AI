@@ -1,4 +1,4 @@
-import Code_My_AI
+from Code_My_AI import AI
 from Games import Code_Snake
 import os
 from profilehooks import profile
@@ -21,24 +21,24 @@ snake.eat_apple_function = win
 
 
 # Создаём ИИ
-ai = Code_My_AI.AI()
-ai.create_weights([9, 60, 60, 60, 4], add_bias_neuron=True)
-ai.name = "Snake_better"
+ai = AI(architecture=[9, 100, 100, 100, 4], add_bias_neuron=True, name="Snake_better")
 
 ai.what_act_func = ai.kit_act_func.Tanh
 ai.end_act_func = ai.kit_act_func.Softmax
 
-actions = ["left", "right", "up", "down"]
+actions = ("left", "right", "up", "down")
 ai.make_all_for_q_learning(actions, ai.kit_upd_q_table.standart, 0.1, 0.01, 0.1)
 
-ai.load()
+# ai.load()
 ai.print_how_many_parameters()
 
-ai.alpha = 2e-6
+ai.alpha = 1e-4
+print(ai._alpha)
 ai.batch_size = 10
 
 ai.epsilon = 0.02
 
+ai.save()
 
 learn_iteration = 0
 while 1:
@@ -65,4 +65,4 @@ while 1:
 
     # ОБУЧАЕМ
     ai.q_learning(data, reward, snake.get_future_state(action),
-                  recce_mode=False, learning_method=2.5)
+                  recce_mode=False, learning_method=1)
