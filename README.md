@@ -39,7 +39,7 @@ ai._batch_size = 1  # Batch size in batch gradient descent
 ai.kit_act_funcs.value_range(0, 1)  # What is the range of activation functions
 
 # Which activation function we use for the output values (May be None)
-ai.end_act_func = ai.kit_act_funcs.Tanh
+ai.end_act_func = ai.kit_act_funcs.tanh
 ```
 
 

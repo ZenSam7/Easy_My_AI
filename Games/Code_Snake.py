@@ -7,14 +7,14 @@ class Snake:
 
     def __init__(
         self,
-        window_width,
-        window_height,
-        cell_size,
-        amount_food,
-        game_over_function=None,
-        eat_apple_function=None,
-        max_num_steps=100,
-        display_game=False,
+        window_width: int,
+        window_height: int,
+        cell_size: int,
+        amount_food: int,
+        game_over_function: bool = None,
+        eat_apple_function: bool = None,
+        max_num_steps: int = 100,
+        display_game: bool = False,
     ):
         self.window_width = window_width
         self.window_height = window_height
@@ -117,7 +117,7 @@ class Snake:
             self.eat_apple_function()
             self.game_over()
 
-    def spawn_food(self, num_foods=None):
+    def spawn_food(self, num_foods: int = None):
         """Создаём еду"""
         num_foods = self.amount_food if num_foods is None else num_foods
 

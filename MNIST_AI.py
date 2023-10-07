@@ -7,13 +7,10 @@ start_time = time()
 
 mnist = MNIST()
 
-ai = Code_My_AI.AI()
+ai = Code_My_AI.AI(architecture=[784, 50, 50, 50, 10], add_bias_neuron=True, name="MNIST")
 
-ai.create_weights([784, 50, 50, 50, 10], add_bias_neuron=True)
-ai.name = "MNIST"
-
-ai.what_act_func = ai.kit_act_func.Tanh
-ai.end_act_func = ai.kit_act_func.Softmax
+ai.what_act_func = ai.kit_act_func.tanh
+ai.end_act_func = ai.kit_act_func.softmax
 
 ai._number_disabled_weights = 0.0
 
