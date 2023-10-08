@@ -1,6 +1,7 @@
 import pygame
 from random import randint
 from time import sleep
+from copy import deepcopy
 
 class Snake:
     """Набор функций для создания змеи"""
@@ -9,8 +10,9 @@ class Snake:
         self,
         window_width: int,
         window_height: int,
-        cell_size: int,
         amount_food: int,
+        amount_walls: int,
+        cell_size: int = 100,
         game_over_function: bool = None,
         eat_apple_function: bool = None,
         max_num_steps: int = 100,
@@ -19,11 +21,16 @@ class Snake:
         self.window_width = window_width
         self.window_height = window_height
         self.cell_size = cell_size
+        self.amount_walls = amount_walls
 
         # Голова - последняя
         self.snake_body = [[0, 0], [1, 0], [2, 0]]
         self.food_coords = []
         self.amount_food = amount_food
+
+        # Добавляем стены
+        self.walls_coords = []
+        self.respawn_walls()
 
         self.max_num_steps = max_num_steps
 
@@ -96,6 +103,10 @@ class Snake:
         if head in self.snake_body[:-1]:
             self.game_over()
 
+        # Столкновение с стенами
+        if head in self.walls_coords:
+            self.game_over()
+
         # Столкновение с едой
         elif head in self.food_coords:
             self.eat_apple_function()
@@ -127,8 +138,10 @@ class Snake:
                 randint(0, self.window_height // self.cell_size - 1),
             ]
 
-            # Если еда заспавнилась в теле или в другой еде - пересоздаём
-            while (coords in self.food_coords) or (coords in self.snake_body):
+            # Если еда заспавнилась в теле или в другой еде или в стене - пересоздаём
+            while (coords in self.food_coords) or\
+                  (coords in self.snake_body)  or\
+                  (coords in self.walls_coords):
                 coords = [
                     randint(0, self.window_width // self.cell_size - 1),
                     randint(0, self.window_height // self.cell_size - 1),
@@ -136,10 +149,26 @@ class Snake:
 
             self.food_coords.append(coords)
 
+    def respawn_walls(self):
+        """Пересоздаём стены"""
+        self.walls_coords = []
+
+        while len(self.walls_coords) != self.amount_walls:
+            coords = [
+                randint(0, self.window_width // self.cell_size - 1),
+                randint(0, self.window_height // self.cell_size - 1),
+            ]
+
+            # Нльзя чтоы стена оказась в теле змейки или в еде или другой стене
+            if (coords not in self.snake_body) and (coords not in self.food_coords) and\
+                    (coords not in self.walls_coords):
+                self.walls_coords.append(coords)
+
     def draw(
         self,
         snake_color=(120, 130, 140),
         food_color=(160, 50, 70),
+        walls_color=(110, 110, 110),
         background_color=(40, 50, 60),
     ):
         """Рисуем змею и еду, выводим номер поколения"""
@@ -155,6 +184,19 @@ class Snake:
                 (
                     food_cell[0] * self.cell_size,
                     food_cell[1] * self.cell_size,
+                    self.cell_size,
+                    self.cell_size,
+                ),
+            )
+
+        # Стены
+        for wall_cell in self.walls_coords:
+            pygame.draw.rect(
+                self.wind,
+                walls_color,
+                (
+                    wall_cell[0] * self.cell_size,
+                    wall_cell[1] * self.cell_size,
                     self.cell_size,
                     self.cell_size,
                 ),
@@ -181,19 +223,19 @@ class Snake:
         pygame.display.update()
 
         # Ждём немного, чтобы человек мог понять что происходит
-        sleep(0.09)
+        sleep(0.1)
 
     def game_over(self):
         """Сбрасываем все переменные"""
-        if self.game_over_function is not None:
+        if not (self.game_over_function is None):
             self.game_over_function()  # Запускаем функцию, если она есть
 
         self.scores.append(self.score)
 
         self.snake_body = [[0, 0], [1, 0], [2, 0]]
         self.food_coords = []
-        self.need_grow = False
         self.spawn_food(self.amount_food)
+        self.respawn_walls()
         self.score = 0
         self.num_steps = 0
         self.generation += 1
@@ -201,8 +243,8 @@ class Snake:
     def step(self, where_want_move: str):
         """Запускаем одну итерацию змейки"""
 
-        self.move_snake(where_want_move)
         self.collision()
+        self.move_snake(where_want_move)
 
         if self.display_game:
             self.draw()
@@ -219,11 +261,11 @@ class Snake:
 
         data = []
 
-        foods = [[i[0], i[1]] for i in self.food_coords]
-        head = [self.snake_body[-1][0], self.snake_body[-1][1]]
+        foods = deepcopy(self.food_coords)
+        head = deepcopy(self.snake_body[-1])
 
         # Записываем все препятствия, от которых можно убиться
-        blocks = [[i[0], i[1]] for i in self.snake_body]
+        blocks = deepcopy(self.snake_body) + deepcopy(self.walls_coords)
         for i in range(self.window_width // self.cell_size):
             blocks.append([i, -1])  # Потолок
             blocks.append([i, self.window_height // self.cell_size])  # Пол
@@ -252,12 +294,9 @@ class Snake:
         food_coords = self.food_coords.copy()
         score, generation, num_steps = self.score, self.generation, self.num_steps
 
-
         self.move_snake(where_want_move)
-        self.collision()
-
+        # self.collision()
         future_state = self.get_blocks()
-
 
         self.snake_body, self.food_coords = snake_body, food_coords
         self.score, self.generation, self.num_steps = score, generation, num_steps

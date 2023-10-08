@@ -123,6 +123,13 @@ class AI:
         self._packet_delta_weight: List[np.ndarray] = []
         self._packet_layer_answers: List[np.ndarray] = []
 
+        self.q_table: Dict[str, List[float]] = {}
+        self.actions: Tuple[str] = ()
+        self.gamma: float = 0
+        self.epsilon: float = 0
+        self.q_alpha: float = 0
+        self._func_update_q_table: Callable = self.kit_upd_q_table.standart
+
         # Будем ли совершить случайные действия во время обучения (для "исследования" мира)
         self.recce_mode: bool = False
 
@@ -147,7 +154,7 @@ class AI:
             self.weights.append(
                 self.kit_act_func.normalize(
                     np.random.random(
-                        size=(architecture[i] + add_bias_neuron, architecture[i + 1])
+                        size=(architecture[i] + add_bias_neuron, architecture[i + 1]),
                     ),
                     min_weight,
                     max_weight,
@@ -345,18 +352,15 @@ class AI:
         \n simple_max: Q(s,a) = R + γ Q’(s’, max a) \n
         """
 
-        self.actions = actions
-        self._gamma = gamma  # Коэффициент "доверия опыту"
-        self._epsilon = epsilon  # Коэффициент "разведки окружающей среды"
-        self._q_alpha = q_alpha
-
-        # Хэш-Таблица состояний-вознаграждений
-        self.q_table = {}
+        self.actions: Tuple[str] = actions
+        self._gamma: float = gamma  # Коэффициент "доверия опыту"
+        self._epsilon: float = epsilon  # Коэффициент "разведки окружающей среды"
+        self._q_alpha: float = q_alpha
 
         if func_update_q_table is None:
-            func_update_q_table = self.kit_upd_q_table.standart
+            self._func_update_q_table: Callable = self.kit_upd_q_table.standart
         else:
-            self._func_update_q_table = func_update_q_table
+            self._func_update_q_table: Callable = func_update_q_table
 
     def q_learning(self, state: List[float], reward_for_state: float, future_state: List[float],
                    learning_method: float = 1,

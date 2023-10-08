@@ -1,24 +1,20 @@
 from Code_My_AI import AI
 from Games import Code_Snake
-import os
-from profilehooks import profile
 from time import time
+from profilehooks import profile
 
 start = time()
-
-# Создаём Змейку
-snake = Code_Snake.Snake(700, 500, 100, 3, max_num_steps=100, display_game=False)
 
 def end():
     global reward
     reward = -10
-    snake.generation += 1
 def win():
     global reward
     reward = 50
-snake.game_over_function = end
-snake.eat_apple_function = win
 
+# Создаём Змейку
+snake = Code_Snake.Snake(600, 500, 2, 2, max_num_steps=100, display_game=True,
+                         game_over_function=end, eat_apple_function=win)
 
 # Создаём ИИ
 ai = AI(architecture=[9, 100, 100, 100, 4], add_bias_neuron=True, name="Snake")
@@ -27,15 +23,15 @@ ai.what_act_func = ai.kit_act_func.tanh
 ai.end_act_func = ai.kit_act_func.softmax
 
 actions = ("left", "right", "up", "down")
-ai.make_all_for_q_learning(actions, ai.kit_upd_q_table.standart, 0.0, 0.02, 0.1)
+ai.make_all_for_q_learning(actions, ai.kit_upd_q_table.standart, 0.1, 0.02, 0.1)
 
-# ai.load()
+ai.load()
 ai.print_how_many_parameters()
 
-ai.alpha = 1e-4
+ai.alpha = 1e-5
 ai.batch_size = 10
 
-ai.epsilon = 0.01
+ai.epsilon = 0.0
 
 
 learn_iteration = 0

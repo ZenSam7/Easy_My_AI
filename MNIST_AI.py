@@ -12,19 +12,19 @@ ai = Code_My_AI.AI(architecture=[784, 50, 50, 50, 10], add_bias_neuron=True, nam
 ai.what_act_func = ai.kit_act_func.tanh
 ai.end_act_func = ai.kit_act_func.softmax
 
-ai._number_disabled_weights = 0.0
+ai.number_disabled_weights = 0.0
 
-# ai.load()
+ai.load()
 ai.print_how_many_parameters()
 
-ai._batch_size = 1
-ai._alpha = 1e-4
+ai.batch_size = 1
+ai.alpha = 1e-5
 
 
 
 print("\nОбучение...")
 
-for cycle in range(1):
+for cycle in range(2):
     print(f"Эпоха #{cycle}")
 
     num, errors = 0, 0
