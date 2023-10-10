@@ -7,13 +7,13 @@ start = time()
 
 def end():
     global reward
-    reward = -10
+    reward = -20
 def win():
     global reward
     reward = 50
 
 # Создаём Змейку
-snake = Code_Snake.Snake(600, 500, 2, 2, max_num_steps=100, display_game=True,
+snake = Code_Snake.Snake(600, 500, 2, 0, max_num_steps=60, display_game=False,
                          game_over_function=end, eat_apple_function=win)
 
 # Создаём ИИ
@@ -22,16 +22,16 @@ ai = AI(architecture=[9, 100, 100, 100, 4], add_bias_neuron=True, name="Snake")
 ai.what_act_func = ai.kit_act_func.tanh
 ai.end_act_func = ai.kit_act_func.softmax
 
-actions = ("left", "right", "up", "down")
-ai.make_all_for_q_learning(actions, ai.kit_upd_q_table.standart, 0.1, 0.02, 0.1)
+ai.make_all_for_q_learning(("left", "right", "up", "down"), ai.kit_upd_q_table.standart,
+                           0.1, 0.02, 0.4)
 
-ai.load()
+# ai.load()
 ai.print_how_many_parameters()
 
-ai.alpha = 1e-5
+ai.alpha = 1e-4
 ai.batch_size = 10
 
-ai.epsilon = 0.0
+ai.epsilon = 0.02
 
 
 learn_iteration = 0

@@ -353,22 +353,27 @@ class AI:
         """
 
         self.actions: Tuple[str] = actions
-        self._gamma: float = gamma  # Коэффициент "доверия опыту"
-        self._epsilon: float = epsilon  # Коэффициент "разведки окружающей среды"
-        self._q_alpha: float = q_alpha
+        self.gamma: float = gamma  # Коэффициент "доверия опыту"
+        self.epsilon: float = epsilon  # Коэффициент "разведки окружающей среды"
+        self.q_alpha: float = q_alpha
 
         if func_update_q_table is None:
             self._func_update_q_table: Callable = self.kit_upd_q_table.standart
         else:
             self._func_update_q_table: Callable = func_update_q_table
 
-    def q_learning(self, state: List[float], reward_for_state: float, future_state: List[float],
+    def q_learning(self, state: List[float], reward_for_state: float, future_state: List[float] = None,
                    learning_method: float = 1,
                    squared_error: bool = False,
                    recce_mode: bool = False,
                    ):
         """
         ИИ используется как предсказатель правильных действий\n
+
+        -------------------------- \n
+
+        future_state можно не указывать ТОЛЬКО если gamma = 0
+
 
         -------------------------- \n
 
@@ -396,6 +401,9 @@ class AI:
         (чтобы ИИ больше стремился именно к лучшим результатам и совсем немного учитывал остальные \
         (чем степень больше, тем меньше учитываются остальные результаты))
         """
+
+        if self._gamma != 0 and future_state is None:
+            raise "Обяхательно надо указывать future_state, если gamma != 0"
 
         # Добовляем новые состояния в Q-таблицу
         state_str = str(state)

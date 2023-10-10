@@ -35,6 +35,7 @@ class Snake:
         self.max_num_steps = max_num_steps
 
         self.need_grow = False
+        self.ignore_game_over = False
         self.generation = 0  # Номер поколения
         self.num_steps = 0  # Количество шагов
         self.score = 0
@@ -83,7 +84,7 @@ class Snake:
         else:
             # Если хотим двигаться в тело - продолжаем двигаться в
             # противоположную сторону
-            self.need_grow = True  # Надо, что бы змея лишний раз не укорачивалась
+            self.need_grow = True
 
             if where_want_move == "left":
                 self.move_snake("right")
@@ -227,11 +228,16 @@ class Snake:
 
     def game_over(self):
         """Сбрасываем все переменные"""
+        if self.ignore_game_over:
+            self.ignore_game_over = False
+            return
+
         if not (self.game_over_function is None):
             self.game_over_function()  # Запускаем функцию, если она есть
 
         self.scores.append(self.score)
 
+        self.need_grow = False
         self.snake_body = [[0, 0], [1, 0], [2, 0]]
         self.food_coords = []
         self.spawn_food(self.amount_food)
@@ -243,8 +249,8 @@ class Snake:
     def step(self, where_want_move: str):
         """Запускаем одну итерацию змейки"""
 
-        self.collision()
         self.move_snake(where_want_move)
+        self.collision()
 
         if self.display_game:
             self.draw()
@@ -257,7 +263,8 @@ class Snake:
         """Возвращаем visibility_range ^2 значений, описывающие состояние клетки вокруг головы змеи
         (если еда то 1, если стена то -1, иначе 0)"""
 
-        assert visibility_range % 2 == 1, "visibility_range is not even number (because  head should be in center)"
+        assert visibility_range % 2 == 1, "visibility_range is not even number " \
+                                          "(because  head should be in center)"
 
         data = []
 
@@ -295,7 +302,10 @@ class Snake:
         score, generation, num_steps = self.score, self.generation, self.num_steps
 
         self.move_snake(where_want_move)
-        # self.collision()
+        # Надо, чтобы лишний раз не выщывалась функция game_over_function()
+        self.ignore_game_over = True
+
+        self.collision()
         future_state = self.get_blocks()
 
         self.snake_body, self.food_coords = snake_body, food_coords
