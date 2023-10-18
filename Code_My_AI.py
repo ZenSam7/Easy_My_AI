@@ -112,8 +112,9 @@ class AI:
 
         self.weights: List[np.matrix] = []  # Появиться после вызова create_weights
 
-        self.kit_act_func: Callable = ActivationFunctions()
-        self.kit_upd_q_table: Callable = FuncsUpdateQTable()
+        # Специально убрал аннотиции типов
+        self.kit_act_func: ActivationFunctions = ActivationFunctions()
+        self.kit_upd_q_table: FuncsUpdateQTable = FuncsUpdateQTable()
 
         # Какую функцию активации используем
         self.what_act_func: Callable = self.kit_act_func.tanh
@@ -252,7 +253,7 @@ class AI:
         ai_answer, answers = self.start_work(input_data, True)
 
         # Нормализуем веса (очень грубо)
-        if np.any(np.abs(self.weights[0]) >= 1e4):  # Если запредельные значения весов
+        if np.any(np.abs(self.weights[0]) >= 1e6):  # Если запредельные значения весов
             # То пересоздаём веса
             self.create_weights(self.architecture, self.have_bias_neuron)
             # И уменьшаем alpha
