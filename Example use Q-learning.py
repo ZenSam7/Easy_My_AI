@@ -1,4 +1,4 @@
-import Code_My_AI
+from My_AI import AI
 from Games import Game_for_Q_learning
 
 
@@ -9,7 +9,7 @@ actions = ["left", "right", "up", "down"]
 
 
 # Создаём ИИ
-ai = Code_My_AI.AI()
+ai = AI()
 ai.create_weights([2, 30, 30, 4], add_bias_neuron=True)
 
 ai.what_act_func = ai.kit_act_func.Tanh

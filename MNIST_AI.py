@@ -1,4 +1,4 @@
-import Code_My_AI
+from My_AI import AI
 from mnist import MNIST
 import numpy as np
 from time import time
@@ -7,7 +7,7 @@ start_time = time()
 
 mnist = MNIST()
 
-ai = Code_My_AI.AI(architecture=[784, 50, 50, 50, 10], add_bias_neuron=True, name="MNIST")
+ai = AI(architecture=[784, 50, 50, 50, 10], add_bias_neuron=True, name="MNIST")
 
 ai.what_act_func = ai.kit_act_func.tanh
 ai.end_act_func = ai.kit_act_func.softmax

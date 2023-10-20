@@ -3,8 +3,10 @@ My_AI is for learning how AI works (see source code: "Code_My_AI.py") as well as
 
 # How to use my library: 👉
 ### • Import the main file "Code_My_AI.py" and Create an instance of the class AI
+
 ```python
-import Code_My_AI
+
+from My_AI import Code_My_AI
 
 ai = Code_My_AI.AI()
 ```
@@ -137,8 +139,9 @@ better_ai_0.genetic_crossing_with(better_ai_1)
 
 
 #### • Or you can change (mutate) the AI so that it doesn't stand still or hope that some of mutations turn out to be good
+
 ```python
-ai.get_mutations(0.05)  # Replacing 5% of all weights with random numbers
+ai.make_mutations(0.05)  # Replacing 5% of all weights with random numbers
 ```
 
 ####  

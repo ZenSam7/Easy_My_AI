@@ -1,4 +1,4 @@
-import Code_My_AI
+from My_AI import AI
 import numpy as np
 
 
@@ -6,18 +6,17 @@ import numpy as np
 
 
 # Создаём экземпляр нейронки
-ai = Code_My_AI.AI()
+ai = AI()
 
 # Создаём архитектуру (сколько нейронов на каком слое)
 ai.create_weights([2, 10, 10, 10, 2], add_bias_neuron=True)
 
 ai.what_act_func = ai.kit_act_func.ReLU
-ai.kit_act_func.value_range(0, 2000)
 ai.end_act_func = ai.kit_act_func.ReLU_2
 
 
-ai._number_disabled_weights = 0.0
-ai._alpha = 1e-9
+ai.number_disabled_weights = 0.0
+ai.alpha = 1e-9
 
 
 # Загружаем ии

@@ -2,14 +2,16 @@ import numpy as np
 import json
 from os import remove
 from typing import Callable, List, Dict, Tuple, Optional
-from enum import Enum
+from copy import deepcopy
+
+from Ai_Funcs import *
 
 
 class ImpossibleContinue(Exception):
     pass
 
 
-class _MyProperties(object):
+class MyProperties(object):
     @classmethod
     def get_propertry(cls, property_func: Callable, attr_name: str, doc: str) -> property:
         """Создаём объект property со свойством property_func (которое мы выбираем из этого же класса)"""
@@ -80,26 +82,25 @@ class AI:
     # пользователю даём просто alpha, epsilon, gamma ...
 
     # Стандартные коэффициенты
-    alpha: float = _MyProperties.get_propertry(_MyProperties.from_1_to_0, "alpha",
-                                               "Коэффициент скорости обучения")
-    batch_size: int = _MyProperties.get_propertry(_MyProperties.only_uint, "batch_size",
-                                                  """Сколько входных данный усредняем при обучении""")
-    number_disabled_weights: float = _MyProperties.get_propertry(_MyProperties.from_1_to_0, "number_disabled_weights",
-                                                                 "Какую долю весов \"отключаем\" при обучении")
+    alpha: float = MyProperties.get_propertry(MyProperties.from_1_to_0, "alpha",
+                                              "Коэффициент скорости обучения")
+    batch_size: int = MyProperties.get_propertry(MyProperties.only_uint, "batch_size",
+                                                 "Сколько входных данный усредняем при обучении")
+    number_disabled_weights: float = MyProperties.get_propertry(MyProperties.from_1_to_0, "number_disabled_weights",
+                                                                "Какую долю весов \"отключаем\" при обучении")
     # Для Q-обучения
-    epsilon: float = _MyProperties.get_propertry(_MyProperties.from_1_to_0, "epsilon",
-                                                 "Доля случайных действий во время обучения")
-    gamma: float = _MyProperties.get_propertry(_MyProperties.from_1_to_0, "gamma",
-                                               "Коэффициент доверия опыту (для \"сглаживания\" Q-таблицы)")
-    q_alpha: float = _MyProperties.get_propertry(_MyProperties.from_1_to_0, "q_alpha",
-                                                 "Скорость обновления Q-таблицы")
+    epsilon: float = MyProperties.get_propertry(MyProperties.from_1_to_0, "epsilon",
+                                                "Доля случайных действий во время обучения")
+    gamma: float = MyProperties.get_propertry(MyProperties.from_1_to_0, "gamma",
+                                              "Коэффициент доверия опыту (для \"сглаживания\" Q-таблицы)")
+    q_alpha: float = MyProperties.get_propertry(MyProperties.from_1_to_0, "q_alpha",
+                                                "Скорость обновления Q-таблицы")
 
     def __init__(self,
                  architecture: Optional[List[int]] = None,
                  add_bias_neuron: Optional[bool] = None,
                  name: Optional[str] = None,
                  **kwargs):
-        """В качестве **kwarg принимает аргументы для create_weights и name"""
 
         # Альфа коэффициент (коэффициент скорости обучения)
         self._alpha: float = 1e-2
@@ -136,7 +137,7 @@ class AI:
 
         self.name: str = str(np.random.randint(2 ** 31))
         # Даём имя, если мы его прописывали в kwargs
-        self.name = name if not(name is None) else self.name
+        self.name = name if not (name is None) else self.name
 
         # Сразу создаём архитектуру
         self.create_weights(architecture, add_bias_neuron, **kwargs)
@@ -180,7 +181,7 @@ class AI:
                         np.random.randint(layer2.shape[1]),
                     ]
 
-    def get_mutations(self, mutation: float = 0.05):
+    def make_mutations(self, mutation: float = 0.05):
         """Создаёт рандомные веса в нейронке
         (Заменяем mutation весов на случайные числа)"""
 
@@ -612,87 +613,3 @@ class AI:
 
         print()
 
-
-class FuncsUpdateQTable:
-    """Формулы для обновления Q-таблицы: \n
-
-    \n standart:   Q(s,a) = Q(s,a) + α[r + γ(max Q(s’,a')) - Q(s,a)] \n
-    \n future:     Q(s,a) = Q(s,a) + α[r + γ Q(s’,a') - Q(s,a)] \n
-    \n future_sum: Q(s,a) = Q(s,a) + α[r + γ(Expected Q(s’,a')) - Q(s,a)] \n
-    \n simple:     Q(s,a) = R + γ Q’(s’,a’) \n
-    \n simple_max: Q(s,a) = R + γ Q’(s’, max a) \n
-    """
-
-    def standart(self, q_table: Dict[str, List[float]], state_str: str, ind_act: int, future_state_str: str,
-                 q_alpha: float, reward_for_state: float, gamma: float, **kwargs):
-        return q_table[state_str][ind_act] + \
-            q_alpha * (reward_for_state + gamma *
-                       max(q_table[future_state_str]) - q_table[state_str][ind_act])
-
-    def future(self, q_table: Dict[str, List[float]], state_str: str, ind_act: int, future_state: List[float],
-               future_state_str: str, q_alpha: float, reward_for_state: float, gamma: float,
-               q_start_work: Callable, **kwargs):
-        return q_table[state_str][ind_act] + \
-            q_alpha * (reward_for_state + gamma *
-                       q_table[future_state_str][q_start_work(future_state, True)] - q_table[state_str][ind_act])
-
-    def future_sum(self, q_table: Dict[str, List[float]], state_str: str, ind_act: int,
-                   future_state_str: str, q_alpha: float, reward_for_state: float, gamma: float, **kwargs):
-        return q_table[state_str][ind_act] + q_alpha * \
-            (reward_for_state + gamma * sum(q_table[future_state_str]) - q_table[state_str][ind_act])
-
-    def simple(self, q_table: Dict[str, List[float]], future_state_str: str, future_state: List[float],
-               reward_for_state: float, gamma: float, q_start_work: Callable, **kwargs):
-        return reward_for_state + \
-            gamma * q_table[future_state_str][q_start_work(future_state, True)]
-
-    def simple_max(self, q_table: Dict[str, List[float]], future_state_str: str,
-                   reward_for_state: float, gamma: float, **kwargs):
-        return reward_for_state + gamma * max(q_table[future_state_str])
-
-
-class ActivationFunctions:
-    """Набор функций активации и их производных"""
-
-    def normalize(self, x: np.ndarray, min: float = 0, max: float = 1):
-        # Нормализуем от 0 до 1
-        result = x - np.min(x)
-        if np.max(result) != 0:
-            result = result / np.max(result)
-
-        # От min до max
-        result = result * (max - min) + min
-        return result
-
-    def relu(self, x: np.ndarray, return_derivative: bool = False):
-        """Не действует ограничение value_range"""
-
-        if return_derivative:
-            return (x > 0)
-
-        return (x > 0) * x
-
-    def relu_2(self, x: np.ndarray, return_derivative: bool = False):
-        if return_derivative:
-            return (x < 0) * 0.01 + \
-                np.multiply(0 <= x, x <= 1) + \
-                (x > 1) * 0.01
-
-        return (x < 0) * 0.01 * x + \
-            np.multiply(0 <= x, x <= 1) * x + \
-            (x > 1) * 0.01 * x
-
-    def softmax(self, x: np.ndarray, return_derivative: bool = False):
-        return np.exp(x) / np.sum(np.exp(x))
-
-    def tanh(self, x: np.ndarray, return_derivative: bool = False):
-        if return_derivative:
-            return 1 / (10 * np.power(np.cosh(.1 * x), 2))
-
-        return np.tanh(.1 * x)
-
-    def sigmoid(self, x: np.ndarray, return_derivative: bool = False):
-        if return_derivative:
-            return np.exp(-.1 * x) / (10 * np.power(1 + np.exp(-.1 * x), 2))
-
-        return 1 / (1 + np.exp(-.1 * x))
