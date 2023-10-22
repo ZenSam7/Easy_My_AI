@@ -4,7 +4,7 @@ from os import remove
 from typing import Callable, List, Dict, Tuple, Optional
 from copy import deepcopy
 
-from Ai_Funcs import *
+from .Ai_Funcs import *
 
 
 class ImpossibleContinue(Exception):
@@ -196,7 +196,8 @@ class AI:
                             np.random.random() - np.random.random()
                     )
 
-    def start_work(self, input_data: List[int], _return_answers: bool = False) -> np.ndarray:
+    def start_work(self, input_data: List[float], _return_answers: bool = False)\
+            -> (np.ndarray, Optional[List[np.ndarray]]):
         """Возвращает результат работы нейронки, из входных данных"""
         # Определяем входные данные как вектор
         result_layer_neurons = np.array(input_data)
@@ -243,14 +244,15 @@ class AI:
 
         return result_layer_neurons
 
-    def learning(self, input_data: List[int], answer: List[int],
+    def learning(self, input_data: List[float], answer: List[float],
                  squared_error: bool = False):
         """Метод обратного распространения ошибки для изменения весов в нейронной сети \n"""
 
         # Определяем наш ответ как вектор
         answer = np.array(answer)
 
-        # То, что выдала нам нейросеть | Список с ответами от каждого слоя нейронов
+        # ai_answer | То, что выдала нам нейросеть
+        # answers | Список с ответами от каждого слоя нейронов
         ai_answer, answers = self.start_work(input_data, True)
 
         # Нормализуем веса (очень грубо)
@@ -265,8 +267,8 @@ class AI:
         # На сколько должны суммарно изменить веса
         delta_weight = ai_answer - answer
         if squared_error:
-            delta_weight = np.power(ai_answer - answer, 2) * \
-                           (-1 * ((ai_answer - answer) < 0) + 1 * ((ai_answer - answer) >= 0))
+            delta_weight = np.power(delta_weight, 2) * \
+                           (-1 * (delta_weight < 0) + 1 * (delta_weight >= 0))
             # Оставляем знак ↑
 
         # Реализуем batch_size
@@ -320,7 +322,7 @@ class AI:
             delta_weight = delta_weight.dot(weight.T)
             delta_weight.dot(self.what_act_func(layer_answer, True).T)
 
-    def q_start_work(self, input_data: List[int], _return_index_act: bool = False) -> str:
+    def q_start_work(self, input_data: List[float], _return_index_act: bool = False) -> str:
         """Возвращает action, на основе входных данных"""
         ai_result = self.start_work(input_data).tolist()
 
@@ -337,7 +339,7 @@ class AI:
 
     def make_all_for_q_learning(self, actions: Tuple[str],
                                 func_update_q_table: Callable = None,
-                                gamma: float = 0.0, epsilon: float = 0.0, q_alpha: float = 0.1):
+                                gamma: float = 0.1, epsilon: float = 0.0, q_alpha: float = 0.1):
         """Создаём всё необходимое для Q-обучения
         Q-таблицу (таблица вознаграждений за действие), коэффициент вознаграждениий за будущие действия gamma,\
         коэффициент случайных действий epsilon, и коэффициент скорости изменения Q-таблицы q_alpha
@@ -355,6 +357,11 @@ class AI:
         """
 
         self.actions: Tuple[str] = actions
+        if len(self.actions) != self.weights[-1].shape[1]:
+            raise ImpossibleContinue(
+                "Количество возможных действий (actions) должно" \
+                "быть равно количеству выходов у нейросети!")
+
         self.gamma: float = gamma  # Коэффициент "доверия опыту"
         self.epsilon: float = epsilon  # Коэффициент "разведки окружающей среды"
         self.q_alpha: float = q_alpha
@@ -455,7 +462,7 @@ class AI:
         state_str: str = str(state)
         future_state_str: str = str(future_state)
 
-        act: int = self.q_start_work(state, True)
+        ind_act: int = self.q_start_work(state, True)
 
         all_kwargs = {
             "q_table": self.q_table,
@@ -467,7 +474,7 @@ class AI:
             "state_str": state_str,
             "future_state": future_state,
             "future_state_str": future_state_str,
-            "ind_act": act,
+            "ind_act": ind_act,
         }
 
         self.q_table[state_str][act] = self._func_update_q_table(**all_kwargs)
