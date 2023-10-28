@@ -1,4 +1,4 @@
-from My_AI import AI
+from My_AI import AI_with_ensemble
 from Games import Code_Snake
 from time import time
 
@@ -12,11 +12,12 @@ def win():
     reward = 100
 
 # Создаём Змейку
-snake = Code_Snake.Snake(600, 500, 2, 0, max_num_steps=60, display_game=False,
+snake = Code_Snake.Snake(700, 600, 2, 0, max_num_steps=100, display_game=False,
                          game_over_function=end, eat_apple_function=win)
 
 # Создаём ИИ
-ai = AI(architecture=[9, 100, 100, 100, 4], add_bias_neuron=True, name="Snake")
+ai = AI_with_ensemble(20, architecture=[9, 100, 100, 4],
+                      add_bias_neuron=True, name="Snake")
 
 ai.what_act_func = ai.kit_act_func.tanh
 ai.end_act_func = ai.kit_act_func.softmax
@@ -39,10 +40,10 @@ while 1:
     learn_iteration += 1
     reward = 0
 
-    if learn_iteration % 30_000 == 0:
+    if learn_iteration % 10_000 == 0:
         # Выводим максимальный и средний счёт змейки за 30_000 шагов
         max, mean = snake.get_max_mean_score()
-        print(learn_iteration // 30_000, "\t\t",
+        print(learn_iteration // 10_000, "\t\t",
               "Max:", max, "\t\t",
               "Mean:", round(mean, 1), "\t\t",
               int(time() - start), "s", "\t\t",
@@ -54,7 +55,7 @@ while 1:
     # Записываем данные в ответ
     data = snake.get_blocks(3)
 
-    action = ai.q_start_work(data)
+    action = ai.q_predict(data)
     snake.step(action)
 
     # Обучаем

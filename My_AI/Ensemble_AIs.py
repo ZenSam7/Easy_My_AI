@@ -1,68 +1,80 @@
 from .Code_My_AI import AI
 from typing import List, Optional, Dict, Tuple, Callable
 import numpy as np
+from os import mkdir, rmdir
 
 
-class AI_with_ensemble(AI):
+class AI_with_ensemble():
+    """Множество ИИшек в одной коробке (ансамбль), которые немного
+    отличаются и от этого повышается точность правильного выбора
+     (т.к. шанс что одновременно ошибётся множество ИИшек меньше,
+    чем если будет одна ИИ)"""
+
     def __init__(self, amount_ais: int, *args, **kwargs):
         """Создаёт множество ИИшек"""
-        self._ais = [AI(*args, **kwargs) for _ in range(amount_ais)]
+        self.ais: List[AI] = [AI(*args, **kwargs) for _ in range(amount_ais)]
 
-    # Суть в том, что для ансамбля ИИшек надо отдельно переопределять функции,
-    # чтобы оно всё просто работало
+    # Суть в том, что для ансамбля ИИшек надо отдельно переопределять некоторые
+    # функции, чтобы оно всё просто работало как ансамбль
 
     def __getattr__(self, item):
         """Если мы хотим взять атрибут, который мы в ЭТОМ классе не переопределили
          (т.е. он не мешает механике ансамбля), значит этот атрибут может
-         быть в AI, откуда мы его и достаём"""
+         быть в классе AI, откуда мы его и достаём"""
 
-        return self.__dict__.setdefault(item, self._ais[0].__dict__[item])
+        item_to_return = getattr(self.ais[0], item)
 
-    def start_work(self, input_data: List[float], _return_answers: bool = False) \
-            -> list[np.ndarray, Optional[List[np.ndarray]] ]:
-        """Тот же start_work, но возвращаем предсказание от каждой ИИшки"""
+        # Если мы хотим взять метод (функцию), то пропускаем этот метод (функцию)
+        # через декоратор _for_all_ais
+        if type(item_to_return) == type(self._for_all_ais):
+            return self._for_all_ais(item)
+
+        # Если это не метод (функция), то просто возвращаем
+        # (и добавляем в self.__dict__, чтобы работало быстрее)
+        self.__dict__[item] = item_to_return
+        return item_to_return
+
+    def _for_all_ais(self, func_name: str):
+        """Декоратор, который применяет функцию из AI ко всем ИИшкам"""
+
+        def wrap(*args, **kwargs):
+            nonlocal func_name
+            for ai in self.ais:
+                getattr(ai, func_name)(*args, **kwargs)
+
+        return wrap
+
+    def predict(self, input_data: List[float], _return_answers: bool = False) \
+            -> list[np.ndarray, Optional[List[np.ndarray]]]:
+        """Тот же start_work, но возвращаем предсказание от каждой ИИшки \n
+        P.s. Этот метод может быть использован только ползователем, т.е.
+        контретно этот метод не вызывается другими функциями"""
 
         all_predicts, all_answers = [], []
 
         # Добавляем все результаты нейронок в один список
-        for ai in self._ais:
+        for ai in self.ais:
             if _return_answers:
                 # Добавляем и список с ответами, если мы его хотим получить
-                predict, answers = ai.start_work(input_data, True)
+                predict, answers = ai.predict(input_data, True)
                 all_predicts.append(predict)
                 all_answers.append(answers)
             else:
-                predict = ai.start_work(input_data)
+                predict = ai.predict(input_data)
                 all_predicts.append(predict)
 
         if _return_answers:
             return all_predicts, all_answers
         return all_predicts
 
-    def learning(self, input_data: List[float], answer: List[float],
-                 squared_error: bool = False):
-        """Обучаем каждую ИИшку ансамбля"""
-
-        # Тут все просто ¯\_(._.)_/¯
-        for ai in self._ais:
-            ai.learning(input_data, answer, squared_error)
-
-    def make_all_for_q_learning(self, actions: Tuple[str],
-                                func_update_q_table: Callable = None,
-                                gamma: float = 0.1, epsilon: float = 0.0, q_alpha: float = 0.1):
-        """make_all_for_q_learning для каждой ИИшки"""
-
-        # Тут все просто ¯\_(._.)_/¯
-        for ai in self._ais:
-            ai.make_all_for_q_learning(actions, func_update_q_table, gamma, epsilon, q_alpha)
-
-    def q_start_work(self, input_data: List[float], _return_index_act: bool = False) -> str:
+    def q_predict(self, input_data: List[float], _return_index_act: bool = False) -> str:
         """Большинство принимает решение"""
 
         # Собираем голоса от каждой ИИшки (а не как у нас в стране)
         votes = {}
-        for ai in self._ais:
-            vote = ai.q_start_work(input_data)
+        for ai in self.ais:
+            vote = ai.q_predict(input_data)
+            # Добавляем голос в словарь, если его нету
             votes.setdefault(vote, 0)
 
             # +1 ИИшка проголосовала за какое-то действие
@@ -72,9 +84,76 @@ class AI_with_ensemble(AI):
         result = max(votes, key=votes.get)
 
         # Возвращаем индекс или action
-        print(votes)
         if _return_index_act:
             return self.actions.index(result)
         return result
 
+    def save(self, ai_name: Optional[str] = None):
+        """Сохраняет всю необходимую информацию об ансамбле
+
+        (Если не передать имя, то сохранит ИИшку под именем, заданным при создании,
+        если передать имя, то сохранит именно под этим)"""
+
+        name_ensemble = self.ais[0].name if ai_name is None else ai_name
+
+        # Сохраняем ансамбль ЛЮБОЙ ценой
+        try:
+            mkdir(f"Saves AIs/{name_ensemble}")
+
+            for index, ai in enumerate(self.ais):
+                ai.save(f"{name_ensemble}/#{index}")
+
+        except BaseException as e:
+            mkdir(f"Saves AIs/{name_ensemble}")
+
+            for index, ai in enumerate(self.ais):
+                ai.save(f"{name_ensemble}/#{index}")
+
+            raise e
+
+    def load(self, ai_name: Optional[str] = None):
+        """Загружает все данные сохранённой ИИ
+
+        (Если не передать имя, то загрузит сохранение текущей ИИшки,
+        если передать имя, то загрузит чужое сохранение)"""
+
+        name_ensemble = self.ais[0].name if ai_name is None else ai_name
+
+        # Загружаем ансамбль ЛЮБОЙ ценой
+        try:
+            for index, ai in enumerate(self.ais):
+                ai.load(f"{name_ensemble}/#{index}")
+
+        except BaseException as e:
+            for index, ai in enumerate(self.ais):
+                ai.load(f"{name_ensemble}/#{index}")
+
+            raise e
+
+    def delete(self, ai_name: Optional[str] = None):
+        """Удаляет сохранение
+
+        (Если не передать имя, то удалит сохранение текущей ИИшки,
+        если передать имя, то удалит другое сохранение)"""
+
+        name_ensemble = self.ais[0].name if ai_name is None else ai_name
+
+        try:
+            rmdir(f"Saves AIs/{name_ensemble}")
+        except FileNotFoundError:
+            pass
+
+    def print_how_many_parameters(self):
+        print(f"Количество ИИшек в ансамбле {self.ais[0].name}: {len(self.ais)}")
+
+        parameters_ai = 0
+        for layer in self.ais[0].weights:
+            parameters_ai += layer.shape[0] * layer.shape[1]
+
+        print(f"У одной ИИ: \t Параметров {parameters_ai}\t"
+              f"{self.ais[0].architecture}", end=" ")
+        if self.ais[0].have_bias_neuron:
+            print("+ нейрон смещения")
+
+        print("Всего параметров:", parameters_ai * len(self.ais))
 

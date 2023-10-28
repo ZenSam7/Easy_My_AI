@@ -41,7 +41,7 @@ for cycle in range(2):
             # impulse_coefficient=0.9,
         )
 
-        if np.argmax(ai.start_work(image)) != np.argmax(np.array(label)):
+        if np.argmax(ai.predict(image)) != np.argmax(np.array(label)):
             errors += 1
 
         if num % int(max_train_images * show_progress) == 0:
@@ -73,7 +73,7 @@ for images, labels in mnist.test_set.minibatches(batch_size=1):
     image = images.tolist()[0]
     label = labels.tolist()[0]
 
-    if np.argmax(ai.start_work(image)) == np.argmax(np.array(label)):
+    if np.argmax(ai.predict(image)) == np.argmax(np.array(label)):
         accuracy += 1
 
     if num == max_test_images:

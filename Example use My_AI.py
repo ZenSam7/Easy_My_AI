@@ -42,7 +42,7 @@ while 1:
 
 
     if learn_iteration % (2_000) == 0:
-        ai_ans = [int(i) for i in ai.start_work(data).tolist()]
+        ai_ans = [int(i) for i in ai.predict(data).tolist()]
         # print(sum([np.sum(i) for i in ai.weights]))
 
         print("#", learn_iteration)

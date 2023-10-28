@@ -54,8 +54,6 @@ class ActivationFunctions:
         return result
 
     def relu(self, x: np.ndarray, return_derivative: bool = False) -> np.ndarray:
-        """Не действует ограничение value_range"""
-
         if return_derivative:
             return (x > 0)
 
@@ -75,12 +73,16 @@ class ActivationFunctions:
         return np.exp(x) / np.sum(np.exp(x))
 
     def tanh(self, x: np.ndarray, return_derivative: bool = False) -> np.ndarray:
+        # Это не просто tanh, а tanh/10. Чтобы график был плавнее
+        # (на практике это показало более хороший результат чем обычный tanh)
         if return_derivative:
             return 1 / (10 * np.power(np.cosh(.1 * x), 2))
 
         return np.tanh(.1 * x)
 
     def sigmoid(self, x: np.ndarray, return_derivative: bool = False) -> np.ndarray:
+        # Это не просто sigmoid, а sigmoid/10. Чтобы график был плавнее
+        # (на практике это показало более хороший результат чем обычная sigmoid)
         if return_derivative:
             return np.exp(-.1 * x) / (10 * np.power(1 + np.exp(-.1 * x), 2))
 

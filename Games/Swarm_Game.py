@@ -105,7 +105,7 @@ class Agent:
                 nearest_neighbor = coords
 
         # Вичисляем изменение поворота от ИИ
-        ai_angle = self.ai.start_work([*self.coords, *nearest_neighbor])[0] / self.angle_delta
+        ai_angle = self.ai.predict([*self.coords, *nearest_neighbor])[0] / self.angle_delta
         self.angle_move += ai_angle * math.pi
 
         # Двигаемся (Если вышли за границу - спавним посередине)

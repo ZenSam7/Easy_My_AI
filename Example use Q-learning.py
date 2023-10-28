@@ -61,7 +61,7 @@ while 1:
     data = [[i for i in game.agent_coords]]# + game.walls_coords
     data = sum(data, [])
 
-    where_move = ai.q_start_work(data)
+    where_move = ai.q_predict(data)
 
     game.step(where_move)
 
