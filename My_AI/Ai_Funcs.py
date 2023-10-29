@@ -73,17 +73,13 @@ class ActivationFunctions:
         return np.exp(x) / np.sum(np.exp(x))
 
     def tanh(self, x: np.ndarray, return_derivative: bool = False) -> np.ndarray:
-        # Это не просто tanh, а tanh/10. Чтобы график был плавнее
-        # (на практике это показало более хороший результат чем обычный tanh)
         if return_derivative:
-            return 1 / (10 * np.power(np.cosh(.1 * x), 2))
+            return 1 / np.power(np.cosh(x), 2)
 
-        return np.tanh(.1 * x)
+        return np.tanh(x)
 
     def sigmoid(self, x: np.ndarray, return_derivative: bool = False) -> np.ndarray:
-        # Это не просто sigmoid, а sigmoid/10. Чтобы график был плавнее
-        # (на практике это показало более хороший результат чем обычная sigmoid)
         if return_derivative:
-            return np.exp(-.1 * x) / (10 * np.power(1 + np.exp(-.1 * x), 2))
+            return np.exp(-x) / np.power(1 + np.exp(-x), 2)
 
-        return 1 / (1 + np.exp(-.1 * x))
+        return 1 / (1 + np.exp(-x))

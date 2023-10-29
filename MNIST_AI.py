@@ -7,24 +7,23 @@ start_time = time()
 
 mnist = MNIST()
 
-ai = AI(architecture=[784, 50, 50, 50, 10], add_bias_neuron=True, name="MNIST")
+ai = AI(architecture=[784, 100, 100, 10], add_bias_neuron=True, name="MNIST",
+        alpha=1e-3, number_disabled_weights=0.05)
 
-ai.what_act_func = ai.kit_act_func.tanh
+ai.what_act_func = ai.kit_act_func.sigmoid
 ai.end_act_func = ai.kit_act_func.softmax
 
-ai.number_disabled_weights = 0.0
+# ai.load()
+ai.print_parameters()
 
-ai.load()
-ai.print_how_many_parameters()
-
-ai.batch_size = 1
-ai.alpha = 1e-5
+ai.batch_size = 2
+ai.alpha = 1e-3
 
 
 
 print("\nОбучение...")
 
-for cycle in range(2):
+for cycle in range(3):
     print(f"Эпоха #{cycle}")
 
     num, errors = 0, 0
