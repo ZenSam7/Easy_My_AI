@@ -15,7 +15,7 @@ ai.end_act_func = ai.kit_act_func.softmax
 ai.number_disabled_weights = 0.0
 
 ai.load()
-ai.print_how_many_parameters()
+ai.print_parameters()
 
 ai.batch_size = 1
 ai.alpha = 1e-5

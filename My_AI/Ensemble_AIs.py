@@ -1,10 +1,11 @@
 from .Code_My_AI import AI
 from typing import List, Optional, Dict, Tuple, Callable
 import numpy as np
-from os import mkdir, rmdir
+import os
+from inspect import getmembers
 
 
-class AI_with_ensemble():
+class AI_with_ensemble(AI):
     """Множество ИИшек в одной коробке (ансамбль), которые немного
     отличаются и от этого повышается точность правильного выбора
      (т.к. шанс что одновременно ошибётся множество ИИшек меньше,
@@ -14,25 +15,20 @@ class AI_with_ensemble():
         """Создаёт множество ИИшек"""
         self.ais: List[AI] = [AI(*args, **kwargs) for _ in range(amount_ais)]
 
-    # Суть в том, что для ансамбля ИИшек надо отдельно переопределять некоторые
-    # функции, чтобы оно всё просто работало как ансамбль
+        # Декорируем все методы кроме переопределённых
+        only_in_AI = set(getmembers(AI)[3][1]) -\
+                     set(getmembers(AI_with_ensemble)[3][1]) -\
+                     set(vars(AI)["__annotations__"])
+
+        for item_name in only_in_AI:
+            if item_name.startswith("__"):
+                continue
+            self.__dict__[item_name] = self._for_all_ais(item_name)
 
     def __getattr__(self, item):
-        """Если мы хотим взять атрибут, который мы в ЭТОМ классе не переопределили
-         (т.е. он не мешает механике ансамбля), значит этот атрибут может
-         быть в классе AI, откуда мы его и достаём"""
-
-        item_to_return = getattr(self.ais[0], item)
-
-        # Если мы хотим взять метод (функцию), то пропускаем этот метод (функцию)
-        # через декоратор _for_all_ais
-        if type(item_to_return) == type(self._for_all_ais):
-            return self._for_all_ais(item)
-
-        # Если это не метод (функция), то просто возвращаем
-        # (и добавляем в self.__dict__, чтобы работало быстрее)
-        self.__dict__[item] = item_to_return
-        return item_to_return
+        """Всё чего нет в этом классе, точно есть в AI"""
+        self.__dict__[item] = getattr(self.ais[0], item)
+        return self.__dict__[item]
 
     def _for_all_ais(self, func_name: str):
         """Декоратор, который применяет функцию из AI ко всем ИИшкам"""
@@ -96,19 +92,26 @@ class AI_with_ensemble():
 
         name_ensemble = self.ais[0].name if ai_name is None else ai_name
 
+        # Обновляем сохранение, если оно существует (чтобы небыло казусов)
+        self.delete()
+
+        def saving():
+            """Чтобы не повторяться"""
+            os.mkdir(f"Saves AIs/{name_ensemble}")
+
+            for index, ai in enumerate(self.ais):
+                ai.save(f"{name_ensemble}/#{index}")
+
         # Сохраняем ансамбль ЛЮБОЙ ценой
         try:
-            mkdir(f"Saves AIs/{name_ensemble}")
+            saving()
 
-            for index, ai in enumerate(self.ais):
-                ai.save(f"{name_ensemble}/#{index}")
+        # Если папка уже существует, то ничего не делаем
+        except FileExistsError:
+            pass
 
         except BaseException as e:
-            mkdir(f"Saves AIs/{name_ensemble}")
-
-            for index, ai in enumerate(self.ais):
-                ai.save(f"{name_ensemble}/#{index}")
-
+            saving()
             raise e
 
     def load(self, ai_name: Optional[str] = None):
@@ -119,19 +122,20 @@ class AI_with_ensemble():
 
         name_ensemble = self.ais[0].name if ai_name is None else ai_name
 
+        # Чтоб не повторяться
+        def loading():
+            for index, ai in enumerate(self.ais):
+                ai.load(f"{name_ensemble}/#{index}")
+
         # Загружаем ансамбль ЛЮБОЙ ценой
         try:
-            for index, ai in enumerate(self.ais):
-                ai.load(f"{name_ensemble}/#{index}")
-
+            loading()
         except BaseException as e:
-            for index, ai in enumerate(self.ais):
-                ai.load(f"{name_ensemble}/#{index}")
-
+            loading()
             raise e
 
     def delete(self, ai_name: Optional[str] = None):
-        """Удаляет сохранение
+        """Удаляет сохранения ансамбля
 
         (Если не передать имя, то удалит сохранение текущей ИИшки,
         если передать имя, то удалит другое сохранение)"""
@@ -139,11 +143,22 @@ class AI_with_ensemble():
         name_ensemble = self.ais[0].name if ai_name is None else ai_name
 
         try:
-            rmdir(f"Saves AIs/{name_ensemble}")
+            for save in os.listdir(f"Saves AIs/{name_ensemble}"):
+                os.remove(f"Saves AIs/{name_ensemble}/{save}")
+            os.rmdir(f"Saves AIs/{name_ensemble}")
         except FileNotFoundError:
             pass
 
-    def print_how_many_parameters(self):
+    def update(self, ai_name: Optional[str] = None):
+        """Обновляем все ИИшки ансамбля
+
+        (Если не передать имя, то обновить сохранение текущей ИИшки,
+        если передать имя, то обновить другое сохранение)"""
+
+        self.delete(ai_name)
+        self.save(ai_name)
+
+    def print_parameters(self):
         print(f"Количество ИИшек в ансамбле {self.ais[0].name}: {len(self.ais)}")
 
         parameters_ai = 0
@@ -156,4 +171,3 @@ class AI_with_ensemble():
             print("+ нейрон смещения")
 
         print("Всего параметров:", parameters_ai * len(self.ais))
-
