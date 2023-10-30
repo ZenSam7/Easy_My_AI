@@ -1,25 +1,20 @@
 from My_AI import AI
 from Games import Game_for_Q_learning
 
-
 game = Game_for_Q_learning.Game(7, 7)
-
-# Состояния - нахождение в какой-либо клетке поля (координаты каждой клетки)
-actions = ["left", "right", "up", "down"]
-
 
 # Создаём ИИ
 ai = AI()
 ai.create_weights([2, 30, 30, 4], add_bias_neuron=True)
+# Состояния - нахождение в какой-либо клетке поля (координаты каждой клетки)
+ai.make_all_for_q_learning(
+    ("left", "right", "up", "down"), ai.kit_upd_q_table.standart, 0.5, 0.05, 0.1)
 
-ai.what_act_func = ai.kit_act_func.Tanh
-ai.end_act_func = ai.kit_act_func.Softmax
+ai.what_act_func = ai.kit_act_func.tanh
+ai.end_act_func = ai.kit_act_func.softmax
 
-ai._batch_size = 10
-
-ai._alpha = 1e-3
-
-ai.make_all_for_q_learning(actions, ai.kit_upd_q_table.standart, 0.5, 0.05, 0.1)
+ai.batch_size = 10
+ai.alpha = 1e-3
 
 
 reward, generation, num_win, number_steps = 0, 0, 0, 0
@@ -61,7 +56,7 @@ while 1:
     data = [[i for i in game.agent_coords]]# + game.walls_coords
     data = sum(data, [])
 
-    where_move = ai.q_start_work(data)
+    where_move = ai.q_predict(data)
 
     game.step(where_move)
 
