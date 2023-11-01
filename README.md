@@ -1,47 +1,60 @@
-# DOCUMENTATION (НЕ АКТУАЛЬНО)
-My_AI is for learning how AI works (see source code: "Code_My_AI.py") as well as building your own AI in the easiest way (see: "My_AI.py use case", "AI for snake.py" and "Example of using Q-learning"). I also wrote it only with numpy, and I implemented it completely myself (did not view / did not copy anyone's code)
+# ДОКУМЕНТАЦИЯ
+My_AI это небольшая библиотека (скорее даже микро библиотека) для создания собственного простенького ИИ. Я её написал полностью с нуля, используя только numpy, а из интернета я брал ТОЛЬКО основные принципы работы. Также я иставил кучу комментариев к коду, чтобы вы могли сами разобраться как здесь всё работает и покапаться в коде (может даже что-то новое узнаете)
 
-# How to use my library: 👉
-### • Import the main file "Code_My_AI.py" and Create an instance of the class AI
+# Как использовать мою библиотеку: 👉
+### • Можете скопировать папку "My_AI" к себе в проект (всё остальное просто примеры использования), и импоритровать от туда классы AI или AI_with_ensemble
 
 ```python
+from My_AI import AI_with_ensemble, AI
 
-from My_AI import Code_My_AI
-
-ai = Code_My_AI.AI()
+ai = AI()
+# Или
+ensemble = AI_with_ensemble()
 ```
+> Ансамбль — это несколько ИИ в одной коробке, которые вместе принимают решение (ансамбль подходит для Q-обучения (обучение с подкреплением; когда нету "правильного" и "неправильного" ответа, а только вознаграждение за какое-то выбранное действие))
 
-### • Create the AI architecture
+> P.s. В качестве примера посмотрите на ИИ для змейки (в файле "AI for snake.py")
+
+
+### • Чтобы использовать ИИшку надо создать архитектуру одним из способов:
 ```python
-ai.create_weights( [number_of_inputs,
-                    number_of_neurons_in_layer_1,
-                    number_of_neurons_in_layer_2, 
-                    number_of_neurons_in_layer_3, 
-                    ...,
-                    number_of_outputs ],
-                    add_bias_neuron = True)
+ai = AI(architecture=[3, 4, 4, 4, 3], 
+        add_bias_neuron=True, 
+        name="First_AI")
 ```
+или
+```python
+ai.create_weights([3, 4, 4, 4, 3],
+                  add_bias_neuron=True)
+ai.name = "First_AI"
+# Имя можно не указывать имя, но тогда при сохранении
+# будет ипользовано случайное число вместо имени
+```
+Таким образом будет создана следущая архитектура: 
 <div id="header" align="left">
   <img src="https://i.ibb.co/nbbTLZS/Usage-example.png" width="600"/>
 </div>
 
 
 ####  
-### • Customize your settings:
-> You can change nothing, or change only a some of parameters
-
+### • Гаперпараметры:
 ```python
-ai.__alpha = 1e-2  # Alpha coefficient (learning rate)
+"""Прописывать или изменять все гаперпараметры необязательно"""
 
-ai.__number_disabled_weights = 0.0  # What proportion of weights we "turn off" during training
-# (This is necessary so that there is no overlearning (memorizing responses instead of finding correlations))
+ai.alpha = 1e-2  # Альфа (скорость обучения)
 
-ai.__batch_size = 1  # Batch size in batch gradient descent
+ai.number_disabled_weights = 0.0  # Какую долю весов отключаем
+# (Это надо чтобы не возникало переобучение)
 
-ai.kit_act_funcs.value_range(0, 1)  # What is the range of activation functions
+ai.batch_size = 10  # Сколько ответов усредняем, чтобы на них учиться
 
-# Which activation function we use for the output values (May be None)
-ai.end_act_func = ai.kit_act_funcs.tanh
+# Функция активации нейронов (крайне рекомендую оставить tanh,
+# т.к. с ним ИИ работает в 2 раза быстрее, и (почему-то) лучше)
+ai.what_act_func = ai.kit_act_func.tanh
+
+# Функция активации для последнего слоя (аналогично, рекомендую оставить tanh)
+# P.s. end_act_func может и отстутсвовать (ожно установить None)
+ai.end_act_func = ai.kit_act_func.tanh
 ```
 
 

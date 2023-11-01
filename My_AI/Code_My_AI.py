@@ -2,7 +2,6 @@ import numpy as np
 import json
 from os import remove
 from typing import Callable, List, Dict, Tuple, Optional
-from copy import deepcopy
 
 from .Ai_Funcs import *
 
@@ -335,7 +334,7 @@ class AI:
         ai_result = self.predict(input_data).tolist()
 
         # "Разведуем окружающую среду" (берём случайное действие)
-        if (self.epsilon != 0) and (np.random.random() < self.epsilon):
+        if np.random.random() < self.epsilon:
             if _return_index_act:
                 return np.random.randint(len(self.actions))
             return self.actions[np.random.randint(len(self.actions))]
@@ -501,7 +500,7 @@ class AI:
 
         # Проверяем Q-таблицу, опять таки очень грубо и тупо
         if self.q_table:
-            q_negative_nums, q_positive_nums = 0, 0
+            q_negative_nums, q_positive_nums = 1, 0
             for _, string in self.q_table.items():
                 q_negative_nums += sum([num < 0 for num in string])
                 q_positive_nums += sum([num >= 0 for num in string])
@@ -656,4 +655,6 @@ class AI:
               f"{self.architecture}", end="")
 
         if self.have_bias_neuron:
-            print(" + нейрон смещения")
+            print(" + нейрон смещения", end="")
+
+        print()

@@ -263,37 +263,27 @@ class Snake:
         """Возвращаем visibility_range ^2 значений, описывающие состояние клетки вокруг головы змеи
         (если еда то 1, если стена то -1, иначе 0)"""
 
-        assert visibility_range % 2 == 1, "visibility_range is not even number " \
-                                          "(because  head should be in center)"
+        assert visibility_range % 2 != 0, "visibility_range только нечётное число"
 
-        data = []
+        data = [[0 for _ in range(visibility_range)] for __ in range(visibility_range)]
 
-        foods = deepcopy(self.food_coords)
-        head = deepcopy(self.snake_body[-1])
-
-        # Записываем все препятствия, от которых можно убиться
-        blocks = deepcopy(self.snake_body) + deepcopy(self.walls_coords)
-        for i in range(self.window_width // self.cell_size):
-            blocks.append([i, -1])  # Потолок
-            blocks.append([i, self.window_height // self.cell_size])  # Пол
-        for i in range(self.window_height // self.cell_size):
-            # Левая стена
-            blocks.append([-1, i])
-            # Правая стена
-            blocks.append([self.window_width // self.cell_size, i])
-
-        # Создаём квадрат с областью видимости visibility_range на
-        # visibility_range клеток (голова в центре)
+        head = self.snake_body[-1]
         remainder = (visibility_range - 1) // 2
-        for y in range(head[1] - remainder, head[1] + remainder + 1):
-            for x in range(head[0] - remainder, head[0] + remainder + 1):
-                if [x, y] in blocks:
-                    data.append(-1)
-                elif [x, y] in foods:
-                    data.append(1)
-                else:
-                    data.append(0)
 
+        # Проходимся по клеткам вокруг головы
+        for y in range(head[1] -remainder, head[1] +remainder +1):
+            for x in range(head[0] -remainder, head[0] +remainder +1):
+                point = [x, y]
+
+                if point in self.food_coords:
+                    data[y - head[1] +1][x - head[0] +1] = 1
+                elif any((point in self.snake_body,
+                       x < 0, x >= self.window_width//self.cell_size,
+                       y < 0, y >= self.window_width//self.cell_size)):
+                    data[y - head[1] +1][x - head[0] +1] = -1
+
+        # Избавляемся от внутренних списков
+        data = sum(data, [])
         return data
 
     def get_future_state(self, where_want_move):
@@ -314,6 +304,10 @@ class Snake:
         return future_state
 
     def get_max_mean_score(self):
-        MAX, MEAN = max(self.scores), sum(self.scores) / len(self.scores)
-        self.scores.clear()
-        return MAX, MEAN
+        try:
+            MAX, MEAN = max(self.scores), sum(self.scores) / len(self.scores)
+            self.scores.clear()
+            return MAX, MEAN
+
+        except ValueError:
+            return 0, 0

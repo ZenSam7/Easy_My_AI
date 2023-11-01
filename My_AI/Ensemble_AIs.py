@@ -15,6 +15,16 @@ class AI_with_ensemble(AI):
         """Создаёт множество ИИшек"""
         self.ais: List[AI] = [AI(*args, **kwargs) for _ in range(amount_ais)]
 
+        # Заменяем именя у ИИшек
+        self.ensemble_name = self.ais[0].name
+        for index, ai in enumerate(self.ais):
+            ai.name = "#" + str(index)
+
+        # Вместо того чтобы а у каждой ИИшки была одинаковая Q-таблица, можно
+        # просто использовать одну единую для всех
+        for ai in self.ais:
+            ai.q_table = self.ais[0].q_table
+
         # Декорируем все методы кроме переопределённых
         only_in_AI = set(getmembers(AI)[3][1]) -\
                      set(getmembers(AI_with_ensemble)[3][1]) -\
@@ -90,17 +100,16 @@ class AI_with_ensemble(AI):
         (Если не передать имя, то сохранит ИИшку под именем, заданным при создании,
         если передать имя, то сохранит именно под этим)"""
 
-        name_ensemble = self.ais[0].name if ai_name is None else ai_name
+        ensemble_name = self.ensemble_name if ai_name is None else ai_name
 
         # Обновляем сохранение, если оно существует (чтобы небыло казусов)
         self.delete()
 
         def saving():
-            """Чтобы не повторяться"""
-            os.mkdir(f"Saves AIs/{name_ensemble}")
+            os.mkdir(f"Saves AIs/{ensemble_name}")
 
-            for index, ai in enumerate(self.ais):
-                ai.save(f"{name_ensemble}/#{index}")
+            for ai in self.ais:
+                ai.save(f"{ensemble_name}/{ai.name}")
 
         # Сохраняем ансамбль ЛЮБОЙ ценой
         try:
@@ -120,12 +129,12 @@ class AI_with_ensemble(AI):
         (Если не передать имя, то загрузит сохранение текущей ИИшки,
         если передать имя, то загрузит чужое сохранение)"""
 
-        name_ensemble = self.ais[0].name if ai_name is None else ai_name
+        ensemble_name = self.ensemble_name if ai_name is None else ai_name
 
         # Чтоб не повторяться
         def loading():
-            for index, ai in enumerate(self.ais):
-                ai.load(f"{name_ensemble}/#{index}")
+            for ai in self.ais:
+                ai.load(f"{ensemble_name}/{ai.name}")
 
         # Загружаем ансамбль ЛЮБОЙ ценой
         try:
@@ -140,12 +149,12 @@ class AI_with_ensemble(AI):
         (Если не передать имя, то удалит сохранение текущей ИИшки,
         если передать имя, то удалит другое сохранение)"""
 
-        name_ensemble = self.ais[0].name if ai_name is None else ai_name
+        ensemble_name = self.ensemble_name if ai_name is None else ai_name
 
         try:
-            for save in os.listdir(f"Saves AIs/{name_ensemble}"):
-                os.remove(f"Saves AIs/{name_ensemble}/{save}")
-            os.rmdir(f"Saves AIs/{name_ensemble}")
+            for save in os.listdir(f"Saves AIs/{ensemble_name}"):
+                os.remove(f"Saves AIs/{ensemble_name}/{save}")
+            os.rmdir(f"Saves AIs/{ensemble_name}")
         except FileNotFoundError:
             pass
 
@@ -159,7 +168,7 @@ class AI_with_ensemble(AI):
         self.save(ai_name)
 
     def print_parameters(self):
-        print(f"Количество ИИшек в ансамбле {self.ais[0].name}: {len(self.ais)}")
+        print(f"Количество ИИшек в ансамбле {self.ensemble_name}: {len(self.ais)}")
 
         parameters_ai = 0
         for layer in self.ais[0].weights:
