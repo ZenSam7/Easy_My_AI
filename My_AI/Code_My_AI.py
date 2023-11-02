@@ -1,6 +1,6 @@
 import numpy as np
 import json
-from os import remove
+from os import remove, listdir, mkdir
 from typing import Callable, List, Dict, Tuple, Optional
 
 from .Ai_Funcs import *
@@ -40,7 +40,7 @@ class MyProperties(object):
             # Проверяем, подходит ли под выбранное свойство
             proiperty_func(value)
 
-            # Если к нам попал AI_with_ensemble, то для него у каждой ИИшки
+            # Если мы используем AI_ensemble, то тогда у каждой ИИшки
             # устанавливаем значение коэффициента
             if "ais" in cls.__dict__:
                 for ai in cls.__dict__["ais"]:
@@ -108,6 +108,7 @@ class AI:
                  architecture: Optional[List[int]] = None,
                  add_bias_neuron: Optional[bool] = True,
                  name: Optional[str] = None,
+                 save_path="Saves AIs",
                  auto_check_ai: Optional[bool] = True,
                  **kwargs):
 
@@ -121,6 +122,9 @@ class AI:
         self.have_bias_neuron: bool = True
 
         self.weights: List[np.matrix] = []  # Появиться после вызова create_weights
+
+        self.auto_check_ai = auto_check_ai
+        self.save_dir = save_path
 
         # Специально убрал аннотиции типов
         self.kit_act_func: ActivationFunctions = ActivationFunctions()
@@ -156,7 +160,6 @@ class AI:
         # Сразу создаём архитектуру
         if not architecture is None:
             self.create_weights(architecture, add_bias_neuron, **kwargs)
-            self.auto_check_ai = auto_check_ai
 
     def create_weights(self, architecture: List[int], add_bias_neuron: bool = True,
                        min_weight: float = -1, max_weight: float = 1, **kwargs):
@@ -212,7 +215,7 @@ class AI:
                         np.random.randint(layer.shape[1]),
                     ] = np.random.random() * 2 - 1  # от -1 до 1
 
-    def predict(self, input_data: List[float], _return_answers: bool = False)\
+    def predict(self, input_data: List[float], _return_answers: bool = False) \
             -> (np.ndarray, Optional[List[np.ndarray]]):
         """Возвращает результат работы нейронки, из входных данных"""
         # Определяем входные данные как вектор
@@ -509,8 +512,19 @@ class AI:
                 q_table_ok = False
 
         if not weights_ok:
+            # Если используем AI_ensemble
+            if "ais" in cls.__dict__:
+                super().auto_check_ai = False
+            self.auto_check_ai = False
+
             print("Веса ИИ слишком большие, рекомендуем уменьшить alpha и пересоздать ИИ")
+
         if not q_table_ok:
+            # Если используем AI_ensemble
+            if "ais" in cls.__dict__:
+                super().auto_check_ai = False
+            self.auto_check_ai = False
+
             print("В Q-таблице отрицательных чисел больше положительных, "
                   "рекомендуем увеличить вознаграждение за хорошие действия и/или уменьшить "
                   "отрицательное вознаграждение для негативных поступков")
@@ -533,6 +547,10 @@ class AI:
             for name_func in names_funcs:
                 if name_func in func_str:
                     return name_func
+
+        # Если нету папки для сохранений, то создаём её
+        if not self.save_dir in listdir("."):
+            mkdir(self.save_dir)
 
         ai_data = {}
 
@@ -562,11 +580,11 @@ class AI:
 
         # Сохраняем ИИшку ЛЮБОЙ ценой
         try:
-            with open(f"Saves AIs/{name_ai}.json", "w+") as save_file:
+            with open(f"{self.save_dir}/{name_ai}.json", "w+") as save_file:
                 json.dump(ai_data, save_file)
 
         except BaseException as e:
-            with open(f"Saves AIs/{name_ai}.json", "w+") as save_file:
+            with open(f"{self.save_dir}/{name_ai}.json", "w+") as save_file:
                 json.dump(ai_data, save_file)
             raise e
 
@@ -585,7 +603,7 @@ class AI:
 
         # Записываем данны об ИИшке
         try:
-            with open(f"Saves AIs/{name_ai}.json", "r") as save_file:
+            with open(f"{self.save_dir}/{name_ai}.json", "r") as save_file:
                 ai_data = json.load(save_file)
 
             self.weights = [np.array(i) for i in ai_data["weights"]]
@@ -614,7 +632,7 @@ class AI:
             self.__q_alpha = ai_data["q_alpha"]
 
         except FileNotFoundError:
-            print(f"Сохранение {name_ai} не найдено")
+            print(f"Сохранение {self.save_dir}/{name_ai}.json не найдено")
 
     def delete(self, ai_name: Optional[str] = None):
         """Удаляет сохранение
@@ -624,7 +642,7 @@ class AI:
         name_ai = self.name if ai_name is None else ai_name
 
         try:
-            remove(f"Saves AIs/{name_ai}.json")
+            remove(f"{self.save_dir}/{name_ai}.json")
         except FileNotFoundError:
             pass
 

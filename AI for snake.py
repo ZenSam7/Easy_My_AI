@@ -1,4 +1,4 @@
-from My_AI import AI_with_ensemble, AI
+from My_AI import AI_ensemble, AI
 from Games import Code_Snake
 from time import time
 
@@ -20,9 +20,9 @@ snake = Code_Snake.Snake(700, 600, 4, 0, max_num_steps=100, display_game=False,
                          game_over_function=end, eat_apple_function=win)
 
 # Создаём ИИ
-ai = AI(architecture=[9, 50, 50, 50, 50, 4],
-        add_bias_neuron=True, name="Snake")
-
+ai = AI(architecture=[9, 100, 100, 4],
+                 add_bias_neuron=True, name="Snake")
+ai.save_dir = "SAVES"
 
 ai.what_act_func = ai.kit_act_func.tanh # ТОЛЬКО tanh !!!
 ai.end_act_func = ai.kit_act_func.tanh  # ТОЛЬКО tanh !!!
@@ -31,10 +31,10 @@ ai.make_all_for_q_learning(("left", "right", "up", "down"),
                            ai.kit_upd_q_table.future,
                            0.5, 0.05, 0.01)
 
-# ai.load()
+ai.load()
 ai.print_parameters()
 
-ai.alpha = 1e-5
+ai.alpha = 1e-4
 ai.batch_size = 1
 
 ai.epsilon = 0.05
@@ -52,7 +52,7 @@ while 1:
               "Max:", max, "\t\t",
               "Mean:", round(mean, 1), "\t\t",
               int(time() - start), "s", "\t\t",
-              "Len States:", len(ai.q_table.keys()))
+              "Amount States:", len(ai.q_table.keys()))
         start = time()
 
         ai.update(check_ai=False)

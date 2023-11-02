@@ -1,3 +1,3 @@
 from .Code_My_AI import AI
-from .Ensemble_AIs import AI_with_ensemble
+from .Ensemble_AI import AI_ensemble
 

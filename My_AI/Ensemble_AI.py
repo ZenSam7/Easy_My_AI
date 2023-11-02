@@ -1,11 +1,11 @@
 from .Code_My_AI import AI
 from typing import List, Optional, Dict, Tuple, Callable
-import numpy as np
+from numpy import ndarray
 import os
 from inspect import getmembers
 
 
-class AI_with_ensemble(AI):
+class AI_ensemble(AI):
     """Множество ИИшек в одной коробке (ансамбль), которые немного
     отличаются и от этого повышается точность правильного выбора
      (т.к. шанс что одновременно ошибётся множество ИИшек меньше,
@@ -14,6 +14,8 @@ class AI_with_ensemble(AI):
     def __init__(self, amount_ais: int, *args, **kwargs):
         """Создаёт множество ИИшек"""
         self.ais: List[AI] = [AI(*args, **kwargs) for _ in range(amount_ais)]
+
+        self.save_dir = self.ais[0].save_dir
 
         # Заменяем именя у ИИшек
         self.ensemble_name = self.ais[0].name
@@ -26,8 +28,8 @@ class AI_with_ensemble(AI):
             ai.q_table = self.ais[0].q_table
 
         # Декорируем все методы кроме переопределённых
-        only_in_AI = set(getmembers(AI)[3][1]) -\
-                     set(getmembers(AI_with_ensemble)[3][1]) -\
+        only_in_AI = set(getmembers(AI)[3][1]) - \
+                     set(getmembers(AI_ensemble)[3][1]) - \
                      set(vars(AI)["__annotations__"])
 
         for item_name in only_in_AI:
@@ -50,8 +52,7 @@ class AI_with_ensemble(AI):
 
         return wrap
 
-    def predict(self, input_data: List[float], _return_answers: bool = False) \
-            -> list[np.ndarray, Optional[List[np.ndarray]]]:
+    def predict(self, input_data: List[float], _return_answers: bool = False) -> List[ndarray]:
         """Тот же start_work, но возвращаем предсказание от каждой ИИшки \n
         P.s. Этот метод может быть использован только ползователем, т.е.
         контретно этот метод не вызывается другими функциями"""
@@ -106,9 +107,12 @@ class AI_with_ensemble(AI):
         self.delete()
 
         def saving():
-            os.mkdir(f"Saves AIs/{ensemble_name}")
+            # Если нет папки для ансамбля, то создаём её
+            if not ensemble_name in os.listdir(f"{self.save_dir}"):
+                os.mkdir(f"{self.save_dir}/{ensemble_name}")
 
             for ai in self.ais:
+                ai.save_dir = self.save_dir
                 ai.save(f"{ensemble_name}/{ai.name}")
 
         # Сохраняем ансамбль ЛЮБОЙ ценой
@@ -134,6 +138,7 @@ class AI_with_ensemble(AI):
         # Чтоб не повторяться
         def loading():
             for ai in self.ais:
+                ai.save_dir = self.save_dir
                 ai.load(f"{ensemble_name}/{ai.name}")
 
         # Загружаем ансамбль ЛЮБОЙ ценой
@@ -152,13 +157,14 @@ class AI_with_ensemble(AI):
         ensemble_name = self.ensemble_name if ai_name is None else ai_name
 
         try:
-            for save in os.listdir(f"Saves AIs/{ensemble_name}"):
-                os.remove(f"Saves AIs/{ensemble_name}/{save}")
-            os.rmdir(f"Saves AIs/{ensemble_name}")
+            for save in os.listdir(f"{self.save_dir}/{ensemble_name}"):
+                os.remove(f"{self.save_dir}/{ensemble_name}/{save}")
+            os.rmdir(f"{self.save_dir}/{ensemble_name}")
         except FileNotFoundError:
             pass
 
-    def update(self, ai_name: Optional[str] = None):
+    def update(self, ai_name: Optional[str] = None,
+               check_ai: bool = True):
         """Обновляем все ИИшки ансамбля
 
         (Если не передать имя, то обновить сохранение текущей ИИшки,
@@ -167,6 +173,9 @@ class AI_with_ensemble(AI):
         self.delete(ai_name)
         self.save(ai_name)
 
+        if check_ai:
+            self.ais[0].check_ai()
+
     def print_parameters(self):
         print(f"Количество ИИшек в ансамбле {self.ensemble_name}: {len(self.ais)}")
 
@@ -174,7 +183,7 @@ class AI_with_ensemble(AI):
         for layer in self.ais[0].weights:
             parameters_ai += layer.shape[0] * layer.shape[1]
 
-        print(f"У одной ИИ: \t Параметров {parameters_ai}\t"
+        print(f"У одного ИИ: \t Параметров {parameters_ai}\t"
               f"{self.ais[0].architecture}", end=" ")
         if self.ais[0].have_bias_neuron:
             print("+ нейрон смещения")
