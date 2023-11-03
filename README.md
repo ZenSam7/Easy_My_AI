@@ -141,7 +141,7 @@ epsilon = 0.15  # Доля на случайных действий (чтобы 
 q_alpha = 0.1   # Скорость обновления Q-таблицы (на самом деле оно почти ни на что не влияет) 
 
 ai.make_all_for_q_learning(all_possible_actions,
-                           func_update_q_table=ai.kit_upd_q_table.standart
+                           ai.kit_upd_q_table.standart,
                            gamma=gamma, epsilon=epsilon, q_alpha=q_alpha)
 
 

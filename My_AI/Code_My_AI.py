@@ -485,7 +485,6 @@ class AI:
         state_str = str(self.last_state)
         future_state = state
         future_state_str = str(state)
-        reward = self.last_reward
 
         ind_act: int = self.q_predict(self.last_state, True)
 
@@ -493,7 +492,7 @@ class AI:
             "q_table": self.q_table,
             "q_predict": self.q_predict,
             "q_alpha": self.q_alpha,
-            "reward": reward,
+            "reward": self.last_reward,
             "gamma": self.gamma,
             "state": state,
             "state_str": state_str,
@@ -663,7 +662,7 @@ class AI:
 
     def print_parameters(self):
         """Выводит в консоль в формате:
-        Параметров: 123456\t\t [1, 2, 3, 4]\t\t + bias"""
+        Параметров: 123456\t\t [1, 2, 3, 4]\t\t + нейрон смещения"""
 
         all_parameters = 0
         for layer in self.weights:

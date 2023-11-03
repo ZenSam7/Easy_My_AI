@@ -244,7 +244,7 @@ class Snake:
 
         return self.dead_reward
 
-    def step(self, where_want_move: str):
+    def step(self, where_want_move: str) -> int:
         """Запускаем одну итерацию змейки"""
 
         self.move_snake(where_want_move)
