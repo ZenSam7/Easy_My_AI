@@ -109,6 +109,7 @@ class AI:
                  add_bias_neuron: Optional[bool] = True,
                  name: Optional[str] = None,
                  auto_check_ai: Optional[bool] = True,
+                 save_dir: str = "Saves AIs",
                  **kwargs):
 
         # Альфа коэффициент (коэффициент скорости обучения)
@@ -145,6 +146,7 @@ class AI:
         self.recce_mode: bool = False
 
         self.name: str = name if name else str(np.random.randint(2 ** 31))
+        self.save_dir = save_dir
 
         # Все аргументы из kwargs размещаем каждый в свою переменную
         for item, value in kwargs.items():
@@ -212,7 +214,7 @@ class AI:
                         np.random.randint(layer.shape[1]),
                     ] = np.random.random() * 2 - 1  # от -1 до 1
 
-    def predict(self, input_data: List[float], _return_answers: bool = False)\
+    def predict(self, input_data: List[float], _return_answers: bool = False) \
             -> (np.ndarray, Optional[List[np.ndarray]]):
         """Возвращает результат работы нейронки, из входных данных"""
         # Определяем входные данные как вектор
@@ -369,17 +371,21 @@ class AI:
                 "Количество возможных действий (actions) должно"
                 "быть равно количеству выходов у нейросети!")
 
-        self.gamma: float = gamma  # Коэффициент "доверия опыту"
-        self.epsilon: float = epsilon  # Коэффициент "разведки окружающей среды"
+        self.gamma: float = gamma
+        self.epsilon: float = epsilon
         self.q_alpha: float = q_alpha
+
+        # Чтобы не указывать будущее состояние, будем обучаться на 1 шаг назад во времени
+        self.last_state = None
+        self.last_reward = None
+
         if func_update_q_table is None:
             self._func_update_q_table: Callable = self.kit_upd_q_table.standart
         else:
             self._func_update_q_table: Callable = func_update_q_table
 
     def q_learning(self, state: List[float],
-                   reward_for_state: float,
-                   future_state: List[float] = None,
+                   reward: float,
                    learning_method: float = 1,
                    squared_error: bool = False,
                    recce_mode: bool = False,
@@ -389,16 +395,14 @@ class AI:
 
         -------------------------- \n
 
-        learn_every_step: Обучаем ИИ только когда он ошибается
-
-        future_state можно не указывать ТОЛЬКО если gamma = 0
+        recce_mode: Режим "исследования окружающей среды" (постоянно выбирать случайное действие)
 
         -------------------------- \n
 
         Методы обучения (значение learning_method определяет) : \n
         1 : В качестве "правильного" ответа выбирается то, которое максимально вознаграждается, и на место действия \
         (которое приводит к лучшему ответу) ставиться максимальное значение функции активации \
-        (self.activation_function.max), а на остальные места минимум функции активации (self.activation_function.min) \n
+        (self.act_func.max), а на остальные места минимум функции активации (self.act_func.min) \n
         P.s. Это неочень хорошо, т.к. игнорируются другие варианты, которые приносят либо столько же,
         либо немного меньше  \
         вознаграждения (а вибирается только один "правильный"). НО ОН ХОРОШО ПОДХОДИТ,
@@ -420,36 +424,44 @@ class AI:
         (чем степень больше, тем меньше учитываются остальные результаты))
         """
 
-        if self.gamma != 0 and future_state is None:
-            raise "Обязательно надо указывать future_state, если gamma != 0"
+        if self.last_state is None:
+            self.last_state = state
+            self.last_reward = reward
+            return
+
+        # (не забываем что мы на 1 шаг в прошлом)
+        state_now = state
 
         # Добовляем новые состояния в Q-таблицу
-        state_str = str(state)
-        future_state_str = str(future_state)
+        last_state_str = str(self.last_state)
+        future_state_str = str(state_now)
 
         default = [0 for _ in range(len(self.actions))]
-        self.q_table.setdefault(state_str, default)
+        self.q_table.setdefault(last_state_str, default)
         self.q_table.setdefault(future_state_str, default)
 
-        # Случайно ходим
+        # "Режим исследования мира"
         if recce_mode:
             Epsilon, self.epsilon = self.epsilon, 1
-            self._update_q_table(state, reward_for_state, future_state)
+            self._update_q_table(state_now, reward)
             self.epsilon = Epsilon
             return
 
         # Формируем "правильный" ответ
         if learning_method == 1:
             # Заполняем все возможные ответы как неверные
-            answer = [-1 for _ in range(len(self.actions))]
+            # (везде ставим минимальное значение конечной функции активации)
+            answer = [self.kit_act_func.minimums[str(self.end_act_func)]
+                      for _ in range(len(self.actions))]
 
             # На месте максимального значения из Q-таблицы ставим
             # максимально возможное значение как "правильный" ответ
-            answer[np.argmax(self.q_table[state_str])] = 1
+            answer[np.argmax(self.q_table[last_state_str])] = \
+                self.kit_act_func.maximums[str(self.end_act_func)]
 
         elif 2 < learning_method < 3:
             # Нам нужны значения от минимума функции активации до максимума функции активации
-            answer = self.kit_act_func.normalize(np.array(self.q_table[state_str]))
+            answer = self.kit_act_func.normalize(np.array(self.q_table[last_state_str]))
 
             # Искажаем "расстояние" между числами
             answer = answer + 0.5
@@ -462,23 +474,26 @@ class AI:
                   f"learning_method == 1, или в отрезке: (2; 3)"
 
         # Изменяем веса
-        self.learning(state, answer, squared_error=squared_error)
+        self.learning(self.last_state, answer, squared_error=squared_error)
 
         # Обновляем Q-таблицу
-        self._update_q_table(state, reward_for_state, future_state)
+        self._update_q_table(state_now, reward)
 
-    def _update_q_table(self, state: List[float],
-                        reward_for_state: float, future_state: List[str]):
-        state_str: str = str(state)
-        future_state_str: str = str(future_state)
+    def _update_q_table(self, state_now: List[float], reward_for_state: float):
+        # Чтобы не указывать будущее состояние, будем обучаться на 1 шаг назад во времени
+        state = self.last_state
+        state_str = str(self.last_state)
+        future_state = state
+        future_state_str = str(state)
+        reward = self.last_reward
 
-        ind_act: int = self.q_predict(state, True)
+        ind_act: int = self.q_predict(self.last_state, True)
 
         all_kwargs = {
             "q_table": self.q_table,
-            "q_start_work": self.q_predict,
+            "q_predict": self.q_predict,
             "q_alpha": self.q_alpha,
-            "reward_for_state": reward_for_state,
+            "reward": reward,
             "gamma": self.gamma,
             "state": state,
             "state_str": state_str,
@@ -489,8 +504,15 @@ class AI:
 
         self.q_table[state_str][ind_act] = self._func_update_q_table(**all_kwargs)
 
+        # Смещаемся на 1 шаг во времени (вперёд)
+        self.last_state = state_now
+        self.last_reward = reward_for_state
+
     def check_ai(self):
         """Проверяем Q-таблицу и веса в нейронке на наличие аномальных значений"""
+        if not self.auto_check_ai:
+            return
+
         weights_ok, q_table_ok = True, True
 
         # Проверяем веса (очень грубо)
@@ -509,8 +531,10 @@ class AI:
                 q_table_ok = False
 
         if not weights_ok:
+            self.auto_check_ai = False
             print("Веса ИИ слишком большие, рекомендуем уменьшить alpha и пересоздать ИИ")
         if not q_table_ok:
+            self.auto_check_ai = False
             print("В Q-таблице отрицательных чисел больше положительных, "
                   "рекомендуем увеличить вознаграждение за хорошие действия и/или уменьшить "
                   "отрицательное вознаграждение для негативных поступков")
@@ -555,7 +579,6 @@ class AI:
         ai_data["func_update_q_table"] = get_name_func(self._func_update_q_table, self.kit_upd_q_table) \
             if self._func_update_q_table else None
 
-        # ai_data["last_reward"] = 0
         ai_data["gamma"] = self.gamma
         ai_data["epsilon"] = self.epsilon
         ai_data["q_alpha"] = self.q_alpha
@@ -604,11 +627,7 @@ class AI:
                 ai_data["func_update_q_table"], self.kit_upd_q_table)
 
             self.q_table = ai_data["q_table"]
-
-            # self.last_state = ai_data["last_state"]
             self.actions = ai_data["actions"]
-
-            # self.last_reward = ai_data["last_reward"]
             self.__gamma = ai_data["gamma"]
             self.__epsilon = ai_data["epsilon"]
             self.__q_alpha = ai_data["q_alpha"]

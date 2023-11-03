@@ -1,43 +1,38 @@
-from My_AI import AI_with_ensemble, AI
+from My_AI import AI_ensemble, AI
 from Games import Code_Snake
 from time import time
 
 start = time()
 
 
-def end():
-    global reward
-    reward = -1000
-
-
-def win():
-    global reward
-    reward = 100
-
-
 # Создаём Змейку
-snake = Code_Snake.Snake(700, 600, 4, 0, max_num_steps=100, display_game=False,
-                         game_over_function=end, eat_apple_function=win)
+snake = Code_Snake.Snake(700, 600, 4, 0, display_game=False,
+                         dead_reward=-100, win_reward=100)
 
 # Создаём ИИ
-ai = AI(architecture=[9, 50, 50, 50, 50, 4],
-        add_bias_neuron=True, name="Snake")
+ai = AI(architecture=[9, 200, 200, 4],
+                      add_bias_neuron=True, name="Snake")
 
-
-ai.what_act_func = ai.kit_act_func.tanh # ТОЛЬКО tanh !!!
-ai.end_act_func = ai.kit_act_func.tanh  # ТОЛЬКО tanh !!!
+ai.what_act_func = ai.kit_act_func.tanh
+ai.end_act_func = ai.kit_act_func.tanh  # Только tanh!
 
 ai.make_all_for_q_learning(("left", "right", "up", "down"),
-                           ai.kit_upd_q_table.future,
-                           0.5, 0.05, 0.01)
+                           ai.kit_upd_q_table.standart,
+                           0.4, 0.05, 0.1)
 
 # ai.load()
 ai.print_parameters()
 
-ai.alpha = 1e-5
+ai.alpha = 1e-4
 ai.batch_size = 1
 
 ai.epsilon = 0.05
+
+# # Используем уже обученную глобальную Q-таблицу  (чтобы ИИшки учились
+# # молниеносно, и можно было сразу видеть влияние каких-то факторов на ИИшку)
+# q_table_ai = AI(name="q_table_ai")
+# q_table_ai.load("q_table_ai")
+# ai.q_table = q_table_ai.q_table
 
 
 learn_iteration = 0
@@ -45,24 +40,27 @@ while 1:
     learn_iteration += 1
     reward = 0
 
-    if learn_iteration % 10_000 == 0:
-        # Выводим максимальный и средний счёт змейки за 10_000 шагов
+    if learn_iteration % 20_000 == 0:
+        # Выводим максимальный и средний счёт змейки за 20_000 шагов
         max, mean = snake.get_max_mean_score()
-        print(learn_iteration // 10_000, "\t\t",
+        print(learn_iteration // 20_000, "\t\t",
               "Max:", max, "\t\t",
               "Mean:", round(mean, 1), "\t\t",
               int(time() - start), "s", "\t\t",
               "Len States:", len(ai.q_table.keys()))
         start = time()
 
-        ai.update(check_ai=False)
+        ai.update(check_ai=True)
+
+        # # Обновляем и глобальную Q-таблицу
+        # q_table_ai.q_table = ai.q_table
+        # q_table_ai.update()
 
     # Записываем данные в ответ
     data = snake.get_blocks(3)
 
     action = ai.q_predict(data)
-    snake.step(action)
+    reward = snake.step(action)
 
     # Обучаем
-    ai.q_learning(data, reward, snake.get_future_state(action),
-                  recce_mode=False, learning_method=1, squared_error=True)
+    ai.q_learning(data, reward, learning_method=1, squared_error=True)

@@ -1,20 +1,20 @@
-from My_AI import AI
+from My_AI import AI, AI_ensemble
 from Games import Game_for_Q_learning
 
 game = Game_for_Q_learning.Game(7, 7)
 
 # Создаём ИИ
 ai = AI()
-ai.create_weights([2, 30, 30, 4], add_bias_neuron=True)
+ai.create_weights([2, 20, 20, 4], add_bias_neuron=True)
 # Состояния - нахождение в какой-либо клетке поля (координаты каждой клетки)
 ai.make_all_for_q_learning(
     ("left", "right", "up", "down"), ai.kit_upd_q_table.standart, 0.5, 0.05, 0.1)
 
 ai.what_act_func = ai.kit_act_func.tanh
-ai.end_act_func = ai.kit_act_func.softmax
+ai.end_act_func = ai.kit_act_func.tanh
 
-ai.batch_size = 10
-ai.alpha = 1e-3
+ai.batch_size = 1
+ai.alpha = 5e-3
 
 
 reward, generation, num_win, number_steps = 0, 0, 0, 0
@@ -22,14 +22,14 @@ reward, generation, num_win, number_steps = 0, 0, 0, 0
 def died():
     global reward, generation, number_steps
     generation += 1
-    reward = -100
+    reward = -10
     number_steps = 0  # Считаем сколько шагов, что бы не было "зацикливания" ИИ
 def win():
     global reward, num_win, number_steps
     number_steps = 0
     reward = 1000
     num_win += 1
-    print("WIN !", num_win, "\t", round(num_win/generation*100, 2))
+    print("WIN !", num_win, "\t", round(num_win/generation, 4))
 
 game.game_over_function = died
 game.win_function = win
@@ -42,6 +42,7 @@ learn_iteration = 0
 while 1:
     number_steps += 1
     learn_iteration += 1
+    reward = 0
 
     if learn_iteration % 30 == 0:
         game.draw(generation)
@@ -62,9 +63,4 @@ while 1:
 
 ###################### ОБУЧАЕМ
 
-    ai.q_learning(data, reward, game.get_future_coords(where_move), learning_method=2.5)
-
-    # Если не умерли и не победили, то 0 (т.е. штрафуем за лишние шаги)
-    # (P.s. reward изменяется в game.win или game.game_over (в game.step),
-    # и если они не сработали, то reward как был, так и остаётся 0)
-    reward = -1
+    ai.q_learning(data, reward, learning_method=1, squared_error=True)
