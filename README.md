@@ -101,8 +101,8 @@ ai.number_disabled_weights = 0.0  # Какую долю весов отключ�
 ai.batch_size = 10  # Сколько ответов усредняем, чтобы на них учиться
 # (Ускоряет обучение и (иногда, далеко не всегда) улучшает качество обучения)
 
-# Функция активации нейронов (крайне рекомендую оставить tanh,
-# т.к. с ним ИИ работает в разы быстрее)
+# Функция активации нейронов (крайне рекомендую оставить tanh если
+# есть такая возможность, т.к. с ним ИИ работает в разы быстрее)
 ai.what_act_func = ai.kit_act_func.tanh
 
 # Функция активации для последнего слоя (аналогично, рекомендую оставить tanh)
@@ -136,80 +136,73 @@ ai.learning(data, answer,
 # ИИшка может только выбрать какое-то конкретное действие из возмажных
 all_possible_actions = ["left", "right", "up", "down"]
 
-gamma = 0.4     # Коэффициент "доверия опыту"
+gamma = 0.4     # Коэффициент "доверия опыту" (для "сглаживания" Q-таблицы)
 epsilon = 0.15  # Доля на случайных действий (чтобы ИИшка изучала окружающую среду)
 q_alpha = 0.1   # Скорость обновления Q-таблицы (на самом деле оно почти ни на что не влияет) 
 
 ai.make_all_for_q_learning(all_possible_actions,
                            ai.kit_upd_q_table.standart,
                            gamma=gamma, epsilon=epsilon, q_alpha=q_alpha)
+# Функции обновления таблицы довольно сильно влияют на обучение
 
+# Как и с обычным обучением, на вход подаём просто список чисел (состояние)
+ai_state = [0, 1]  # Например координаты нейронки
 
-# Also make sure the number of input neurons is equal to the size of the state list
-ai_state = [0, 1]  # For example, coordinates
-
-ai.q_learning(ai_state, reward_for_state, learning_method=2.2,
+ai.q_learning(ai_state, reward_for_state, learning_method=1,
               recce_mode=False, squared_error=True)
-"""
-recce_mode - if set to True, enable "reconnaissance mode",
-i.e. in this mode, the AI does not learn, but only the Q-table is replenished
-(and random actions are performed)
-P.s. I recommend turning it on before training
 
-Errors can be: regular, quadratic, logarithmic
-
-Regularization can be: quadratic (the more weight, the more punish),
-                       penalty   (if weights exceed regularization_value, then we punish)
-
-impulse_coefficient: Momentum factor in Adam optimizer (usually around 0.7 ~ 0.99)
-
-
-You can choose the most suitable q_table-table update function for you
-P.s. The difference between the functions is negligible
-
-learning_method :
-1 : As the "correct" answer, the one that is most rewarded is selected
-P.s. This is not very good, because other options that bring either the
-     same or a little less reward are ignored (and only one "correct" one is selected).
-     BUT IT IS WELL SUITABLE WHEN YOU HAVE EXCLUSIVELY ONE CORRECT ANSWER
-     IN THE PROBLEM AND THERE CANNOT BE "MORE" AND "LESS" CORRECT
-
-2: Making more useful answers more “correct”
-(in the fractional part after 2, indicate the degree by which we notice the discrepancy
-between the “more” and “less” correct answers
-(for example: 2.345 means a degree of difference of 3.45))
-
-BTW, if your AI learns very badly (or does not learn at all), then look at the Q-table, if there are mostly (> 50%) negative numbers, then in this case you need to reward more and punish less (so that there are more positive numbers)
-"""
+# Какое решение приняла ИИшка при определённых данных
+predict = ai.q_predict(ai_state)
 ```
-> And if you want to see for yourself what answer the AI gave out, then just pass the input data to this method:  ai.q_start_work(data)
+> recce_mode: Режим "исследования окружающей среды" (постоянно выбирать случайное действие)
 
+> Методы обучения (значение learning_method определяет) :
+> - 1 : В качестве "правильного" ответа выбирается то, которое максимально вознаграждается, и
+на место действия (которое приводит к лучшему ответу) ставиться максимальное значение функции
+активации, а на остальные места минимум функции активации
+P.s. Это неочень хорошо, т.к. игнорируются другие варианты, которые приносят либо столько же,
+либо немного меньше вознаграждения (а вибирается только один "правильный"). НО ОН ХОРОШО ПОДХОДИТ,
+КОГДА У ВАС В ЗАДАЧЕ ИМЕЕТСЯ ИСКЛЮЧИТЕЛЬНО 1 ПРАВИЛЬНЫЙ ОТВЕТ, А "БОЛЕЕ" И "МЕНЕЕ" ПРАВИЛЬНЫХ БЫТЬ НЕ МОЖЕТ
+> - 2 : Делаем ответы которые больше вознаграждаются, более "правильным". Дробная часть числа означает, в какую степень будем возводить "стремление у лучшим результатам" (НАПРИМЕР: 2.3 означает, что мы используем метод обучения 2 и возводим в степень 3 "стремление у лучшим результатам", а 2.345 означает, что степень будет равна 3.45 )
 
 ####  
-#### • Or then you can create several AIs, and then cross the best of them, using the method:
+### • Ну и конечно же сохранения и загрузки нейросети
 ```python
+ai.save()  # Сохраниться под текущим именем
+ai.save("First_AI")  # Сохраниться под названием First_AI ()
+```
+> Ещё можно выбрать свою папку для сохранений ИИшек (зачем? сам хз)
+```python
+# Всё будет сохраняться в папку SAVES рядышком с пакетом My_AI
+ai.save_dir = "SAVES"
+```
+
+####  
+### • Также ради прикола сделал и генетическое обучение
+> Это когда перемешиваются веса у ИИшек
+
+```python
+# Тут мы у ai_0 перемешиваем веса с ai_1, а ai_1 не трогаем
 better_ai_0.genetic_crossing_with(better_ai_1)
 ```
-
-
-#### • Or you can change (mutate) the AI so that it doesn't stand still or hope that some of mutations turn out to be good
+### • В дополнение к генетическому алгоритму создал возможность создание мутаций
+> Какую-то долю весов заменяем на случайные числа от -1 до 1 
 
 ```python
-ai.make_mutations(0.05)  # Replacing 5% of all weights with random numbers
+ai.make_mutations(0.05)  # 5% весов оказываются случайными числами
 ```
 
 ####  
-### • If your input data can take any value and/or vary over a large range, then normalize it with :
+#### • Кстати, очень советую переводить входные числа в промежуток от -1 до 1 (или от 0 до 1) 
+> Просто для ИИшки проще работать с числами от -1 до 1 (или от 0 до 1) чем с непонятными огромными значениями
 
 ```python
-# (Better to normalize from 0 to 1 OR -1 to 1)
-ai.kit_act_funcs.normalize(data, min_value, max_value)
+# Проще использовать normalize, но можно и tanh (или sigmoid)
+ai.kit_act_funcs.normalize(data, 0, 1)
 ```
 
 
-####  
-####  
-####  
-####  
-Good luck
-(づ｡◕‿‿◕｡)づ
+#  
+#  
+#  
+###### _Удачи в ловле жучков_ (づ｡◕‿‿◕｡)づ

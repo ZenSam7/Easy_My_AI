@@ -22,6 +22,8 @@ class Snake:
         self.window_width = window_width
         self.window_height = window_height
         self.cell_size = cell_size
+        self.window_width_cells = window_width // cell_size
+        self.window_height_cells = window_height // cell_size
         self.amount_walls = amount_walls
         self.dead_reward = dead_reward
         self.win_reward = win_reward
@@ -96,7 +98,6 @@ class Snake:
 
     def collision(self) -> int:
         """Замечаем столкновения с краем экрана, телом, едой"""
-
         head = self.snake_body[-1]
 
         # Столкновение с телом
@@ -104,7 +105,18 @@ class Snake:
             return self.game_over()
 
         # Столкновение с стенами
-        if head in self.walls_coords:
+        elif head in self.walls_coords:
+            return self.game_over()
+
+        # Выход за границу экрана
+        elif head[0] < 0 or head[0] >= self.window_width_cells:
+            return self.game_over()
+        elif head[1] < 0 or head[1] >= self.window_height_cells:
+            return self.game_over()
+
+        # Если змея заполонила весь экран, то мы выиграли
+        elif len(self.snake_body) == self.window_height_cells *\
+                self.window_width_cells - self.amount_food:
             return self.game_over()
 
         # Столкновение с едой
@@ -117,34 +129,23 @@ class Snake:
 
             return self.win_reward
 
-        # Выход за границу экрана
-        if head[0] < 0 or head[0] >= self.window_width // self.cell_size:
-            return self.game_over()
-        elif head[1] < 0 or head[1] >= self.window_height // self.cell_size:
-            return self.game_over()
-
-        # Если змея заполонила весь экран, то мы выиграли
-        if len(self.snake_body) >= (self.window_height / self.cell_size) * \
-                (self.window_width / self.cell_size) - self.amount_food:
-            return self.game_over()
-
-    def spawn_food(self, num_foods: int = None):
+    def spawn_food(self, num_foods):
         """Создаём еду"""
-        num_foods = self.amount_food if num_foods is None else num_foods
+        num_foods = num_foods
 
         for _ in range(num_foods):
             coords = [
-                randint(0, self.window_width // self.cell_size - 1),
-                randint(0, self.window_height // self.cell_size - 1),
+                randint(0, self.window_width_cells - 1),
+                randint(0, self.window_height_cells - 1),
             ]
 
             # Если еда заспавнилась в теле или в другой еде или в стене - пересоздаём
-            while (coords in self.food_coords) or \
-                    (coords in self.snake_body) or \
-                    (coords in self.walls_coords):
+            while coords in self.food_coords or \
+                    coords in self.snake_body or \
+                    coords in self.walls_coords:
                 coords = [
-                    randint(0, self.window_width // self.cell_size - 1),
-                    randint(0, self.window_height // self.cell_size - 1),
+                    randint(0, self.window_width_cells - 1),
+                    randint(0, self.window_height_cells - 1),
                 ]
 
             self.food_coords.append(coords)
@@ -155,8 +156,8 @@ class Snake:
 
         while len(self.walls_coords) != self.amount_walls:
             coords = [
-                randint(0, self.window_width // self.cell_size - 1),
-                randint(0, self.window_height // self.cell_size - 1),
+                randint(0, self.window_width_cells - 1),
+                randint(0, self.window_height_cells - 1),
             ]
 
             # Нльзя чтоы стена оказась в теле змейки или в еде или другой стене
@@ -223,14 +224,10 @@ class Snake:
         pygame.display.update()
 
         # Ждём немного, чтобы человек мог понять что происходит
-        sleep(0.1)
+        sleep(0.11)
 
     def game_over(self) -> int:
         """Сбрасываем все переменные"""
-        # if self.ignore_game_over:
-        #     self.ignore_game_over = False
-        #     return 0
-
         self.scores.append(self.score)
 
         self.need_grow = False
@@ -280,8 +277,8 @@ class Snake:
                 if point in self.food_coords:
                     data[y - head[1] + 1][x - head[0] + 1] = 1
                 elif any((point in self.snake_body,
-                          x < 0, x >= self.window_width // self.cell_size,
-                          y < 0, y >= self.window_width // self.cell_size)):
+                          x < 0, x >= self.window_width_cells,
+                          y < 0, y >= self.window_height_cells)):
                     data[y - head[1] + 1][x - head[0] + 1] = -1
 
         # Избавляемся от внутренних списков

@@ -5,16 +5,16 @@ game = Game_for_Q_learning.Game(7, 7)
 
 # Создаём ИИ
 ai = AI()
-ai.create_weights([2, 20, 20, 4], add_bias_neuron=True)
+ai.create_weights([2, 50, 50, 4], add_bias_neuron=True)
 # Состояния - нахождение в какой-либо клетке поля (координаты каждой клетки)
-ai.make_all_for_q_learning(
-    ("left", "right", "up", "down"), ai.kit_upd_q_table.standart, 0.5, 0.05, 0.1)
+ai.make_all_for_q_learning(("left", "right", "up", "down"),
+                           ai.kit_upd_q_table.standart, 0.5, 0.05, 0.1)
 
 ai.what_act_func = ai.kit_act_func.tanh
 ai.end_act_func = ai.kit_act_func.tanh
 
 ai.batch_size = 1
-ai.alpha = 5e-3
+ai.alpha = 1e-2
 
 
 reward, generation, num_win, number_steps = 0, 0, 0, 0
@@ -52,15 +52,15 @@ while 1:
             game.game_over()
 
 
-###################### ОТВЕТ ОТ НЕЙРОНКИ
+    # Ответ от ИИшки
 
-    data = [[i for i in game.agent_coords]]# + game.walls_coords
+    data = [game.agent_coords] # + game.walls_coords
     data = sum(data, [])
 
     where_move = ai.q_predict(data)
 
     game.step(where_move)
 
-###################### ОБУЧАЕМ
+    # Обучаем
 
     ai.q_learning(data, reward, learning_method=1, squared_error=True)

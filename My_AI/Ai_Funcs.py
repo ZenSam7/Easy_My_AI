@@ -7,7 +7,6 @@ class FuncsUpdateQTable:
 
     \n standart:   Q(s,a) = Q(s,a) + α[r + γ(max Q(s’,a')) - Q(s,a)] \n
     \n future:     Q(s,a) = Q(s,a) + α[r + γ Q(s’,a') - Q(s,a)] \n
-    \n future_sum: Q(s,a) = Q(s,a) + α[r + γ(Expected Q(s’,a')) - Q(s,a)] \n
     \n simple:     Q(s,a) = R + γ Q’(s’,a’) \n
     \n simple_max: Q(s,a) = R + γ Q’(s’, max a) \n
     """
@@ -26,12 +25,6 @@ class FuncsUpdateQTable:
             q_alpha * (reward + gamma *
                        q_table[future_state_str][q_predict(future_state, True)] -
                        q_table[state_str][ind_act])
-
-    # def future_sum(self, q_table: Dict[str, List[float]], state_str: str,
-    #                ind_act: int, future_state_str: str, q_alpha: float,
-    #                reward: float, gamma: float, **kwargs) -> float:
-    #     return q_table[state_str][ind_act] + q_alpha * \
-    #         (reward + gamma * sum(q_table[future_state_str]) - q_table[state_str][ind_act])
 
     def simple(self, q_table: Dict[str, List[float]], future_state_str: str,
                future_state: List[float], reward: float, gamma: float,
@@ -66,6 +59,10 @@ class ActivationFunctions:
         }
 
     def normalize(self, x: np.ndarray, min: float = 0, max: float = 1) -> np.ndarray:
+        # Определяем тип
+        if isinstance(x, list):
+            x = np.array(x)
+
         # Нормализуем от 0 до 1
         result = x - np.min(x)
         if np.max(result) != 0:

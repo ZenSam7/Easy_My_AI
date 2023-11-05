@@ -103,14 +103,11 @@ class AI_ensemble(AI):
 
         ensemble_name = self.ensemble_name if ai_name is None else ai_name
 
-        # Обновляем сохранение, если оно существует (чтобы небыло казусов)
-        self.delete()
+        # Если нет папки для ансамбля, то создаём её
+        if not (ensemble_name in os.listdir(f"{self.save_dir}")):
+            os.mkdir(f"{self.save_dir}/{ensemble_name}")
 
         def saving():
-            # Если нет папки для ансамбля, то создаём её
-            if not ensemble_name in os.listdir(f"{self.save_dir}"):
-                os.mkdir(f"{self.save_dir}/{ensemble_name}")
-
             for ai in self.ais:
                 ai.save_dir = self.save_dir
                 ai.save(f"{ensemble_name}/{ai.name}")

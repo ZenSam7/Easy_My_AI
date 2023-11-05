@@ -119,7 +119,7 @@ class AI:
         # Какую долю весов "отключаем" при обучении
         self.__number_disabled_weights: float = 0.0
 
-        self.have_bias_neuron: bool = True
+        self.have_bias_neuron: bool = add_bias_neuron
 
         self.weights: List[np.matrix] = []  # Появиться после вызова create_weights
 
@@ -201,9 +201,9 @@ class AI:
                         np.random.randint(layer2.shape[1]),
                     ]
 
-    def make_mutations(self, mutation: float = 0.05):
+    def make_mutations(self, mutation: float = 0.01):
         """Создаёт рандомные веса в нейронке
-        (Заменяем mutation весов на случайные числа)"""
+        (Заменяем долю mutation весов на случайные числа)"""
 
         for layer in self.weights:  # Для каждого слоя
             for _ in range(layer.shape[0] * layer.shape[1]):  # Для каждого элемента
@@ -296,8 +296,7 @@ class AI:
             for list_answers in self._packet_layer_answers[1:]:  # Первые ответы уже в summ_answers
                 summ_answers[layer_index] += np.array(list_answers[layer_index])
 
-        answers = [i / self.batch_size for i in summ_answers]
-        # answers = summ_answers
+        answers = summ_answers
 
         self._packet_delta_weight.clear()
         self._packet_layer_answers.clear()
@@ -336,7 +335,7 @@ class AI:
         ai_result = self.predict(input_data).tolist()
 
         # "Разведуем окружающую среду" (берём случайное действие)
-        if np.random.random() < self.epsilon:
+        if self.epsilon != 0.0 and np.random.random() < self.epsilon:
             if _return_index_act:
                 return np.random.randint(len(self.actions))
             return self.actions[np.random.randint(len(self.actions))]
@@ -413,8 +412,7 @@ class AI:
         2 : Делаем ответы которые больше вознаграждаются, более "правильным" \n
         Дробная часть числа означает, в какую степень будем возводить "стремление у лучшим результатам"
         (что это такое читай в P.s.) \
-        (чем степень больше, тем степень будет больше. НАПРИМЕР: 2.2 означает, что мы используем
-        метод обучения 2 и возводим в степень 2 \
+        (НАПРИМЕР: 2.2 означает, что мы используем  метод обучения 2 и возводим в степень 2 \
         "стремление у лучшим результатам", а 2.345 означает, что степень будет равна 3.45 ) \n
         P.s. Работает так: Сначала переводим значения вознаграждений в промежуток от 0 до 1
         (т.е. где вместо максимума вознаграждения\
@@ -556,6 +554,14 @@ class AI:
             for name_func in names_funcs:
                 if name_func in func_str:
                     return name_func
+
+        # Если такое сохранение под таким же именем уже есть,
+        # то немного переименовываем текущее имя (как при создании папки в windows)
+        if name_ai in os.listdir(f"{self.save_dir}"):
+            # Если это уже не в первый раз, то увеличиваем цифру
+            if "(" in name_ai and name_ai[-1] == ")":
+                name_ai = name_ai[:-1].split("(")
+                name_ai = name_ai[0] + f"({int(name_ai[1]) + 1})"
 
         ai_data = {}
 

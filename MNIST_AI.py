@@ -7,24 +7,22 @@ start_time = time()
 
 mnist = MNIST()
 
-ai = AI(architecture=[784, 100, 100, 10], add_bias_neuron=True, name="MNIST",
-        alpha=1e-3, number_disabled_weights=0.05)
+ai = AI(architecture=[784, 50, 50, 50, 10], add_bias_neuron=True, name="MNIST",
+        alpha=2e-3, number_disabled_weights=0.0)
 
-ai.what_act_func = ai.kit_act_func.sigmoid
+ai.what_act_func = ai.kit_act_func.tanh
 ai.end_act_func = ai.kit_act_func.softmax
 
 # ai.load()
 ai.print_parameters()
 
-ai.batch_size = 2
-ai.alpha = 1e-3
-
+ai.batch_size = 1
+ai.alpha = 2e-3
 
 
 print("\nОбучение...")
-
-for cycle in range(3):
-    print(f"Эпоха #{cycle}")
+for epoch in range(5):
+    print(f"Эпоха #{epoch}")
 
     num, errors = 0, 0
     max_train_images, show_progress = 60_000, 0.10
@@ -54,7 +52,7 @@ for cycle in range(3):
             errors = 0
 
             # Сохраняемся
-            ai.update()
+            # ai.update()
 
         if num == max_train_images:
             break
