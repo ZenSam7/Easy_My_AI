@@ -1,6 +1,6 @@
 import numpy as np
 import json
-from os import remove
+from os import remove, listdir, mkdir
 from typing import Callable, List, Dict, Tuple, Optional
 
 from .Ai_Funcs import *
@@ -59,8 +59,8 @@ class MyProperties(object):
     @staticmethod
     def from_1_to_0(value: float) -> Exception:
         """Свойство"""
-        if not 0 <= value <= 1:
-            raise ImpossibleContinue(f"Число {value} не в диапазоне от 0 до 1")
+        if not 0 <= value < 1:
+            raise ImpossibleContinue(f"Число {value} не в диапазоне [0; 1)")
 
     @staticmethod
     def non_negative(value: float) -> Exception:
@@ -93,6 +93,9 @@ class AI:
     number_disabled_weights: float = MyProperties.get_propertry(
         MyProperties.from_1_to_0, "number_disabled_weights",
         "Какую долю весов \"отключаем\" при обучении")
+    impulse: float = MyProperties.get_propertry(
+        MyProperties.from_1_to_0, "impulse",
+        "Коэффициент импульса (для оптимизатора Adam)")
     # Для Q-обучения
     epsilon: float = MyProperties.get_propertry(
         MyProperties.from_1_to_0, "epsilon",
@@ -118,10 +121,14 @@ class AI:
         self.__batch_size: int = 1
         # Какую долю весов "отключаем" при обучении
         self.__number_disabled_weights: float = 0.0
+        # Коэффициент импульса (для оптимизатора Adam)
+        self.__impulse: float = 0.5
 
         self.have_bias_neuron: bool = add_bias_neuron
 
         self.weights: List[np.matrix] = []  # Появиться после вызова create_weights
+        self._momentums: List[np.matrix] = []
+        self._velocities: List[np.matrix] = []
 
         # Специально убрал аннотиции типов
         self.kit_act_func: ActivationFunctions = ActivationFunctions()
@@ -168,18 +175,24 @@ class AI:
         self.have_bias_neuron = add_bias_neuron
         self.architecture = architecture
         self.weights = []
+        self._momentums = []
+        self._velocities = []
 
         # Добавляем все веса между слоями нейронов
         for i in range(len(architecture) - 1):
+            size = (architecture[i] + add_bias_neuron, architecture[i + 1])
+
             self.weights.append(
                 self.kit_act_func.normalize(
-                    np.random.random(
-                        size=(architecture[i] + add_bias_neuron, architecture[i + 1]),
-                    ),
+                    np.random.random(size=size),
                     min_weight,
                     max_weight,
                 )
             )
+
+            # Инициализируем (нулями) штуки для Adam'а
+            self._momentums.append(np.zeros(shape=size))
+            self._velocities.append(np.zeros(shape=size))
 
     def genetic_crossing_with(self, ai):
         """ai = Экземпляр такого-же класса AI, как и ЭТА нейронка\n
@@ -264,7 +277,8 @@ class AI:
 
     def learning(self, input_data: List[float], answer: List[float],
                  squared_error: bool = False):
-        """Метод обратного распространения ошибки для изменения весов в нейронной сети \n"""
+        """Метод обратного распространения ошибки для изменения весов в нейронной сети
+         (Теперь с оптимизатором Adam)\n"""
 
         # Определяем наш ответ как вектор
         answer = np.array(answer)
@@ -282,6 +296,7 @@ class AI:
 
         # Реализуем batch_size
         if len(self._packet_delta_weight) != self.batch_size:
+            # Добавляем ошибки (дельту) с выхода и ответы от слоёв
             self._packet_delta_weight.append(delta_weight)
             self._packet_layer_answers.append(answers)
             return
@@ -302,16 +317,12 @@ class AI:
         self._packet_layer_answers.clear()
 
         # Совершаем всю магию здесь
-        for weight, layer_answer in zip(self.weights[::-1], answers[::-1]):
+        for i in range(len(self.weights) -1, -1, -1):
             # Превращаем векторы в матрицу
-            layer_answer: np.ndarray = np.matrix(layer_answer)
+            layer_answer: np.ndarray = np.matrix(answers[i])
             delta_weight: np.ndarray = np.matrix(delta_weight)
 
-            # К нейрону смещения не идут связи, поэтому отрезаем этот нейрон смещения
-            if self.have_bias_neuron:
-                weight = weight[0:-1]
-                layer_answer = np.matrix(layer_answer.tolist()[0][0:-1])
-
+            # Обычный градиентный спуск
             gradient = delta_weight.T.dot(layer_answer).T
 
             # Матрица, предотвращающая переобучение
@@ -323,12 +334,25 @@ class AI:
 
                 gradient = np.multiply(gradient, dropout_mask)
 
-            # Изменяем веса
-            weight -= self.alpha * gradient
+            # Оптимизатор Adam
+            self._momentums[i] = self.impulse * self._momentums[i] + gradient
+            self._velocities[i] = self.impulse * self._velocities[i] + np.power(gradient, 2)
+
+            # # Изменяем веса (обычный градиентный спуск)
+            # weight -= self.alpha * gradient
+
+            # Изменяем веса (С Адамом)
+            self.weights[i] -= self.alpha * (self._momentums[i] / (np.sqrt(self._velocities[i]) + 1))
+
+            # К нейрону смещения не идут связи, поэтому отрезаем этот нейрон смещения
+            if self.have_bias_neuron:
+                weight = self.weights[i][:-1]
+                layer_answer = layer_answer[:, :-1]
+            else:
+                weight = self.weights[i]
 
             # "Переносим" градиент на другой слой (+ умножаем на производную)
-            delta_weight = delta_weight.dot(weight.T)
-            delta_weight = np.multiply(self.what_act_func(layer_answer, True), delta_weight)
+            delta_weight = np.multiply(self.what_act_func(layer_answer, True), delta_weight.dot(weight[i].T))
 
     def q_predict(self, input_data: List[float], _return_index_act: bool = False) -> str:
         """Возвращает action, на основе входных данных"""
@@ -555,9 +579,13 @@ class AI:
                 if name_func in func_str:
                     return name_func
 
+        # Если нет папки для ансамбля, то создаём её
+        if not self.save_dir in listdir("."):
+            mkdir(self.save_dir)
+
         # Если такое сохранение под таким же именем уже есть,
         # то немного переименовываем текущее имя (как при создании папки в windows)
-        if name_ai in os.listdir(f"{self.save_dir}"):
+        if name_ai in listdir(f"{self.save_dir}"):
             # Если это уже не в первый раз, то увеличиваем цифру
             if "(" in name_ai and name_ai[-1] == ")":
                 name_ai = name_ai[:-1].split("(")
@@ -576,6 +604,7 @@ class AI:
         ai_data["actions"] = self.actions
 
         ai_data["number_disabled_neurons"] = self.number_disabled_weights
+        ai_data["impulse"] = self.impulse
         ai_data["alpha"] = self.alpha
         ai_data["batch_size"] = self.batch_size
 
@@ -621,6 +650,7 @@ class AI:
             self.have_bias_neuron = ai_data["have_bias_neuron"]
 
             self.number_disabled_weights = ai_data["number_disabled_neurons"]
+            self.impulse = ai_data["impulse"]
             self.alpha = ai_data["alpha"]
             self.batch_size = ai_data["batch_size"]
 
@@ -636,6 +666,12 @@ class AI:
             self.__gamma = ai_data["gamma"]
             self.__epsilon = ai_data["epsilon"]
             self.__q_alpha = ai_data["q_alpha"]
+
+            # Переинициализируем штуки для Adam'а
+            for i in range(len(self.architecture) - 1):
+                size = (self.architecture[i] + self.have_bias_neuron, self.architecture[i + 1])
+                self._momentums.append(np.zeros(size=size))
+                self._velocities.append(np.zeros(size=size))
 
         except FileNotFoundError:
             print(f"Сохранение {name_ai} не найдено")

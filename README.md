@@ -18,12 +18,13 @@ ai = AI_ensemble(amount_ais=10, architecture=[10, 50, 50, 1],
 
 
 # Устанавливаем коэффициенты
-ai.alpha = 1e-3
-ai.batch_size = 10
+ai.alpha = 1e-3    # Скорость обучения
+ai.batch_size = 10 # Размер батча
+ai.impulse = 0.9   # Коэффициент импульса для оптимизатора Adam
 
 ai.what_act_func = ai.kit_act_func.tanh
 ai.end_act_func = ai.kit_act_func.tanh
-ai.save_dir = "Saves AIs"
+ai.save_dir = "Saves AIs"  # В какую папку сохраняем ИИшки
 
 # Обучаем (Например распозновать картинки)
 for image in dataset:
@@ -93,7 +94,10 @@ ai.name = "First_AI"
 ```python
 """Прописывать или изменять все гаперпараметры необязательно"""
 
-ai.alpha = 1e-2  # Альфа (скорость обучения)
+ai.alpha = 1e-2  # Скорость обучения
+
+ai.impulse = 0.6 # Коэффициент имапульса для оптимизатора Adam 
+# Если не знаете что такое оптимизатор погуглите, очень интересно))))
 
 ai.number_disabled_weights = 0.0  # Какую долю весов отключаем
 # (Это надо чтобы не возникало переобучение)
