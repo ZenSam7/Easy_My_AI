@@ -190,9 +190,9 @@ class AI:
                 )
             )
 
-            # Инициализируем (нулями) штуки для Adam'а
-            self._momentums.append(np.zeros(shape=size))
-            self._velocities.append(np.zeros(shape=size))
+        # Инициализируем (нулями) штуки для Adam'а
+        self._momentums = [0 for _ in range(len(architecture))]
+        self._velocities = [0 for _ in range(len(architecture))]
 
     def genetic_crossing_with(self, ai):
         """ai = Экземпляр такого-же класса AI, как и ЭТА нейронка\n
@@ -276,7 +276,7 @@ class AI:
         return result_layer_neurons
 
     def learning(self, input_data: List[float], answer: List[float],
-                 squared_error: bool = False):
+                 squared_error: bool = False, use_Adam: bool = True):
         """Метод обратного распространения ошибки для изменения весов в нейронной сети
          (Теперь с оптимизатором Adam)\n"""
 
@@ -334,15 +334,20 @@ class AI:
 
                 gradient = np.multiply(gradient, dropout_mask)
 
-            # Оптимизатор Adam
-            self._momentums[i] = self.impulse * self._momentums[i] + gradient
-            self._velocities[i] = self.impulse * self._velocities[i] + np.power(gradient, 2)
+            if use_Adam:
+                # Оптимизатор Adam
+                self._momentums[i] = self.__impulse * self._momentums[i] + gradient
+                self._velocities[i] = self.__impulse * self._velocities[i] + np.power(gradient, 2)
 
-            # # Изменяем веса (обычный градиентный спуск)
-            # weight -= self.alpha * gradient
+                # momentum  = self._momentums[i] / (1 - self.__impulse)
+                # velocity = self._velocities[i] / (1 - self.__impulse)
 
-            # Изменяем веса (С Адамом)
-            self.weights[i] -= self.alpha * (self._momentums[i] / (np.sqrt(self._velocities[i]) + 1))
+                # Изменяем веса (С Адамом)
+                self.weights[i] -= self.alpha * (self._momentums[i] / (np.sqrt(self._velocities[i]) +0.1) )
+
+            else:
+                # Изменяем веса (обычный градиентный спуск)
+                self.weights[i] -= self.alpha * gradient
 
             # К нейрону смещения не идут связи, поэтому отрезаем этот нейрон смещения
             if self.have_bias_neuron:
@@ -411,6 +416,7 @@ class AI:
                    reward: float,
                    learning_method: float = 1,
                    squared_error: bool = False,
+                   use_Adam: bool = True,
                    recce_mode: bool = False,
                    ):
         """
@@ -496,7 +502,7 @@ class AI:
                   f"learning_method == 1, или в отрезке: (2; 3)"
 
         # Изменяем веса
-        self.learning(self.last_state, answer, squared_error=squared_error)
+        self.learning(self.last_state, answer, squared_error=squared_error, use_Adam=use_Adam)
 
         # Обновляем Q-таблицу
         self._update_q_table(state_now, reward)
@@ -670,8 +676,8 @@ class AI:
             # Переинициализируем штуки для Adam'а
             for i in range(len(self.architecture) - 1):
                 size = (self.architecture[i] + self.have_bias_neuron, self.architecture[i + 1])
-                self._momentums.append(np.zeros(size=size))
-                self._velocities.append(np.zeros(size=size))
+                self._momentums.append(np.zeros(size))
+                self._velocities.append(np.zeros(size))
 
         except FileNotFoundError:
             print(f"Сохранение {name_ai} не найдено")
