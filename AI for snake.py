@@ -5,28 +5,29 @@ from time import time
 start = time()
 
 # Создаём Змейку
-snake = Code_Snake.Snake(700, 500, 3, 0, max_steps=50, display_game=False,
+snake = Code_Snake.Snake(700, 500, 2, 0, max_steps=50, display_game=False,
                          dead_reward=-100, win_reward=200)
 
 # Создаём ИИ
-ai = AI(architecture=[9, 40, 40, 40, 4],
+ai = AI(architecture=[9, 50, 50, 50, 4],
                  add_bias_neuron=True, name="Snake")
 
 ai.what_act_func = ai.kit_act_func.tanh
 ai.end_act_func = ai.kit_act_func.tanh
 
 ai.make_all_for_q_learning(("left", "right", "up", "down"),
-                           ai.kit_upd_q_table.future,
-                           0.5, 0.0, 0.1)
+                           ai.kit_upd_q_table.standart,
+                           0.6, 0.0, 0.1)
 
 # ai.load()
 ai.print_parameters()
 
-ai.alpha = 1e-4
-ai.impulse = 0.7
+ai.alpha = 2e-4
+ai.beta1 = 0.9
+ai.beta2 = 0.8
 
 
-learn_iteration = 0
+learn_iteration: int = 0
 while 1:
     learn_iteration += 1
     reward = 0
@@ -51,4 +52,5 @@ while 1:
     reward = snake.step(action)
 
     # Обучаем
-    ai.q_learning(data, reward, learning_method=1, squared_error=True,)
+    ai.q_learning(data, reward, learning_method=1, squared_error=True,
+                  use_Adam=True)

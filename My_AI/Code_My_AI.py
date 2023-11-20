@@ -80,7 +80,7 @@ class AI:
 
     # В чём соль, все коэффициенты для ИИшки я сделал с определёнными свойствами, чтобы пользователь не мог
     # как-то неправильно их изменить (в моей библиотеке от этого ничего не сломается, но ИИшке сразу поплохеет)
-    # При этом, внутри библиотеке пользуемся секретными коэффициентами (_alpha, _epsilon, _gamma ...), но
+    # При этом, внутри библиотеке пользуемся секретными коэффициентами (__alpha, __epsilon, __gamma ...), но
     # пользователю даём просто alpha, epsilon, gamma ...
 
     # Стандартные коэффициенты
@@ -93,8 +93,11 @@ class AI:
     number_disabled_weights: float = MyProperties.get_propertry(
         MyProperties.from_1_to_0, "number_disabled_weights",
         "Какую долю весов \"отключаем\" при обучении")
-    impulse: float = MyProperties.get_propertry(
-        MyProperties.from_1_to_0, "impulse",
+    beta1: float = MyProperties.get_propertry(
+        MyProperties.from_1_to_0, "beta1",
+        "Коэффициент импульса (для оптимизатора Adam)")
+    beta2: float = MyProperties.get_propertry(
+        MyProperties.from_1_to_0, "beta2",
         "Коэффициент импульса (для оптимизатора Adam)")
     # Для Q-обучения
     epsilon: float = MyProperties.get_propertry(
@@ -121,8 +124,9 @@ class AI:
         self.__batch_size: int = 1
         # Какую долю весов "отключаем" при обучении
         self.__number_disabled_weights: float = 0.0
-        # Коэффициент импульса (для оптимизатора Adam)
-        self.__impulse: float = 0.5
+        # Коэффициенты импульса (для оптимизатора Adam)
+        self.__beta1: float = 0.9
+        self.__beta2: float = 0.999
 
         self.have_bias_neuron: bool = add_bias_neuron
 
@@ -295,7 +299,7 @@ class AI:
             # Оставляем знак ↑
 
         # Реализуем batch_size
-        if len(self._packet_delta_weight) != self.batch_size:
+        if len(self._packet_delta_weight) != self.__batch_size:
             # Добавляем ошибки (дельту) с выхода и ответы от слоёв
             self._packet_delta_weight.append(delta_weight)
             self._packet_layer_answers.append(answers)
@@ -328,26 +332,28 @@ class AI:
             # Матрица, предотвращающая переобучение
             # Умножаем изменение веса рандомных нейронов на 0
             # (Отключаем изменение некоторых связей)
-            if self.number_disabled_weights > 0:
+            if self.__number_disabled_weights > 0:
                 dropout_mask = np.random.random(size=gradient.shape) \
-                               >= self.number_disabled_weights
+                               >= self.__number_disabled_weights
 
                 gradient = np.multiply(gradient, dropout_mask)
 
             if use_Adam:
                 # Оптимизатор Adam
-                self._momentums[i] = self.__impulse * self._momentums[i] + gradient
-                self._velocities[i] = self.__impulse * self._velocities[i] + np.power(gradient, 2)
+                self._momentums[i] = self.__beta1 * self._momentums[i] + \
+                                     (1 - self.__beta1) * gradient
+                self._velocities[i] = self.__beta2 * self._velocities[i] + \
+                                      (1 - self.__beta2) * np.power(gradient, 2)
 
-                # momentum  = self._momentums[i] / (1 - self.__impulse)
-                # velocity = self._velocities[i] / (1 - self.__impulse)
+                momentum  = self._momentums[i] / (1 - self.__beta1)
+                velocity = self._velocities[i] / (1 - self.__beta2)
 
                 # Изменяем веса (С Адамом)
-                self.weights[i] -= self.alpha * (self._momentums[i] / (np.sqrt(self._velocities[i]) +0.1) )
+                self.weights[i] -= self.__alpha * momentum / np.sqrt(velocity + 1e-6)
 
             else:
                 # Изменяем веса (обычный градиентный спуск)
-                self.weights[i] -= self.alpha * gradient
+                self.weights[i] -= self.__alpha * gradient
 
             # К нейрону смещения не идут связи, поэтому отрезаем этот нейрон смещения
             if self.have_bias_neuron:
@@ -364,7 +370,7 @@ class AI:
         ai_result = self.predict(input_data).tolist()
 
         # "Разведуем окружающую среду" (берём случайное действие)
-        if self.epsilon != 0.0 and np.random.random() < self.epsilon:
+        if self.__epsilon != 0.0 and np.random.random() < self.__epsilon:
             if _return_index_act:
                 return np.random.randint(len(self.actions))
             return self.actions[np.random.randint(len(self.actions))]
@@ -470,9 +476,9 @@ class AI:
 
         # "Режим исследования мира"
         if recce_mode:
-            Epsilon, self.epsilon = self.epsilon, 1
+            Epsilon, self.__epsilon = self.__epsilon, 1
             self._update_q_table(state_now, reward)
-            self.epsilon = Epsilon
+            self.__epsilon = Epsilon
             return
 
         # Формируем "правильный" ответ
@@ -519,9 +525,9 @@ class AI:
         all_kwargs = {
             "q_table": self.q_table,
             "q_predict": self.q_predict,
-            "q_alpha": self.q_alpha,
+            "q_alpha": self.__q_alpha,
             "reward": self.last_reward,
-            "gamma": self.gamma,
+            "gamma": self.__gamma,
             "state": state,
             "state_str": state_str,
             "future_state": future_state,
@@ -609,10 +615,11 @@ class AI:
         ai_data["have_bias_neuron"] = self.have_bias_neuron
         ai_data["actions"] = self.actions
 
-        ai_data["number_disabled_neurons"] = self.number_disabled_weights
-        ai_data["impulse"] = self.impulse
-        ai_data["alpha"] = self.alpha
-        ai_data["batch_size"] = self.batch_size
+        ai_data["number_disabled_neurons"] = self.__number_disabled_weights
+        ai_data["beta1"] = self.__beta1
+        ai_data["beta2"] = self.__beta2
+        ai_data["alpha"] = self.__alpha
+        ai_data["batch_size"] = self.__batch_size
 
         ai_data["what_act_func"] = get_name_func(self.what_act_func, self.kit_act_func)
         ai_data["end_act_func"] = get_name_func(self.end_act_func, self.kit_act_func)
@@ -656,7 +663,8 @@ class AI:
             self.have_bias_neuron = ai_data["have_bias_neuron"]
 
             self.number_disabled_weights = ai_data["number_disabled_neurons"]
-            self.impulse = ai_data["impulse"]
+            self.beta1 = ai_data["beta1"]
+            self.beta2 = ai_data["beta2"]
             self.alpha = ai_data["alpha"]
             self.batch_size = ai_data["batch_size"]
 
@@ -669,9 +677,9 @@ class AI:
 
             self.q_table = ai_data["q_table"]
             self.actions = ai_data["actions"]
-            self.__gamma = ai_data["gamma"]
-            self.__epsilon = ai_data["epsilon"]
-            self.__q_alpha = ai_data["q_alpha"]
+            self.gamma = ai_data["gamma"]
+            self.epsilon = ai_data["epsilon"]
+            self.q_alpha = ai_data["q_alpha"]
 
             # Переинициализируем штуки для Adam'а
             for i in range(len(self.architecture) - 1):
