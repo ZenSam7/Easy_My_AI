@@ -93,12 +93,21 @@ class AI:
     number_disabled_weights: float = MyProperties.get_propertry(
         MyProperties.from_1_to_0, "number_disabled_weights",
         "Какую долю весов \"отключаем\" при обучении")
-    beta1: float = MyProperties.get_propertry(
-        MyProperties.from_1_to_0, "beta1",
+
+    impulse1: float = MyProperties.get_propertry(
+        MyProperties.from_1_to_0, "impulse1",
         "Коэффициент импульса (для оптимизатора Adam)")
-    beta2: float = MyProperties.get_propertry(
-        MyProperties.from_1_to_0, "beta2",
+    impulse2: float = MyProperties.get_propertry(
+        MyProperties.from_1_to_0, "impulse2",
         "Коэффициент импульса (для оптимизатора Adam)")
+
+    l1: float = MyProperties.get_propertry(
+        MyProperties.from_1_to_0, "l1",
+        "Коэффициент регуляризатора L1")
+    l2: float = MyProperties.get_propertry(
+        MyProperties.from_1_to_0, "l2",
+        "Коэффициент регуляризатора L2")
+
     # Для Q-обучения
     epsilon: float = MyProperties.get_propertry(
         MyProperties.from_1_to_0, "epsilon",
@@ -125,8 +134,11 @@ class AI:
         # Какую долю весов "отключаем" при обучении
         self.__number_disabled_weights: float = 0.0
         # Коэффициенты импульса (для оптимизатора Adam)
-        self.__beta1: float = 0.9
-        self.__beta2: float = 0.999
+        self.__impulse1: float = 0.9
+        self.__impulse2: float = 0.999
+        # Коэффициенты регуляризации
+        self.__l1: float = 0
+        self.__l2: float = 0
 
         self.have_bias_neuron: bool = add_bias_neuron
 
@@ -280,9 +292,14 @@ class AI:
         return result_layer_neurons
 
     def learning(self, input_data: List[float], answer: List[float],
-                 squared_error: bool = False, use_Adam: bool = True):
+                 squared_error: bool = False, use_Adam: bool = False):
         """Метод обратного распространения ошибки для изменения весов в нейронной сети
          (Теперь с оптимизатором Adam)\n"""
+
+        def sign(x: np.ndarray) -> np.ndarray:
+            """Возвращает матрицу с +1 или -1 на месте положительного
+             или отрицательного числа соответственно"""
+            return -1 * (x < 0) + 1 * (x >= 0)
 
         # Определяем наш ответ как вектор
         answer = np.array(answer)
@@ -293,10 +310,8 @@ class AI:
 
         # На сколько должны суммарно изменить веса
         delta_weight: np.ndarray = ai_answer - answer
-        if squared_error:
-            delta_weight = np.power(delta_weight, 2) * \
-                           (-1 * (delta_weight < 0) + 1 * (delta_weight >= 0))
-            # Оставляем знак ↑
+        if squared_error: # Возводим в квадрат с сохранением знака
+            delta_weight = np.power(delta_weight, 2) * sign(delta_weight)
 
         # Реализуем batch_size
         if len(self._packet_delta_weight) != self.__batch_size:
@@ -326,8 +341,13 @@ class AI:
             layer_answer: np.ndarray = np.matrix(answers[i])
             delta_weight: np.ndarray = np.matrix(delta_weight)
 
-            # Обычный градиентный спуск
+            # Градиентный спуск
             gradient = delta_weight.T.dot(layer_answer).T
+
+            # L1 и L2 регуляризация
+            if self.__l1 or self.__l2:
+                gradient += self.__alpha * self.__l1 * sign(self.weights[i])
+                self.weights[i] *= 1 - self.__alpha * self.__l2
 
             # Матрица, предотвращающая переобучение
             # Умножаем изменение веса рандомных нейронов на 0
@@ -340,13 +360,13 @@ class AI:
 
             if use_Adam:
                 # Оптимизатор Adam
-                self._momentums[i] = self.__beta1 * self._momentums[i] + \
-                                     (1 - self.__beta1) * gradient
-                self._velocities[i] = self.__beta2 * self._velocities[i] + \
-                                      (1 - self.__beta2) * np.power(gradient, 2)
+                self._momentums[i] = self.__impulse1 * self._momentums[i] + \
+                                     (1 - self.__impulse1) * gradient
+                self._velocities[i] = self.__impulse2 * self._velocities[i] + \
+                                      (1 - self.__impulse2) * np.power(gradient, 2)
 
-                momentum  = self._momentums[i] / (1 - self.__beta1)
-                velocity = self._velocities[i] / (1 - self.__beta2)
+                momentum  = self._momentums[i] / (1 - self.__impulse1)
+                velocity = self._velocities[i] / (1 - self.__impulse2)
 
                 # Изменяем веса (С Адамом)
                 self.weights[i] -= self.__alpha * momentum / np.sqrt(velocity + 1e-6)
@@ -616,8 +636,8 @@ class AI:
         ai_data["actions"] = self.actions
 
         ai_data["number_disabled_neurons"] = self.__number_disabled_weights
-        ai_data["beta1"] = self.__beta1
-        ai_data["beta2"] = self.__beta2
+        ai_data["impulse1"] = self.__impulse1
+        ai_data["impulse2"] = self.__impulse2
         ai_data["alpha"] = self.__alpha
         ai_data["batch_size"] = self.__batch_size
 
@@ -663,8 +683,8 @@ class AI:
             self.have_bias_neuron = ai_data["have_bias_neuron"]
 
             self.number_disabled_weights = ai_data["number_disabled_neurons"]
-            self.beta1 = ai_data["beta1"]
-            self.beta2 = ai_data["beta2"]
+            self.impulse1 = ai_data["impulse1"]
+            self.impulse2 = ai_data["impulse2"]
             self.alpha = ai_data["alpha"]
             self.batch_size = ai_data["batch_size"]
 
