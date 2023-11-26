@@ -22,9 +22,11 @@ ai.make_all_for_q_learning(("left", "right", "up", "down"),
 # ai.load()
 ai.print_parameters()
 
-ai.alpha = 2e-4
-ai.beta1 = 0.9
-ai.beta2 = 0.8
+ai.alpha = 5e-3
+ai.impulse1 = 0.8
+ai.impulse2 = 0.999
+ai.l1 = 0
+ai.l2 = 0.001
 
 
 learn_iteration: int = 0

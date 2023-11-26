@@ -19,9 +19,15 @@ ai.print_parameters()
 ai.batch_size = 1
 ai.alpha = 2e-3
 
+ai.impulse1 = 0.7
+ai.impulse2 = 0.99
+
+ai.l1 = 0.0
+ai.l2 = 0.001
+
 
 print("\nОбучение...")
-for epoch in range(5):
+for epoch in range(2):
     print(f"Эпоха #{epoch}")
 
     num, errors = 0, 0
@@ -32,11 +38,7 @@ for epoch in range(5):
 
         image = images.tolist()[0]
         label = labels.tolist()[0]
-        ai.learning(
-            image,
-            label,
-            # impulse_coefficient=0.9,
-        )
+        ai.learning(image, label, use_Adam=True)
 
         if np.argmax(ai.predict(image)) != np.argmax(np.array(label)):
             errors += 1
