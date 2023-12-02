@@ -53,9 +53,9 @@ class ActivationFunctions:
             str(self.tanh): 1,
             str(self.softmax): 1,
             str(self.sigmoid): 1,
-            str(self.relu): 100,  # ?
-            str(self.relu_2): 1,  # ?
-            str(None): 100,
+            str(self.relu): 100,     # ?
+            str(self.relu_2): 1,     # ?
+            str(None): 100,          # ?
         }
 
     def normalize(self, x: np.ndarray, min: float = 0, max: float = 1) -> np.ndarray:
@@ -74,9 +74,9 @@ class ActivationFunctions:
 
     def relu(self, x: np.ndarray, return_derivative: bool = False) -> np.ndarray:
         if return_derivative:
-            return (x > 0)
+            return (x < 0) * 0.01 + x > 0
 
-        return (x > 0) * x
+        return (x < 0) * 0.01 * x + (x > 0) * x
 
     def relu_2(self, x: np.ndarray, return_derivative: bool = False) -> np.ndarray:
         if return_derivative:
@@ -84,11 +84,14 @@ class ActivationFunctions:
                 np.multiply(0 <= x, x <= 1) + \
                 (x > 1) * 0.01
 
-        return (x < 0) * 0.01 * x + \
+        return (x < 0) * x * 0.01 + \
             np.multiply(0 <= x, x <= 1) * x + \
-            (x > 1) * 0.01 * x
+            (x > 1) * (x * 0.01 + 0.99)
 
     def softmax(self, x: np.ndarray, return_derivative: bool = False) -> np.ndarray:
+        if return_derivative:
+            return np.exp(x)
+
         return np.exp(x) / np.sum(np.exp(x))
 
     def tanh(self, x: np.ndarray, return_derivative: bool = False) -> np.ndarray:

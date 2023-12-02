@@ -182,7 +182,7 @@ class AI_ensemble(AI):
 
         print(f"У одного ИИ: \t Параметров {parameters_ai}\t"
               f"{self.ais[0].architecture}", end=" ")
-        if self.ais[0].have_bias_neuron:
+        if self.ais[0].have_bias:
             print("+ нейрон смещения")
 
         print("Всего параметров:", parameters_ai * len(self.ais))

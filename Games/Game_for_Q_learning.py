@@ -2,7 +2,7 @@ import pygame
 from random import randint
 
 
-class Game:
+class Q_Game:
     """Функции для простого примера Q-обучения"""
 
     def __init__(self, arena_size, num_walls):

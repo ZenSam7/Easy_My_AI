@@ -1,4 +1,4 @@
-from My_AI import AI
+from My_AI import AI, AI_ensemble
 from mnist import MNIST
 import numpy as np
 from time import time
@@ -7,7 +7,7 @@ start_time = time()
 
 mnist = MNIST()
 
-ai = AI(architecture=[784, 50, 50, 50, 10], add_bias_neuron=True, name="MNIST",
+ai = AI(architecture=[784, 50, 50, 50, 10], add_bias_neuron=False, name="MNIST",
         alpha=2e-3, number_disabled_weights=0.0)
 
 ai.what_act_func = ai.kit_act_func.tanh
@@ -17,13 +17,13 @@ ai.end_act_func = ai.kit_act_func.softmax
 ai.print_parameters()
 
 ai.batch_size = 1
-ai.alpha = 2e-3
+ai.alpha = 1e-3
 
-ai.impulse1 = 0.7
+ai.impulse1 = 0.9
 ai.impulse2 = 0.99
 
 ai.l1 = 0.0
-ai.l2 = 0.001
+ai.l2 = 0e-4
 
 
 print("\nОбучение...")
@@ -38,7 +38,7 @@ for epoch in range(2):
 
         image = images.tolist()[0]
         label = labels.tolist()[0]
-        ai.learning(image, label, use_Adam=True)
+        ai.learning(image, label, use_Adam=False)
 
         if np.argmax(ai.predict(image)) != np.argmax(np.array(label)):
             errors += 1
@@ -54,7 +54,7 @@ for epoch in range(2):
             errors = 0
 
             # Сохраняемся
-            # ai.update()
+            ai.update()
 
         if num == max_train_images:
             break

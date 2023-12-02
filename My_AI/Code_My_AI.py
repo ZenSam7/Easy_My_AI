@@ -140,9 +140,10 @@ class AI:
         self.__l1: float = 0
         self.__l2: float = 0
 
-        self.have_bias_neuron: bool = add_bias_neuron
+        self.have_bias: bool = add_bias_neuron
 
         self.weights: List[np.matrix] = []  # Появиться после вызова create_weights
+        self.biases: List[np.matrix] = []  # Появиться после вызова create_weights
         self._momentums: List[np.matrix] = []
         self._velocities: List[np.matrix] = []
 
@@ -156,6 +157,7 @@ class AI:
         self.end_act_func: Callable = self.kit_act_func.tanh
 
         self._packet_delta_weight: List[np.ndarray] = []
+        self._packet_delta_biases: List[np.ndarray] = []
         self._packet_layer_answers: List[np.ndarray] = []
 
         self.q_table: Dict[str, List[float]] = {}
@@ -188,15 +190,12 @@ class AI:
         """Создаёт матрицу со всеми весами между всеми элементами
         (Подавать надо список с количеством нейронов на каждом слое (архитектуру нейронки))"""
 
-        self.have_bias_neuron = add_bias_neuron
+        self.have_bias = add_bias_neuron
         self.architecture = architecture
-        self.weights = []
-        self._momentums = []
-        self._velocities = []
 
         # Добавляем все веса между слоями нейронов
         for i in range(len(architecture) - 1):
-            size = (architecture[i] + add_bias_neuron, architecture[i + 1])
+            size = (architecture[i], architecture[i + 1])
 
             self.weights.append(
                 self.kit_act_func.normalize(
@@ -205,6 +204,17 @@ class AI:
                     max_weight,
                 )
             )
+
+            if add_bias_neuron:
+                self.biases.append(
+                    self.kit_act_func.normalize(
+                        np.random.random(size=(1, architecture[i + 1])),
+                        min_weight,
+                        max_weight,
+                    )
+                )
+            else:
+                self.biases.append(np.zeros((1, architecture[i + 1])))
 
         # Инициализируем (нулями) штуки для Adam'а
         self._momentums = [0 for _ in range(len(architecture))]
@@ -247,52 +257,46 @@ class AI:
             -> (np.ndarray, Optional[List[np.ndarray]]):
         """Возвращает результат работы нейронки, из входных данных"""
         # Определяем входные данные как вектор
-        result_layer_neurons = np.array(input_data)
+        result_layer = np.array(input_data)
 
-        if result_layer_neurons.shape[0] != self.weights[0].shape[0] - self.have_bias_neuron:
+        if result_layer.shape[0] != self.weights[0].shape[0]:
             raise ImpossibleContinue(
                 "Размерность входных данных не совпадает с количеством входных нейронов у ИИшки")
 
         # Сохраняем список всех ответов от нейронов каждого слоя
         list_answers = []
 
-        # Проходимся по каждому (кроме последнего) слою весов
-        for layer_weight in self.weights[:-1]:
-            # Если есть нейрон смещения, то в правую часть матриц
-            # result_layer_neurons добавляем еденицы
-            # Чтобы можно было умножить еденицы на веса нейрона смещения
-            if self.have_bias_neuron:
-                result_layer_neurons = np.append(result_layer_neurons, 1)
+        # Проходимся по каждому слою весов
+        layer_count = 0
+        for i in range(len(self.weights)):
+            layer_count += 1
 
             if _return_answers:
-                list_answers.append(result_layer_neurons)
+                ans = np.append(result_layer, 1)\
+                    if self.have_bias else result_layer
 
-            # Процежеваем через функцию активации  ...
-            # ... Результат перемножения результата прошлого слоя на слой весов
-            result_layer_neurons = self.what_act_func(
-                result_layer_neurons.dot(layer_weight))
+                list_answers.append(ans)
 
-        # Добавляем ответ (единицу) для нейрона смещения, для последнего перемножения
-        if self.have_bias_neuron:
-            result_layer_neurons = np.array(result_layer_neurons.tolist() + [1])
-        if _return_answers:
-            list_answers.append(result_layer_neurons)
+            # Перемножеаем результат прошлого слоя на слой весов
+            result_layer = result_layer.dot(self.weights[i]) + self.biases[i]
 
-        # Пропускаем выходные данные через последнюю функцию активации (Если есть)
-        if self.end_act_func is None:
-            result_layer_neurons = result_layer_neurons.dot(self.weights[-1])
-        else:
-            result_layer_neurons = self.end_act_func(
-                result_layer_neurons.dot(self.weights[-1]))
+            # Процежеваем через функцию активации результат
+            # перемножения результата прошлого слоя на слой весов
+            if layer_count != len(self.weights):
+                result_layer = self.what_act_func(result_layer)
+
+            # Если мы на последнем слое, то пропускаем через конечную функцию активации
+            else:
+                result_layer = self.end_act_func(result_layer)
 
         # Если надо, возвращаем спосок с ответами от каждого слоя
         if _return_answers:
-            return result_layer_neurons, list_answers
+            return result_layer, list_answers
 
-        return result_layer_neurons
+        return result_layer
 
     def learning(self, input_data: List[float], answer: List[float],
-                 squared_error: bool = False, use_Adam: bool = False):
+                 squared_error: bool = False, use_Adam: bool = True):
         """Метод обратного распространения ошибки для изменения весов в нейронной сети
          (Теперь с оптимизатором Adam)\n"""
 
@@ -310,6 +314,7 @@ class AI:
 
         # На сколько должны суммарно изменить веса
         delta_weight: np.ndarray = ai_answer - answer
+        delta_bias: np.array = delta_weight
         if squared_error: # Возводим в квадрат с сохранением знака
             delta_weight = np.power(delta_weight, 2) * sign(delta_weight)
 
@@ -317,37 +322,43 @@ class AI:
         if len(self._packet_delta_weight) != self.__batch_size:
             # Добавляем ошибки (дельту) с выхода и ответы от слоёв
             self._packet_delta_weight.append(delta_weight)
+            self._packet_delta_biases.append(delta_bias)
             self._packet_layer_answers.append(answers)
             return
 
-        # Когда набрали нужное количество усредняем все данные
+        # Когда набрали нужное количество складываем все данные
         delta_weight = np.sum(self._packet_delta_weight, axis=0)
+        delta_bias = np.sum(self._packet_delta_biases, axis=0)
 
-        # Усредняем ответы от каждого слоя из пакета
-        summ_answers = [np.array(ans) for ans in self._packet_layer_answers[0]]
-
-        for layer_index in range(len(self._packet_layer_answers[0])):
-            for list_answers in self._packet_layer_answers[1:]:  # Первые ответы уже в summ_answers
-                summ_answers[layer_index] += np.array(list_answers[layer_index])
-
-        answers = summ_answers
+        # Отдельно складываем ответы от слоёв (т.к. это список векторов)
+        answers = [np.array(ans) for ans in self._packet_layer_answers[0]]
+        for layer_index in range(len(self._packet_layer_answers[0])):  # Складываем слои отдельно
+            for list_answers in self._packet_layer_answers[1:]:  # Первые ответы уже есть
+                answers[layer_index] += np.array(list_answers[layer_index])
 
         self._packet_delta_weight.clear()
+        self._packet_delta_biases.clear()
         self._packet_layer_answers.clear()
 
         # Совершаем всю магию здесь
         for i in range(len(self.weights) -1, -1, -1):
             # Превращаем векторы в матрицу
-            layer_answer: np.ndarray = np.matrix(answers[i])
-            delta_weight: np.ndarray = np.matrix(delta_weight)
+            delta_weight = np.matrix(delta_weight)
+            delta_bias = np.matrix(delta_bias)
+            layer_answer = np.matrix(answers[i])
+            weight = self.weights[i]
+            bias = self.biases[i]
 
             # Градиентный спуск
             gradient = delta_weight.T.dot(layer_answer).T
 
             # L1 и L2 регуляризация
             if self.__l1 or self.__l2:
-                gradient += self.__alpha * self.__l1 * sign(self.weights[i])
-                self.weights[i] *= 1 - self.__alpha * self.__l2
+                grad_sign = sign(np.append(weight, bias, axis=0)) \
+                    if self.have_bias else sign(weight)
+                gradient += self.__alpha * self.__l1 * grad_sign
+                weight *= 1 - self.__alpha * self.__l2
+                bias *=  1 - self.__alpha * self.__l2
 
             # Матрица, предотвращающая переобучение
             # Умножаем изменение веса рандомных нейронов на 0
@@ -369,21 +380,24 @@ class AI:
                 velocity = self._velocities[i] / (1 - self.__impulse2)
 
                 # Изменяем веса (С Адамом)
-                self.weights[i] -= self.__alpha * momentum / np.sqrt(velocity + 1e-6)
-
+                self.weights[i] -= self.__alpha * momentum[:-1] / np.sqrt(velocity[:-1] + 1e-6)
+                self.biases[i] -= self.__alpha * momentum[-1] / np.sqrt(velocity[-1] + 1e-6) \
+                    if self.have_bias else 0
             else:
                 # Изменяем веса (обычный градиентный спуск)
-                self.weights[i] -= self.__alpha * gradient
+                # P.s. домножение на веса изменяет их процентно
+                gradient = gradient[:-1] if self.have_bias else gradient
+                self.weights[i] -= self.__alpha * np.multiply(gradient, np.abs(weight))
+                self.biases[i] -= self.__alpha * gradient[-1] if self.have_bias else 0
 
-            # К нейрону смещения не идут связи, поэтому отрезаем этот нейрон смещения
-            if self.have_bias_neuron:
-                weight = self.weights[i][:-1]
+            if self.have_bias:
                 layer_answer = layer_answer[:, :-1]
-            else:
-                weight = self.weights[i]
+                delta_bias = np.multiply(self.what_act_func(layer_answer, True),
+                                         delta_bias.dot(bias.T))
 
             # "Переносим" градиент на другой слой (+ умножаем на производную)
-            delta_weight = np.multiply(self.what_act_func(layer_answer, True), delta_weight.dot(weight[i].T))
+            delta_weight = np.multiply(self.what_act_func(layer_answer, True),
+                                       delta_weight.dot(weight.T))
 
     def q_predict(self, input_data: List[float], _return_index_act: bool = False) -> str:
         """Возвращает action, на основе входных данных"""
@@ -626,13 +640,14 @@ class AI:
         ai_data = {}
 
         ai_data["weights"] = [i.tolist() for i in self.weights]
+        ai_data["biases"] = [i.tolist() for i in self.biases]
         ai_data["q_table"] = self.q_table
 
         # Если используем ансамбль, то сохраняем не имя, а номер
         ai_data["name"] = name_ai.split("/")[-1]
 
         ai_data["architecture"] = self.architecture
-        ai_data["have_bias_neuron"] = self.have_bias_neuron
+        ai_data["have_bias"] = self.have_bias
         ai_data["actions"] = self.actions
 
         ai_data["number_disabled_neurons"] = self.__number_disabled_weights
@@ -679,8 +694,9 @@ class AI:
                 ai_data = json.load(save_file)
 
             self.weights = [np.array(i) for i in ai_data["weights"]]
+            self.biases = [np.array(i) for i in ai_data["biases"]]
             self.architecture = ai_data["architecture"]
-            self.have_bias_neuron = ai_data["have_bias_neuron"]
+            self.have_bias = ai_data["have_bias"]
 
             self.number_disabled_weights = ai_data["number_disabled_neurons"]
             self.impulse1 = ai_data["impulse1"]
@@ -703,7 +719,7 @@ class AI:
 
             # Переинициализируем штуки для Adam'а
             for i in range(len(self.architecture) - 1):
-                size = (self.architecture[i] + self.have_bias_neuron, self.architecture[i + 1])
+                size = (self.architecture[i] + self.have_bias, self.architecture[i + 1])
                 self._momentums.append(np.zeros(size))
                 self._velocities.append(np.zeros(size))
 
@@ -748,7 +764,7 @@ class AI:
               f"Параметров: {all_parameters}\t\t",
               f"{self.architecture}", end="")
 
-        if self.have_bias_neuron:
+        if self.have_bias:
             print(" + нейрон смещения", end="")
 
         print()

@@ -1,19 +1,19 @@
 from My_AI import AI_ensemble, AI
-from Games import Code_Snake
+from Games import Snake
 from time import time
 
 start = time()
 
 # Создаём Змейку
-snake = Code_Snake.Snake(700, 500, 3, 0, max_steps=60, display_game=False,
+snake = Snake(700, 500, 2, 0, max_steps=40, display_game=False,
                          dead_reward=-100, win_reward=200)
 
 # Создаём ИИ
-ai = AI(architecture=[9, 100, 100, 100, 4],
+ai = AI_ensemble(3, architecture=[9, 100, 100, 100, 4],
                  add_bias_neuron=True, name="Snake")
 
 ai.what_act_func = ai.kit_act_func.tanh
-ai.end_act_func = ai.kit_act_func.tanh
+ai.end_act_func = ai.kit_act_func.softmax
 
 ai.make_all_for_q_learning(("left", "right", "up", "down"),
                            ai.kit_upd_q_table.standart,
@@ -45,7 +45,6 @@ while 1:
               "Amount States:", len(ai.q_table.keys()))
         start = time()
 
-        # print(ai._momentums[0][0, :6], ai._velocities[0][0, :6])
         ai.update(check_ai=True)
 
     # Записываем данные в ответ
@@ -56,4 +55,4 @@ while 1:
 
     # Обучаем
     ai.q_learning(data, reward, learning_method=1, squared_error=False,
-                  use_Adam=True)
+                  use_Adam=False)

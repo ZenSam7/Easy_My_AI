@@ -1,7 +1,7 @@
 from My_AI import AI, AI_ensemble
-from Games import Game_for_Q_learning
+from Games import Q_Game
 
-game = Game_for_Q_learning.Game(7, 7)
+game = Q_Game(7, 7)
 
 # Создаём ИИ
 ai = AI()
