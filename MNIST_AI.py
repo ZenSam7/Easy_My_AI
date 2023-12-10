@@ -7,8 +7,7 @@ start_time = time()
 
 mnist = MNIST()
 
-ai = AI(architecture=[784, 50, 50, 50, 10], add_bias_neuron=False, name="MNIST",
-        alpha=2e-3, number_disabled_weights=0.0)
+ai = AI(architecture=[784, 50, 50, 50, 10], add_bias=False, name="MNIST", alpha=2e-3, number_disabled_weights=0.0)
 
 ai.what_act_func = ai.kit_act_func.tanh
 ai.end_act_func = ai.kit_act_func.softmax

@@ -121,7 +121,7 @@ class AI:
 
     def __init__(self,
                  architecture: Optional[List[int]] = None,
-                 add_bias_neuron: Optional[bool] = True,
+                 add_bias: Optional[bool] = True,
                  name: Optional[str] = None,
                  auto_check_ai: Optional[bool] = True,
                  save_dir: str = "Saves AIs",
@@ -140,7 +140,7 @@ class AI:
         self.__l1: float = 0
         self.__l2: float = 0
 
-        self.have_bias: bool = add_bias_neuron
+        self.have_bias: bool = add_bias
 
         self.weights: List[np.matrix] = []  # Появиться после вызова create_weights
         self.biases: List[np.matrix] = []  # Появиться после вызова create_weights
@@ -182,15 +182,15 @@ class AI:
 
         # Сразу создаём архитектуру
         if not architecture is None:
-            self.create_weights(architecture, add_bias_neuron, **kwargs)
+            self.create_weights(architecture, add_bias, **kwargs)
             self.auto_check_ai = auto_check_ai
 
-    def create_weights(self, architecture: List[int], add_bias_neuron: bool = True,
+    def create_weights(self, architecture: List[int], add_bias: bool = True,
                        min_weight: float = -1, max_weight: float = 1, **kwargs):
         """Создаёт матрицу со всеми весами между всеми элементами
         (Подавать надо список с количеством нейронов на каждом слое (архитектуру нейронки))"""
 
-        self.have_bias = add_bias_neuron
+        self.have_bias = add_bias
         self.architecture = architecture
 
         # Добавляем все веса между слоями нейронов
@@ -205,7 +205,7 @@ class AI:
                 )
             )
 
-            if add_bias_neuron:
+            if add_bias:
                 self.biases.append(
                     self.kit_act_func.normalize(
                         np.random.random(size=(1, architecture[i + 1])),

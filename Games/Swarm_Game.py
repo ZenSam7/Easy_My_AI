@@ -82,8 +82,7 @@ class Agent:
 
         # Создаём ИИшки
         self.ai = AI()
-        self.ai.create_weights(settings["architecture"],
-                               add_bias_neuron=settings["add_bias_neuron"])
+        self.ai.create_weights(settings["architecture"], add_bias=settings["add_bias_neuron"])
         self.ai.what_act_func = self.ai.kit_act_funcs.tanh
         self.ai.__alpha = settings["alpha"]
 

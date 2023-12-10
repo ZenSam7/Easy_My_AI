@@ -13,7 +13,7 @@ class AI_ensemble(AI):
 
     def __init__(self, amount_ais: int, *args, **kwargs):
         """Создаёт множество ИИшек"""
-        self.ais: List[AI] = [AI(*args, **kwargs) for _ in range(amount_ais)]
+        self.ais: List[AI] = [AI(**kwargs) for _ in range(amount_ais)]
 
         self.save_dir = self.ais[0].save_dir
 

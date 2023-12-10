@@ -9,7 +9,7 @@ from My_AI import AI_ensemble, AI
 
 # Создаём ИИ
 ai = AI(architecture=[10, 50, 50, 1],
-        add_bias_neuron=True,
+        add_bias=True,
         name="First_AI")
 """ Или можно создать ансамбль
 ai = AI_ensemble(amount_ais=10, architecture=[10, 50, 50, 1],
@@ -81,9 +81,9 @@ ensemble = AI_ensemble(5, architecture=[3, 4, 4, 4, 3],
 """
 ```
 или
+
 ```python
-ai.create_weights([3, 4, 4, 4, 3],
-                  add_bias_neuron=True)
+ai.create_weights([3, 4, 4, 4, 3], add_bias=True)
 ai.name = "First_AI"
 # Имя не обязательно указывать имя, но тогда при сохранении
 # будет использовано случайное число вместо имени

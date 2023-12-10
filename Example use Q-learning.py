@@ -5,7 +5,7 @@ game = Q_Game(7, 7)
 
 # Создаём ИИ
 ai = AI()
-ai.create_weights([2, 50, 50, 4], add_bias_neuron=True)
+ai.create_weights([2, 50, 50, 4], add_bias=True)
 # Состояния - нахождение в какой-либо клетке поля (координаты каждой клетки)
 ai.make_all_for_q_learning(("left", "right", "up", "down"),
                            ai.kit_upd_q_table.standart, 0.5, 0.05, 0.1)
