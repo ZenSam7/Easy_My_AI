@@ -1,4 +1,4 @@
-from My_AI import AI, AI_ensemble
+from easymyai import AI, AI_ensemble
 from Games import Q_Game
 
 game = Q_Game(7, 7)

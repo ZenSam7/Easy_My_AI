@@ -1,6 +1,6 @@
-from My_AI import AI, AI_ensemble
 from mnist import MNIST
 import numpy as np
+from easymyai import AI, AI_ensemble
 from time import time
 
 start_time = time()
