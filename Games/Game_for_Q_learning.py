@@ -158,8 +158,12 @@ class Q_Game:
         elif where_want_move == "down":
             future_agent_coords[1] += 1
 
-        if future_agent_coords[0] < 0 or future_agent_coords[0] >= self.arena_size or \
-                future_agent_coords[1] < 0 or future_agent_coords[1] >= self.arena_size:
+        if (
+            future_agent_coords[0] < 0
+            or future_agent_coords[0] >= self.arena_size
+            or future_agent_coords[1] < 0
+            or future_agent_coords[1] >= self.arena_size
+        ):
             future_agent_coords = [0, 0]
         elif future_agent_coords in self.walls_coords:
             future_agent_coords = [0, 0]

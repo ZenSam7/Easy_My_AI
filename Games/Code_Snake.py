@@ -8,22 +8,22 @@ class Snake:
     """Набор функций для создания змеи"""
 
     def __init__(
-            self,
-            window_width: int,
-            window_height: int,
-            amount_food: int,
-            amount_walls: int,
-            cell_size: int = 100,
-            max_steps: int = 100,
-            display_game: bool = False,
-            dead_reward=-100,
-            win_reward=100,
+        self,
+        width_cells: int,
+        height_cells: int,
+        amount_food: int,
+        amount_walls: int,
+        cell_size: int = 100,
+        max_steps: int = 100,
+        display_game: bool = False,
+        dead_reward=-100,
+        win_reward=100,
     ):
-        self.window_width = window_width
-        self.window_height = window_height
+        self.window_width = width_cells * cell_size
+        self.window_height = height_cells * cell_size
         self.cell_size = cell_size
-        self.window_width_cells = window_width // cell_size
-        self.window_height_cells = window_height // cell_size
+        self.window_width_cells = width_cells
+        self.window_height_cells = height_cells
         self.amount_walls = amount_walls
         self.dead_reward = dead_reward
         self.win_reward = win_reward
@@ -115,8 +115,10 @@ class Snake:
             return self.game_over()
 
         # Если змея заполонила весь экран, то мы выиграли
-        elif len(self.snake_body) == self.window_height_cells *\
-                self.window_width_cells - self.amount_food:
+        elif (
+            len(self.snake_body)
+            == self.window_height_cells * self.window_width_cells - self.amount_food
+        ):
             return self.game_over()
 
         # Столкновение с едой
@@ -140,9 +142,11 @@ class Snake:
             ]
 
             # Если еда заспавнилась в теле или в другой еде или в стене - пересоздаём
-            while coords in self.food_coords or \
-                    coords in self.snake_body or \
-                    coords in self.walls_coords:
+            while (
+                coords in self.food_coords
+                or coords in self.snake_body
+                or coords in self.walls_coords
+            ):
                 coords = [
                     randint(0, self.window_width_cells - 1),
                     randint(0, self.window_height_cells - 1),
@@ -161,18 +165,24 @@ class Snake:
             ]
 
             # Нльзя чтоы стена оказась в теле змейки или в еде или другой стене
-            if (coords not in self.snake_body) and (coords not in self.food_coords) and \
-                    (coords not in self.walls_coords):
+            if (
+                (coords not in self.snake_body)
+                and (coords not in self.food_coords)
+                and (coords not in self.walls_coords)
+            ):
                 self.walls_coords.append(coords)
 
     def draw(
-            self,
-            snake_color=(120, 130, 140),
-            food_color=(160, 50, 70),
-            walls_color=(110, 110, 110),
-            background_color=(40, 50, 60),
+        self,
+        snake_color=(120, 130, 140),
+        food_color=(160, 50, 70),
+        walls_color=(110, 110, 110),
+        background_color=(40, 50, 60),
     ):
         """Рисуем змею и еду, выводим номер поколения"""
+
+        # Надо чтобы можно было двигать окно
+        pygame.event.get()
 
         # Фон
         self.wind.fill((background_color))
@@ -276,9 +286,15 @@ class Snake:
 
                 if point in self.food_coords:
                     data[y - head[1] + 1][x - head[0] + 1] = 1
-                elif any((point in self.snake_body,
-                          x < 0, x >= self.window_width_cells,
-                          y < 0, y >= self.window_height_cells)):
+                elif any(
+                    (
+                        point in self.snake_body,
+                        x < 0,
+                        x >= self.window_width_cells,
+                        y < 0,
+                        y >= self.window_height_cells,
+                    )
+                ):
                     data[y - head[1] + 1][x - head[0] + 1] = -1
 
         # Избавляемся от внутренних списков

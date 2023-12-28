@@ -28,9 +28,11 @@ class AI_ensemble(AI):
             ai.q_table = self.ais[0].q_table
 
         # Декорируем все методы кроме переопределённых
-        only_in_AI = set(getmembers(AI)[3][1]) - \
-                     set(getmembers(AI_ensemble)[3][1]) - \
-                     set(vars(AI)["__annotations__"])
+        only_in_AI = (
+            set(getmembers(AI)[3][1])
+            - set(getmembers(AI_ensemble)[3][1])
+            - set(vars(AI)["__annotations__"])
+        )
 
         for item_name in only_in_AI:
             if item_name.startswith("__"):
@@ -52,10 +54,18 @@ class AI_ensemble(AI):
 
         return wrap
 
-    def predict(self, input_data: List[float], _return_answers: bool = False) -> List[ndarray]:
+    def predict(
+        self,
+        input_data: List[float],
+        reverse: bool = False,
+        _return_answers: bool = False,
+    ) -> List[ndarray]:
         """Тот же start_work, но возвращаем предсказание от каждой ИИшки \n
-        P.s. Этот метод может быть использован только ползователем, т.е.
-        контретно этот метод не вызывается другими функциями"""
+        P.s. Этот метод может быть использован только пользователем, т.е.
+        контретно этот метод не вызывается внутри библиотеки
+
+        reverse: Если True, то мы будем идти от выхода к входу, и подавать
+        надо данные, соразмерные выходному вектору"""
 
         all_predicts, all_answers = [], []
 
@@ -63,18 +73,22 @@ class AI_ensemble(AI):
         for ai in self.ais:
             if _return_answers:
                 # Добавляем и список с ответами, если мы его хотим получить
-                predict, answers = ai.predict(input_data, True)
+                predict, answers = ai.predict(
+                    input_data, reverse=reverse, _return_answers=True
+                )
                 all_predicts.append(predict)
                 all_answers.append(answers)
             else:
-                predict = ai.predict(input_data)
+                predict = ai.predict(input_data, reverse=reverse)
                 all_predicts.append(predict)
 
         if _return_answers:
             return all_predicts, all_answers
         return all_predicts
 
-    def q_predict(self, input_data: List[float], _return_index_act: bool = False) -> str:
+    def q_predict(
+        self, input_data: List[float], _return_index_act: bool = False
+    ) -> str:
         """Большинство принимает решение"""
 
         # Собираем голоса от каждой ИИшки (а не как у нас в стране)
@@ -160,8 +174,7 @@ class AI_ensemble(AI):
         except FileNotFoundError:
             pass
 
-    def update(self, ai_name: Optional[str] = None,
-               check_ai: bool = True):
+    def update(self, ai_name: Optional[str] = None, check_ai: bool = True):
         """Обновляем все ИИшки ансамбля
 
         (Если не передать имя, то обновить сохранение текущей ИИшки,
@@ -180,8 +193,11 @@ class AI_ensemble(AI):
         for layer in self.ais[0].weights:
             parameters_ai += layer.shape[0] * layer.shape[1]
 
-        print(f"У одного ИИ: \t Параметров {parameters_ai}\t"
-              f"{self.ais[0].architecture}", end=" ")
+        print(
+            f"У одного ИИ: \t Параметров {parameters_ai}\t"
+            f"{self.ais[0].architecture}",
+            end=" ",
+        )
         if self.ais[0].have_bias:
             print("+ нейрон смещения")
 
