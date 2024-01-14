@@ -5,29 +5,19 @@ from time import time
 start = time()
 
 # Создаём Змейку
-snake = Snake(
-    7,
-    5,
-    2,
-    0,
-    max_steps=40,
-    display_game=True,
-    dead_reward=-100,
-    win_reward=200,
-    cell_size=120,
-)
+snake = Snake(7, 5, 2, 0,
+              max_steps=40, display_game=True,
+              dead_reward=-100, win_reward=200, cell_size=120)
 
 # Создаём ИИ
-ai = AI_ensemble(
-    3, architecture=[9, 100, 100, 100, 4], add_bias_neuron=True, name="Snake"
-)
+ai = AI_ensemble(3, architecture=[9, 100, 100, 100, 4], add_bias_neuron=True, name="13_Score")
 
 ai.what_act_func = ai.kit_act_func.tanh
 ai.end_act_func = ai.kit_act_func.softmax
 
-ai.make_all_for_q_learning(
-    ("left", "right", "up", "down"), ai.kit_upd_q_table.standart, 0.6, 0.0, 0.1
-)
+ai.make_all_for_q_learning(("left", "right", "up", "down"),
+                           ai.kit_upd_q_table.standart,
+                           0.6, 0.0, 0.1)
 
 ai.load()
 ai.print_parameters()

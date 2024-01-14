@@ -1,3 +1,6 @@
+# DOCS ON ENG: [Here](pypi.org/project/easymyai/)
+
+
 # КАК СКАЧАТЬ
 ```
 pip install easymyai 
@@ -58,7 +61,7 @@ ai.q_learning(state, reward,
 
 # Подробности:
 
-#### Можете скопировать пакет "My_AI" к себе в проект (всё остальное просто примеры использования), и импоритровать от туда классы AI или AI_ensemble
+#### Можете скопировать пакет "easymyai" к себе в проект (всё остальное просто примеры использования), и импоритровать от туда классы AI или AI_ensemble
 
 ### Как инициализировать ИИшку:
 ```python
@@ -211,6 +214,16 @@ better_ai_0.genetic_crossing_with(better_ai_1)
 
 ```python
 ai.make_mutations(0.05)  # 5% весов оказываются случайными числами
+```
+
+
+####  
+### Ещё можно подать данные на выходные нейроны и получить из входных (Зачае? я сам не знаю, но это может быть полусным)
+```python
+new_data = ai.predict(data, reverse=True)
+new_data = ai.predict(new_data)
+
+# new_data == data
 ```
 
 ####  
