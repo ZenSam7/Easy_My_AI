@@ -124,7 +124,8 @@ class ActivationFunctions:
 
     def softmax(self, x: np.ndarray, return_derivative: bool = False) -> np.ndarray:
         if return_derivative:
-            return np.exp(x)
+            result = np.exp(x) / np.sum(np.exp(x))
+            return np.multiply(result, 1 - result)
 
         return np.exp(x) / np.sum(np.exp(x))
 

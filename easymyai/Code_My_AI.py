@@ -172,7 +172,6 @@ class AI:
         self.end_act_func: Callable = self.kit_act_func.tanh
 
         self._packet_delta_weight: List[np.ndarray] = []
-        self._packet_delta_biases: List[np.ndarray] = []
         self._packet_layer_answers: List[np.ndarray] = []
 
         self.q_table: Dict[str, List[float]] = {}
@@ -355,12 +354,11 @@ class AI:
         answer = np.array(answer)
 
         # ai_answer | То, что выдала нам нейросеть
-        # answers | Список с ответами от каждого слоя нейронов
+        # answers   | Список с ответами от каждого слоя нейронов (БЕЗ ФУНКЦИИ АКТИВАЦИИ)
         ai_answer, answers = self.predict(input_data, _return_answers=True)
 
         # На сколько должны суммарно изменить веса
         delta_weight: np.ndarray = ai_answer - answer
-        delta_bias: np.array = delta_weight
         if squared_error:  # Возводим в квадрат с сохранением знака
             delta_weight = np.power(delta_weight, 2) * sign(delta_weight)
 
@@ -368,39 +366,37 @@ class AI:
         if len(self._packet_delta_weight) != self.__batch_size:
             # Добавляем ошибки (дельту) с выхода и ответы от слоёв
             self._packet_delta_weight.append(delta_weight)
-            self._packet_delta_biases.append(delta_bias)
             self._packet_layer_answers.append(answers)
             return
 
-        # Когда набрали нужное количество складываем все данные
+        # Когда набрали нужное количество складываем все ошибки
         delta_weight = np.sum(self._packet_delta_weight, axis=0)
-        delta_bias = np.sum(self._packet_delta_biases, axis=0)
 
         # Отдельно складываем ответы от слоёв (т.к. это список векторов)
         answers = [np.array(ans) for ans in self._packet_layer_answers[0]]
-        for layer_index in range(
-            len(self._packet_layer_answers[0])
-        ):  # Складываем слои отдельно
-            for list_answers in self._packet_layer_answers[
-                1:
-            ]:  # Первые ответы уже есть
+        for layer_index in range(len(self._packet_layer_answers[0])):
+            # Складываем слои отдельно
+            for list_answers in self._packet_layer_answers[1:]:
+                # Первые ответы уже есть
                 answers[layer_index] += np.array(list_answers[layer_index])
 
         self._packet_delta_weight.clear()
-        self._packet_delta_biases.clear()
         self._packet_layer_answers.clear()
 
         # Совершаем всю магию здесь
         for i in range(len(self.weights) - 1, -1, -1):
             # Превращаем векторы в матрицу
             delta_weight = np.matrix(delta_weight)
-            delta_bias = np.matrix(delta_bias)
             layer_answer = np.matrix(answers[i])
             weight = self.weights[i]
             bias = self.biases[i]
 
-            # Градиентный спуск
-            gradient = delta_weight.T.dot(layer_answer).T
+            # Градиентный спуск ∆⊙𝑓′(𝑧)
+            l_a = layer_answer[:, :-1] if self.have_bias else layer_answer
+            if i == len(self.weights) - 1:
+                gradient = np.multiply(delta_weight, self.end_act_func(l_a.dot(weight) + bias, True))
+            else:
+                gradient = np.multiply(delta_weight, self.what_act_func(l_a.dot(weight) + bias, True))
 
             # L1 и L2 регуляризация
             if self.__l1 or self.__l2:
@@ -410,8 +406,8 @@ class AI:
                     else sign(weight)
                 )
                 gradient += self.__alpha * self.__l1 * grad_sign
-                weight *= 1 - self.__alpha * self.__l2
-                bias *= 1 - self.__alpha * self.__l2
+                weight *= (1 - self.__alpha * self.__l2)
+                bias *= (1 - self.__alpha * self.__l2)
 
             # Матрица, предотвращающая переобучение
             # Умножаем изменение веса рандомных нейронов на 0
@@ -428,41 +424,33 @@ class AI:
                 # Оптимизатор Adam
                 self._momentums[i] = (
                     self.__impulse1 * self._momentums[i]
-                    + (1 - self.__impulse1) * gradient
+                    + (1 - self.__impulse1) * (layer_answer.T).dot(gradient)
                 )
-                self._velocities[i] = self.__impulse2 * self._velocities[i] + (
-                    1 - self.__impulse2
-                ) * np.power(gradient, 2)
+                self._velocities[i] = (
+                    self.__impulse2 * self._velocities[i]
+                    + (1 - self.__impulse2) * (layer_answer.T).dot(np.power(gradient, 2))
+                )
 
                 momentum = self._momentums[i] / (1 - self.__impulse1)
                 velocity = self._velocities[i] / (1 - self.__impulse2)
 
                 # Изменяем веса (С Адамом)
                 self.weights[i] -= (
-                    self.__alpha * momentum[:-1] / np.sqrt(velocity[:-1] + 1e-6)
+                    self.__alpha * momentum[:-1] / np.sqrt(velocity[:-1] + 1e-5)
                 )
                 self.biases[i] -= (
-                    self.__alpha * momentum[-1] / np.sqrt(velocity[-1] + 1e-6)
+                    self.__alpha * momentum[-1] / np.sqrt(velocity[-1] + 1e-5)
                     if self.have_bias
                     else 0
                 )
             else:
                 # Изменяем веса (обычный градиентный спуск)
-                # P.s. домножение на веса изменяет их процентно
-                gradient = gradient[:-1] if self.have_bias else gradient
-                self.weights[i] -= self.__alpha * np.multiply(gradient, np.abs(weight))
-                self.biases[i] -= self.__alpha * gradient[-1] if self.have_bias else 0
+                # P.s. домножение на модуль весов изменяет их процентно, что гуд
+                self.weights[i] -= self.__alpha * np.multiply((l_a.T).dot(gradient), np.abs(weight))
+                self.biases[i] -= self.__alpha * np.multiply(gradient, np.abs(bias)) if self.have_bias else 0
 
-            if self.have_bias:
-                layer_answer = layer_answer[:, :-1]
-                delta_bias = np.multiply(
-                    self.what_act_func(layer_answer, True), delta_bias.dot(bias.T)
-                )
-
-            # "Переносим" градиент на другой слой (+ умножаем на производную)
-            delta_weight = np.multiply(
-                self.what_act_func(layer_answer, True), delta_weight.dot(weight.T)
-            )
+            # Переносим градиент на другой слой
+            delta_weight = delta_weight.dot(weight.T)
 
     def q_predict(
         self, input_data: List[float], _return_index_act: bool = False
