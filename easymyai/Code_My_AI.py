@@ -33,6 +33,9 @@ class MyProperties(object):
         def getter(cls) -> float:
             nonlocal name
 
+            if "ais" in cls.__dict__:
+                return cls.__dict__["ais"][0].__dict__["_AI__" + name]
+
             return cls.__dict__["_AI__" + name]
 
         return getter
@@ -436,18 +439,18 @@ class AI:
 
                 # Изменяем веса (С Адамом)
                 self.weights[i] -= (
-                    self.__alpha * momentum[:-1] / np.sqrt(velocity[:-1] + 1e-5)
+                    self.__alpha * momentum[:-1] / np.sqrt(np.abs(velocity[:-1]) + 1e-4)
                 )
                 self.biases[i] -= (
-                    self.__alpha * momentum[-1] / np.sqrt(velocity[-1] + 1e-5)
+                    self.__alpha * momentum[-1] / np.sqrt(np.abs(velocity[-1]) + 1e-4)
                     if self.have_bias
                     else 0
                 )
             else:
                 # Изменяем веса (обычный градиентный спуск)
                 # P.s. домножение на модуль весов изменяет их процентно, что гуд
-                self.weights[i] -= self.__alpha * np.multiply((l_a.T).dot(gradient), np.abs(weight))
-                self.biases[i] -= self.__alpha * np.multiply(gradient, np.abs(bias)) if self.have_bias else 0
+                self.weights[i] -= self.__alpha * (l_a.T).dot(gradient)  # np.multiply((l_a.T).dot(gradient), np.abs(weight))
+                self.biases[i] -= self.__alpha * gradient  # np.multiply(gradient, np.abs(bias)) if self.have_bias else 0
 
             # Переносим градиент на другой слой
             delta_weight = delta_weight.dot(weight.T)
