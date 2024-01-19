@@ -75,21 +75,21 @@ class ActivationFunctions:
 
     def __init__(self):
         self.minimums = {
-            str(self.tanh): -1,
-            str(self.softmax): 0,
-            str(self.sigmoid): 0,
-            str(self.relu): 0,
-            str(self.relu_2): 0,  # ?
-            str(None): -100,
+            "tanh": -1,
+            "softmax": 0,
+            "sigmoid": 0,
+            "relu": 0,
+            "relu_2": 0,  # ?
+            "": -100,
         }
 
         self.maximums = {
-            str(self.tanh): 1,
-            str(self.softmax): 1,
-            str(self.sigmoid): 1,
-            str(self.relu): 100,  # ?
-            str(self.relu_2): 1,  # ?
-            str(None): 100,  # ?
+            "tanh": 1,
+            "softmax": 1,
+            "sigmoid": 1,
+            "relu": 100,  # ?
+            "relu_2": 1,  # ?
+            "": 100,  # ?
         }
 
     def normalize(self, x: np.ndarray, min: float = 0, max: float = 1) -> np.ndarray:

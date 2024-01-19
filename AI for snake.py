@@ -10,7 +10,7 @@ snake = Snake(7, 5, 2, 0,
               dead_reward=-100, win_reward=200, cell_size=120)
 
 # Создаём ИИ
-ai = AI_ensemble(3, architecture=[25, 100, 100, 100, 100, 4], add_bias_neuron=True,
+ai = AI_ensemble(3, architecture=[25, 100, 100, 4], add_bias_neuron=True,
                  name="Snake_25")
 
 ai.what_act_func = ai.kit_act_func.tanh
@@ -18,14 +18,14 @@ ai.end_act_func = ai.kit_act_func.softmax
 
 ai.make_all_for_q_learning(("left", "right", "up", "down"),
                            ai.kit_upd_q_table.standart,
-                           0.7, 0.1, 0.1)
+                           0.6, 0.0, 0.1)
 
 # ai.load()
 ai.print_parameters()
 
 ai.alpha = 1e-3
 
-ai.impulse1 = 0.75
+ai.impulse1 = 0.8
 ai.impulse2 = 0.9
 ai.l1 = 0.0
 ai.l2 = 0.0
@@ -48,7 +48,9 @@ while 1:
         )
         start = time()
 
-        ai.epsilon = ai.epsilon * 0.85
+        # Постепенно концентрируемся не на количестве состояний,
+        # а на их "качестве" (полноте информаций по действиям)
+        # ai.epsilon = ai.epsilon * 0.85
 
         ai.update(check_ai=True)
 

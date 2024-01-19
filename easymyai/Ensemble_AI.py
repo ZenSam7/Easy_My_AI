@@ -13,31 +13,38 @@ class AI_ensemble(AI):
 
     def __init__(self, amount_ais: int, *args, **kwargs):
         """Создаёт множество ИИшек"""
+        super().__init__(**kwargs)
         self.ais: List[AI] = [AI(**kwargs) for _ in range(amount_ais)]
 
         self.save_dir = self.ais[0].save_dir
 
-        # Заменяем именя у ИИшек
+        # Заменяем имена у ИИшек
         self.ensemble_name = self.ais[0].name
         for index, ai in enumerate(self.ais):
             ai.name = "#" + str(index)
 
-        # Вместо того чтобы а у каждой ИИшки была одинаковая Q-таблица, можно
+        # Все атрибуты которые передались по наследству заменяем на ссылки таких же атрибутов
+        # в ai[0] (т.к. те которые передались по наследству инициализированы и такими и остануться
+        # (остальные которые не заменили по ссылке всёравно будут браться из ai[0] через __getattr__))
+        for ai_init_obj in vars(AI()):
+            if ai_init_obj in self.__dict__:
+                self.__dict__[ai_init_obj] = self.ais[0].__dict__[ai_init_obj]
+
+        # Вместо того чтобы у каждой ИИшки была одинаковая Q-таблица, можно
         # просто использовать одну единую для всех
         for ai in self.ais:
             ai.q_table = self.ais[0].q_table
 
         # Декорируем все методы кроме переопределённых
-        only_in_AI = (
-            set(getmembers(AI)[3][1])
-            - set(getmembers(AI_ensemble)[3][1])
-            - set(vars(AI)["__annotations__"])
+        funcs_only_in_AI = (
+            set(getmembers(AI)[4][1])  # Что объявляли в AI
+            - set(getmembers(AI_ensemble)[4][1])  # Что объявляли в AI_ensemble
+            - set(vars(AI)["__annotations__"])  # Переменные
         )
 
-        for item_name in only_in_AI:
-            if item_name.startswith("__"):
-                continue
-            self.__dict__[item_name] = self._for_all_ais(item_name)
+        for item_name in funcs_only_in_AI:
+            if not item_name.startswith("__"):
+                self.__dict__[item_name] = self._for_all_ais(item_name)
 
     def __getattr__(self, item):
         """Всё чего нет в этом классе, точно есть в AI"""
@@ -45,7 +52,7 @@ class AI_ensemble(AI):
         return self.__dict__[item]
 
     def _for_all_ais(self, func_name: str):
-        """Декоратор, который применяет функцию из AI ко всем ИИшкам"""
+        """Декоратор, который применяет функцию (по названию) из AI ко всем ИИшкам"""
 
         def wrap(*args, **kwargs):
             nonlocal func_name
