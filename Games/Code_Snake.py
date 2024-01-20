@@ -234,7 +234,7 @@ class Snake:
         pygame.display.update()
 
         # Ждём немного, чтобы человек мог понять что происходит
-        sleep(0.11)
+        sleep(0.09)
 
     def game_over(self) -> int:
         """Сбрасываем все переменные"""
