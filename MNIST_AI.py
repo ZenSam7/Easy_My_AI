@@ -1,4 +1,5 @@
-from mnist import MNIST
+from mnist import MNIST  # pip install mnist-py
+
 import numpy as np
 from easymyai import AI, AI_ensemble
 from time import time
@@ -8,8 +9,8 @@ start_time = time()
 mnist = MNIST()
 
 ai = AI(
-    architecture=[784, 50, 50, 50, 10],
-    add_bias=False,
+    architecture=[784, 100, 100, 10],
+    add_bias=True,
     name="MNIST",
     alpha=2e-3,
     number_disabled_weights=0.0,
@@ -21,18 +22,17 @@ ai.end_act_func = ai.kit_act_func.softmax
 # ai.load()
 ai.print_parameters()
 
-ai.batch_size = 1
-ai.alpha = 1e-3
+ai.alpha = 3e-3
+ai.disabled_neurons = 0.0
 
 ai.impulse1 = 0.9
-ai.impulse2 = 0.99
-
-ai.l1 = 0.0
+ai.impulse2 = 0.8
+ai.l1 = 0e-5
 ai.l2 = 0e-4
 
 
 print("\nОбучение...")
-for epoch in range(2):
+for epoch in range(3):
     print(f"Эпоха #{epoch}")
 
     num, errors = 0, 0
@@ -43,7 +43,7 @@ for epoch in range(2):
 
         image = images.tolist()[0]
         label = labels.tolist()[0]
-        ai.learning(image, label, use_Adam=False)
+        ai.learning(image, label, use_Adam=True)
 
         if np.argmax(ai.predict(image)) != np.argmax(np.array(label)):
             errors += 1
@@ -55,7 +55,7 @@ for epoch in range(2):
                 f"Error: {round((errors / (max_train_images * show_progress)) *100, 1)}% \t\t",
                 f"Summ weights: {int( sum([np.sum(np.abs(i)) for i in ai.weights]) )}",
             )
-
+            # Для каждого вывода заново считаем ошибку
             errors = 0
 
             # Сохраняемся

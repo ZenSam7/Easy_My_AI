@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name="easymyai",
-    version="4.2.1",
+    version="5.0",
     description="Easy creation of your own simple neural network",
     long_description=open("./easymyai/README.md", "r").read(),
     long_description_content_type="text/markdown",

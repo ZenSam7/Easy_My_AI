@@ -1,4 +1,4 @@
-# DOCS ON ENG: [Here](pypi.org/project/easymyai/)
+# DOCS ON ENG: [Here](https://pypi.org/project/easymyai/)
 
 
 # КАК СКАЧАТЬ
@@ -104,12 +104,13 @@ ai.name = "First_AI"
 
 ####  
 ### • Гаперпараметры:
+
 ```python
 """Прописывать или изменять все гаперпараметры необязательно"""
 
 ai.alpha = 1e-2  # Скорость обучения
 
-ai.number_disabled_weights = 0.0  # Какую долю весов отключаем
+ai.disabled_neurons = 0.0  # Какую долю нейронов отключаем
 # (Это надо чтобы не возникало переобучение)
 
 ai.batch_size = 10  # Сколько ответов усредняем, чтобы на них учиться

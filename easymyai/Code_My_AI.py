@@ -124,9 +124,9 @@ class AI:
         MyProperties.only_uint,
         "batch_size", "Сколько входных данный усредняем при обучении"
     )
-    number_disabled_weights: float = MyProperties.get_property(
+    disabled_neurons: float = MyProperties.get_property(
         MyProperties.from_1_to_0,
-        "number_disabled_weights", "Какую долю нейронов \"отключаем\" при обучении"
+        "disabled_neurons", "Какую долю нейронов \"отключаем\" при обучении"
     )
 
     impulse1: float = MyProperties.get_property(
@@ -187,7 +187,7 @@ class AI:
         # Чем больше, тем скорость и "качество" обучения больше (до определённого момента)
         self.__batch_size: int = 1
         # Какую долю весов "отключаем" при обучении
-        self.__number_disabled_weights: float = 0.0
+        self.__disabled_neurons: float = 0.0
         # Коэффициенты импульса (для оптимизатора Adam)
         self.__impulse1: float = 0.9
         self.__impulse2: float = 0.999
@@ -411,12 +411,12 @@ class AI:
         delta_weight = np.sum(self._packet_delta_weight, axis=0)
 
         # Отдельно складываем ответы от слоёв (т.к. это список векторов)
-        answers = [np.array(ans) for ans in self._packet_layer_answers[0]]
+        answers = [l_ans for l_ans in self._packet_layer_answers[0]]
         for layer_index in range(len(self._packet_layer_answers[0])):
             # Складываем слои отдельно
             for list_answers in self._packet_layer_answers[1:]:
                 # Первые ответы уже есть
-                answers[layer_index] += np.array(list_answers[layer_index])
+                answers[layer_index] += list_answers[layer_index]
 
         self._packet_delta_weight.clear()
         self._packet_layer_answers.clear()
@@ -438,24 +438,20 @@ class AI:
 
             # L1 и L2 регуляризация
             if self.__l1 or self.__l2:
-                grad_sign = (
-                    sign(np.append(weight, bias, axis=0))
-                    if self.have_bias
-                    else sign(weight)
-                )
-                gradient += self.__alpha * self.__l1 * grad_sign
+                weight -= self.__alpha * self.__l1 * sign(weight)
+                bias -= self.__alpha * self.__l1 * sign(bias)
+
                 weight *= (1 - self.__alpha * self.__l2)
                 bias *= (1 - self.__alpha * self.__l2)
 
             # Матрица, предотвращающая переобучение
             # Умножаем изменение веса рандомных нейронов на 0
             # (Отключаем изменение некоторых связей)
-            if self.__number_disabled_weights > 0:
+            if self.__disabled_neurons:
                 dropout_mask = (
                         np.random.random(size=gradient.shape)
-                        >= self.__number_disabled_weights
+                        >= self.__disabled_neurons
                 )
-
                 gradient = np.multiply(gradient, dropout_mask)
 
             if use_Adam:
@@ -483,7 +479,6 @@ class AI:
                 )
             else:
                 # Изменяем веса (обычный градиентный спуск)
-                # P.s. домножение на модуль весов изменяет их процентно, что гуд
                 self.weights[i] -= self.__alpha * (l_a.T).dot(gradient)  # np.multiply((l_a.T).dot(gradient), np.abs(weight))
                 self.biases[i] -= self.__alpha * gradient  # np.multiply(gradient, np.abs(bias)) if self.have_bias else 0
 
@@ -765,7 +760,7 @@ class AI:
         ai_data["have_bias"] = self.have_bias
         ai_data["actions"] = self.actions
 
-        ai_data["number_disabled_neurons"] = self.__number_disabled_weights
+        ai_data["disabled_neurons"] = self.__disabled_neurons
         ai_data["impulse1"] = self.__impulse1
         ai_data["impulse2"] = self.__impulse2
         ai_data["alpha"] = self.__alpha
@@ -816,7 +811,7 @@ class AI:
             self.architecture = ai_data["architecture"]
             self.have_bias = ai_data["have_bias"]
 
-            self.number_disabled_weights = ai_data["number_disabled_neurons"]
+            self.disabled_neurons = ai_data["disabled_neurons"]
             self.impulse1 = ai_data["impulse1"]
             self.impulse2 = ai_data["impulse2"]
             self.alpha = ai_data["alpha"]

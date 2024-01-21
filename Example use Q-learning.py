@@ -3,23 +3,6 @@ from Games import Q_Game
 
 game = Q_Game(7, 7)
 
-# Создаём ИИ
-ai = AI()
-ai.create_weights([2, 50, 50, 4], add_bias=True)
-# Состояния - нахождение в какой-либо клетке поля (координаты каждой клетки)
-ai.make_all_for_q_learning(
-    ("left", "right", "up", "down"), ai.kit_upd_q_table.standart, 0.5, 0.05, 0.1
-)
-
-ai.what_act_func = ai.kit_act_func.tanh
-ai.end_act_func = ai.kit_act_func.tanh
-
-ai.batch_size = 1
-ai.alpha = 1e-2
-
-
-reward, generation, num_win, number_steps = 0, 0, 0, 0
-
 
 def died():
     global reward, generation, number_steps
@@ -40,9 +23,22 @@ game.game_over_function = died
 game.win_function = win
 
 
-# ai.load_data("Q")
+# Создаём ИИ
+ai = AI()
+ai.create_weights([2, 100, 100, 4], add_bias=True)
+# Состояния - нахождение в какой-либо клетке поля (координаты каждой клетки)
+ai.make_all_for_q_learning(("left", "right", "up", "down"),
+                           ai.kit_upd_q_table.standart,
+                           0.5, 0.01, 0.1)
+
+ai.what_act_func = ai.kit_act_func.tanh
+ai.end_act_func = ai.kit_act_func.softmax
+
+ai.batch_size = 1
+ai.alpha = 1e-2
 
 
+reward, generation, num_win, number_steps = 0, 0, 0, 0
 learn_iteration = 0
 while 1:
     number_steps += 1
@@ -62,9 +58,7 @@ while 1:
     data = sum(data, [])
 
     where_move = ai.q_predict(data)
-
     game.step(where_move)
 
     # Обучаем
-
-    ai.q_learning(data, reward, learning_method=1, squared_error=True)
+    ai.q_learning(data, reward, learning_method=1, squared_error=False)

@@ -101,12 +101,13 @@ This will create the following architecture:
 </div>
 
 ### - Hyperparameters:
+
 ```python
 """It's not necessary to specify or modify all hyperparameters."""
 
 ai.alpha = 1e-2  # Learning rate
 
-ai.number_disabled_weights = 0.0  # Proportion of weights to disable
+ai.disabled_neurons = 0.0  # Proportion of neurons to disable
 # (This is to prevent overfitting)
 
 ai.batch_size = 10  # Number of answers to average for learning
@@ -121,14 +122,14 @@ ai.what_act_func = ai.kit_act_func.tanh
 ai.end_act_func = ai.kit_act_func.tanh
 
 # Impulse coefficients for the Adam optimizer
-ai.impulse1 = 0.9  
+ai.impulse1 = 0.9
 ai.impulse2 = 0.999
 # If you don't know what an optimizer is, google it, it's very interesting))))
 
 # Coefficients for weight regularization 
 # (Regularization - keeping weights close to 0 (or [-1; +1]))
 ai.l1 = 0.001  # How much to decrease weights (it makes weights tend towards 0)
-ai.l2 = 0.01   # How much to decrease weights (keeps weights close to 0)
+ai.l2 = 0.01  # How much to decrease weights (keeps weights close to 0)
 
 ```
 

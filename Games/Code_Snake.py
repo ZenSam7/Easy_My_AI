@@ -58,7 +58,6 @@ class Snake:
         """Просто создаём окно"""
 
         pygame.init()
-        # pygame.display.quit()  # Что бы лишнего не создавалось
 
         self.wind = pygame.display.set_mode((self.window_width, self.window_height))
         pygame.display.set_caption("Sneak with AI")
@@ -116,8 +115,8 @@ class Snake:
 
         # Если змея заполонила весь экран, то мы выиграли
         elif (
-            len(self.snake_body)
-            == self.window_height_cells * self.window_width_cells - self.amount_food
+            len(self.snake_body) ==
+            self.window_height_cells * self.window_width_cells - self.amount_food
         ):
             return self.game_over()
 
@@ -164,7 +163,7 @@ class Snake:
                 randint(0, self.window_height_cells - 1),
             ]
 
-            # Нльзя чтоы стена оказась в теле змейки или в еде или другой стене
+            # Нельзя чтоы стена оказась в теле змейки или в еде или другой стене
             if (
                 (coords not in self.snake_body)
                 and (coords not in self.food_coords)

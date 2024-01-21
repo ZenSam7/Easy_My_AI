@@ -42,6 +42,9 @@ class Q_Game:
         # Фон
         self.wind.fill((20, 30, 40))
 
+        # Надо чтобы можно было двигать окно
+        pygame.event.get()
+
         # Следы
         for footprint in self.footprints:
             pygame.draw.rect(
