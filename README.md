@@ -98,7 +98,7 @@ ai.name = "First_AI"
 ```
 Таким образом будет создана следущая архитектура:
 <div id="header" align="left">
-  <img src="https://i.ibb.co/nbbTLZS/Usage-example.png" width="600"/>
+  <img src="https://i.ibb.co/nbbTLZS/Usage-example.png" width="800"/>
 </div>
 
 
