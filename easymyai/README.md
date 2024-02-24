@@ -17,10 +17,11 @@ from simplemyai import AI_ensemble, AI
 # Create AI
 ai = AI(architecture=[10, 50, 50, 1],
         add_bias=True,
+        RNN=True,
         name="First_AI")
 """ Or you can create an ensemble
 ai = AI_ensemble(amount_ais=10, architecture=[10, 50, 50, 1],
-                      add_bias_neuron=True,
+                      add_bias_neuron=True, RNN=True,
                       name="First_AI")
 """
 
@@ -78,21 +79,24 @@ ensemble = AI_ensemble(5) # 5 is the number of AIs in the ensemble
 ```python
 ai = AI(architecture=[3, 4, 4, 4, 3],
         add_bias_neuron=True,
+        RNN=True, # Recurrent or not
         name="First_AI")
 
 """ If using an ensemble
 ensemble = AI_ensemble(5, architecture=[3, 4, 4, 4, 3],
-                       add_bias_neuron=True,
+                       add_bias_neuron=True, RNN=True,
                        name="First_AI")
 """
 ```
 or
 
 ```python
-ai.create_weights([3, 4, 4, 4, 3], add_bias=True)
+ai.create_weights([3, 4, 4, 4, 3], add_bias=True,
+                  min_weight=-1, max_weight=1) # Range weights
 ai.name = "First_AI"
 # Name is not mandatory, but if not provided,
 # a random number will be used instead of the name
+ai.RNN = True
 ```
 
 This will create the following architecture:

@@ -65,14 +65,9 @@ class AI:
         "q_alpha", "Скорость обновления Q-таблицы"
     )
 
-    # Функции
-    what_act_func: Callable = MyProperties.get_property(
-        MyProperties.just_pass,
-        "what_act_func", "Функция активации"
-    )
-    end_act_func: Callable = MyProperties.get_property(
-        MyProperties.just_pass,
-        "end_act_func", "Функция активации для последнего слоя"
+    RNN: bool = MyProperties.get_property(
+        MyProperties.is_bool,
+        "RNN", "Будем ли подавать на слой нейронов из прошлый ответ"
     )
 
     def __init__(
@@ -80,6 +75,7 @@ class AI:
             architecture: Optional[List[int]] = None,
             add_bias: Optional[bool] = True,
             name: Optional[str] = None,
+            RNN: bool = False,
             auto_check_ai: Optional[bool] = True,
             save_dir: str = "Saves AIs",
             **kwargs,
@@ -102,6 +98,7 @@ class AI:
         self.have_bias: bool = add_bias
 
         self.weights: List[np.matrix] = []  # Появиться после вызова create_weights
+        self.rnn_weights: List[np.matrix] = []  # Появиться после вызова create_weights
         self.biases: List[np.matrix] = []  # Появиться после вызова create_weights
         self._momentums: List[np.matrix] = []
         self._velocities: List[np.matrix] = []
@@ -119,7 +116,7 @@ class AI:
         self._packet_layer_answers: List[np.ndarray] = []
 
         self.q_table: Dict[str, List[float]] = {}
-        self.actions: Tuple[str] = ()
+        self.actions: List[str] = []
         self.__gamma: float = 0
         self.__epsilon: float = 0
         self.__q_alpha: float = 0.1
@@ -129,7 +126,13 @@ class AI:
         self.recce_mode: bool = False
 
         self.name: str = name if name else str(np.random.randint(2 ** 31))
-        self.save_dir = save_dir
+        self.save_dir: str = save_dir
+
+        # Будет ли подаваться на слой ответов и прошлые ответы
+        self.RNN: bool = RNN
+        # Куда сохраняем прошлые ответы
+        # Появиться после вызова create_weights
+        self._last_rnn_answers: List[np.ndarray] = []
 
         # Все аргументы из kwargs размещаем каждый в свою переменную
         for item, value in kwargs.items():
@@ -181,6 +184,19 @@ class AI:
             else:
                 self.biases.append(np.zeros((1, architecture[i + 1])))
 
+            # Добавляем веса для обработки прошлых значений
+            if self.RNN:
+                self.rnn_weights.append(
+                    self.kit_act_func.normalize(
+                        np.random.random(size=(architecture[i + 1], 1)),
+                        min_weight,
+                        max_weight,
+                    )
+                )
+                self._last_rnn_answers.append(np.zeros((1, architecture[i + 1])))
+            else:
+                self.rnn_weights.append(0)
+
         # Инициализируем (нулями) штуки для Adam'а
         self._momentums = [0 for _ in range(len(architecture))]
         self._velocities = [0 for _ in range(len(architecture))]
@@ -229,6 +245,7 @@ class AI:
         надо данные, соразмерные выходному вектору"""
         # Определяем входные данные как вектор
         result_layer = np.array(input_data)
+        rnn_result_layer = None
 
         if ((not reverse) and result_layer.shape[0] != self.weights[0].shape[0]) or (
                 reverse and result_layer.shape[0] != self.weights[-1].shape[1]
@@ -238,31 +255,41 @@ class AI:
             raise ImpossibleContinue(
                 f"Размерность входных данных не совпадает с количеством {name} нейронов у ИИшки"
             )
+        if reverse and self.RNN:
+            print('Если что, то при "обратном проходе данных" рекуррентная нейронка не задействуется')
 
         # Сохраняем список всех ответов от нейронов каждого слоя
         list_answers = []
 
+        layer_count = 0  # Надо чтобы определить последний слой
         # Проходимся по каждому слою весов
-        layer_count = 0
         for i in range(len(self.weights)):
             if reverse:  # Если идём от выхода к входу, то идём от выхода к входу
                 i = len(self.weights) - i - 1
-
             layer_count += 1
 
-            if _return_answers:
-                ans = np.append(result_layer, 1) if self.have_bias else result_layer
+            if reverse:  # Если идём от выхода к входу, то идём жопой вперёд
+                i = len(self.architecture) - i - 1
 
+            if _return_answers:
+                # Передаём привет от нейрона смещения
+                ans = np.append(result_layer, 1) if self.have_bias else result_layer
                 list_answers.append(ans)
 
-            # Перемножаем результат прошлого слоя на слой весов
             if reverse:
-                result_layer = result_layer + self.biases[i]
-                result_layer = result_layer.dot(self.weights[i].T)
+                result_layer = (result_layer + self.biases[i]).dot(self.weights[i].T)
             else:
+                # Перемножаем результат прошлого слоя на слой весов
                 result_layer = result_layer.dot(self.weights[i]) + self.biases[i]
 
-            # Процежеваем через функцию активации результат
+            # Если рекуррентная сеть, то прибавляем прошлый ответ, умноженный на нужные веса
+            if self.RNN:
+                # P.s. к "основному" ответу прибавляем рекуррентные вычисления (в _last_rnn_answers)
+                # А потом уже записываем текущий ответ в как прошлый
+                result_layer += (self._last_rnn_answers[i]).dot(self.rnn_weights[i])
+                self._last_rnn_answers[i] = np.copy(result_layer)
+
+            # Процеживаем через функцию активации результат
             # перемножения результата прошлого слоя на слой весов
             if layer_count != len(self.weights) or reverse:
                 result_layer = self.what_act_func(result_layer)
@@ -286,6 +313,8 @@ class AI:
     ):
         """Метод обратного распространения ошибки для изменения весов в нейронной сети
         (Теперь с оптимизатором Adam)\n"""
+
+        global rnn_gradient
 
         def sign(x: np.ndarray) -> np.ndarray:
             """Возвращает матрицу с +1 или -1 на месте положительного
@@ -330,15 +359,23 @@ class AI:
             # Превращаем векторы в матрицу
             delta_weight = np.matrix(delta_weight)
             layer_answer = np.matrix(answers[i])
+            rnn_layer_ans = np.matrix(self._last_rnn_answers[i])
             weight = self.weights[i]
+            rnn_weight = self.rnn_weights[i]
             bias = self.biases[i]
+            # Если достигли последнего слоя, то везде основная функция активации заменяется
+            # на функцию активации для последнего слоя
+            act_func = self.end_act_func if i == len(self.weights)-1 else self.what_act_func
 
-            # Градиентный спуск ∆⊙𝑓′(𝑧)
+            # Градиентный спуск ∇ = ∆⊙𝑓′(𝑧)
             l_a = layer_answer[:, :-1] if self.have_bias else layer_answer
-            if i == len(self.weights) - 1:
-                gradient = np.multiply(delta_weight, self.end_act_func(l_a.dot(weight) + bias, True))
-            else:
-                gradient = np.multiply(delta_weight, self.what_act_func(l_a.dot(weight) + bias, True))
+            rnn_l_a = rnn_layer_ans
+
+            gradient = np.multiply(delta_weight, act_func(l_a.dot(weight) + bias, True))
+
+            # Отдельно для RNN
+            if self.RNN:
+                rnn_gradient = np.multiply(delta_weight, act_func(rnn_l_a.dot(rnn_weight), True))
 
             # L1 и L2 регуляризация
             if self.__l1 or self.__l2:
@@ -357,6 +394,8 @@ class AI:
                         >= self.__disabled_neurons
                 )
                 gradient = np.multiply(gradient, dropout_mask)
+                if self.RNN:
+                    rnn_gradient = np.multiply(rnn_gradient, dropout_mask)
 
             if use_Adam:
                 # Оптимизатор Adam
@@ -382,12 +421,21 @@ class AI:
                     else 0
                 )
             else:
-                # Изменяем веса (обычный градиентный спуск)
-                self.weights[i] -= self.__alpha * (l_a.T).dot(gradient)  # np.multiply((l_a.T).dot(gradient), np.abs(weight))
-                self.biases[i] -= self.__alpha * gradient  # np.multiply(gradient, np.abs(bias)) if self.have_bias else 0
+                # Изменяем веса (обычный градиентный спуск) w -= α×x×∇ ; b -= α×∇
+                self.weights[i] -= self.__alpha * (l_a.T).dot(gradient)
+                self.biases[i] -= self.__alpha * gradient
+
+            # Изменяем веса рекуррентного слоя градиентным спуском (т.е. игнорим Adam, лол)
+            if self.RNN:
+                self.rnn_weights[i] -= self.__alpha * rnn_l_a.dot(rnn_gradient.T)
 
             # Переносим градиент на другой слой
             delta_weight = delta_weight.dot(weight.T)
+
+    def reset_rnn(self):
+        """Стираем все значения от предыдущих ответов"""
+        for i in self.architecture[1:]:
+            self._last_rnn_answers = [np.array([0]*i) for _ in range(len(architecture))]
 
     def q_predict(
             self, input_data: List[float], _return_index_act: bool = False
@@ -409,7 +457,7 @@ class AI:
     def make_all_for_q_learning(
             self,
             actions: Tuple[str],
-            func_update_q_table: Callable = None,
+            func_update_q_table: Callable,
             gamma: float = 0.1,
             epsilon: float = 0.0,
             q_alpha: float = 0.1,
@@ -430,10 +478,17 @@ class AI:
         \n simple_max: Q(s,a) = R + γ Q’(s’, max a) \n
         """
 
-        self.actions: Tuple[str] = actions
+        # Если пересоздаём все для Q-бучения (зачем-то) то очищаем всё
+        if len(self.actions) != 0:
+            self.actions.clear()
+        if len(self.q_table) != 0:
+            self.q_table.clear()
+
+        for act in actions:
+            self.actions.append(act)
         if len(self.actions) != self.weights[-1].shape[1]:
             raise ImpossibleContinue(
-                "Количество возможных действий (actions) должно"
+                "Количество возможных действий (actions) должно " +
                 "быть равно количеству выходов у нейросети!"
             )
 
@@ -442,8 +497,8 @@ class AI:
         self.q_alpha: float = q_alpha
 
         # Чтобы не указывать будущее состояние, будем обучаться на 1 шаг назад во времени
-        self.last_state = None
-        self.last_reward = None
+        self._last_state = None
+        self._last_reward = None
 
         if func_update_q_table is None:
             self._func_update_q_table: Callable = self.kit_upd_q_table.standart
@@ -492,16 +547,16 @@ class AI:
         (чем степень больше, тем меньше учитываются остальные результаты))
         """
 
-        if self.last_state is None:
-            self.last_state = state
-            self.last_reward = reward
+        if self._last_state is None:
+            self._last_state = state
+            self._last_reward = reward
             return
 
         # (не забываем что мы на 1 шаг в прошлом)
         state_now = state
 
         # Добовляем новые состояния в Q-таблицу
-        last_state_str = str(self.last_state)
+        last_state_str = str(self._last_state)
         future_state_str = str(state_now)
 
         default = [0 for _ in range(len(self.actions))]
@@ -549,7 +604,7 @@ class AI:
 
         # Изменяем веса
         self.learning(
-            self.last_state, answer, squared_error=squared_error, use_Adam=use_Adam
+            self._last_state, answer, squared_error=squared_error, use_Adam=use_Adam
         )
 
         # Обновляем Q-таблицу
@@ -557,18 +612,18 @@ class AI:
 
     def _update_q_table(self, state_now: List[float], reward_for_state: float):
         # Чтобы не указывать будущее состояние, будем обучаться на 1 шаг назад во времени
-        state = self.last_state
-        state_str = str(self.last_state)
+        state = self._last_state
+        state_str = str(self._last_state)
         future_state = state
         future_state_str = str(state)
 
-        ind_act: int = self.q_predict(self.last_state, True)
+        ind_act: int = self.q_predict(self._last_state, True)
 
         all_kwargs = {
             "q_table": self.q_table,
             "q_predict": self.q_predict,
             "q_alpha": self.__q_alpha,
-            "reward": self.last_reward,
+            "reward": self._last_reward,
             "gamma": self.__gamma,
             "state": state,
             "state_str": state_str,
@@ -580,8 +635,8 @@ class AI:
         self.q_table[state_str][ind_act] = self._func_update_q_table(**all_kwargs)
 
         # Смещаемся на 1 шаг во времени (вперёд)
-        self.last_state = state_now
-        self.last_reward = reward_for_state
+        self._last_state = state_now
+        self._last_reward = reward_for_state
 
     def check_ai(self):
         """Проверяем Q-таблицу и веса в нейронке на наличие аномальных значений"""
@@ -655,6 +710,8 @@ class AI:
 
         ai_data["weights"] = [i.tolist() for i in self.weights]
         ai_data["biases"] = [i.tolist() for i in self.biases]
+        if self.RNN:
+            ai_data["rnn_weights"] = [i.tolist() for i in self.rnn_weights]
         ai_data["q_table"] = self.q_table
 
         # Если используем ансамбль, то сохраняем не имя, а номер
@@ -681,6 +738,8 @@ class AI:
         ai_data["gamma"] = self.gamma
         ai_data["epsilon"] = self.epsilon
         ai_data["q_alpha"] = self.q_alpha
+
+        ai_data["RNN"] = self.RNN
 
         # Сохраняем ИИшку ЛЮБОЙ ценой
         try:
@@ -712,6 +771,8 @@ class AI:
 
             self.weights = [np.array(i) for i in ai_data["weights"]]
             self.biases = [np.array(i) for i in ai_data["biases"]]
+            self.rnn_weights = [np.array(i) for i in ai_data["rnn_weights"]]
+            self.RNN = ai_data["RNN"]
             self.architecture = ai_data["architecture"]
             self.have_bias = ai_data["have_bias"]
 
@@ -742,6 +803,8 @@ class AI:
                 size = (self.architecture[i] + self.have_bias, self.architecture[i + 1])
                 self._momentums.append(np.zeros(size))
                 self._velocities.append(np.zeros(size))
+            for i in self.architecture[1:]:
+                self._last_rnn_answers = [np.array([0] * i) for _ in range(len(architecture))]
 
         except FileNotFoundError:
             print(f"Сохранение {name_ai} не найдено")
@@ -775,9 +838,11 @@ class AI:
         """Выводит в консоль в формате:
         Параметров: 123456\t\t [1, 2, 3, 4]\t\t + нейрон смещения"""
 
-        all_parameters = sum([i.shape[1] for i in self.biases])
-        for layer in self.weights:
-            all_parameters += layer.shape[0] * layer.shape[1]
+        all_parameters = sum([layer.shape[0] * layer.shape[1] for layer in self.weights])
+        if self.RNN:
+            all_parameters *= 2
+
+        all_parameters += sum([i.shape[1] for i in self.biases])
 
         print(
             f"{self.name}\t\t",
@@ -788,5 +853,7 @@ class AI:
 
         if self.have_bias:
             print(" + нейрон смещения", end="")
+        if self.RNN:
+            print(" + RNN сеть", end="")
 
         print()

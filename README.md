@@ -18,10 +18,11 @@ from My_AI import AI_ensemble, AI
 # Создаём ИИ
 ai = AI(architecture=[10, 50, 50, 1],
         add_bias=True,
+        RNN=True,
         name="First_AI")
 """ Или можно создать ансамбль
 ai = AI_ensemble(amount_ais=10, architecture=[10, 50, 50, 1],
-                      add_bias_neuron=True,
+                      add_bias_neuron=True, RNN=True
                       name="First_AI")
 """
 
@@ -80,18 +81,20 @@ ensemble = AI_ensemble(5) # 5 —— количество ИИшек в анса
 ```python
 ai = AI(architecture=[3, 4, 4, 4, 3],
         add_bias_neuron=True,
+        RNN=True, # Рекуррентная или нет
         name="First_AI")
 
 """ Если используете ансамбль
 ensemble = AI_ensemble(5, architecture=[3, 4, 4, 4, 3],
-                       add_bias_neuron=True,
+                       add_bias_neuron=True, RNN=True,
                        name="First_AI")
 """
 ```
 или
 
 ```python
-ai.create_weights([3, 4, 4, 4, 3], add_bias=True)
+ai.create_weights([3, 4, 4, 4, 3], add_bias=True,
+                  min_weight=-1, max_weight=1)
 ai.name = "First_AI"
 # Имя не обязательно указывать имя, но тогда при сохранении
 # будет использовано случайное число вместо имени
@@ -133,6 +136,10 @@ ai.impulse2 = 0.999
 # (Регуляризация — удержание весов около 0 (или же [-1; +1]) )
 ai.l1 = 0.001  # НА сколько уменьшаем веса (устремляет веса прямо к 0)
 ai.l2 = 0.01   # ВО сколько уменьшаем веса (удерживает веса около 0)
+
+# Будет ли на слой нейронов подаваться их же прошлый ответ 
+# (сложенный с ответом от прошлого слоя)
+ai.RNN = True
 ```
 
 

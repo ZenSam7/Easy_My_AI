@@ -13,8 +13,8 @@ class AI_ensemble(AI):
 
     def __init__(self, amount_ais: int, *args, **kwargs):
         """Создаёт множество ИИшек"""
-        super().__init__(**kwargs)
-        self.ais: List[AI] = [AI(**kwargs) for _ in range(amount_ais)]
+        super().__init__(*args, **kwargs)
+        self.ais: List[AI] = [AI(*args, **kwargs) for _ in range(amount_ais)]
 
         self.save_dir = self.ais[0].save_dir
 
@@ -27,13 +27,19 @@ class AI_ensemble(AI):
         # просто использовать одну единую для всех
         for ai in self.ais:
             ai.q_table = self.ais[0].q_table
+            ai.actions = self.actions
 
         # Декорируем все методы кроме переопределённых
-        funcs_only_in_AI = (
-            set(getmembers(AI)[4][1])  # Что объявляли в AI
-            - set(getmembers(AI_ensemble)[4][1])  # Что объявляли в AI_ensemble
-            - set(vars(AI)["__annotations__"])  # Переменные
+        def get_annotations(cls):
+            for i in getmembers(cls):
+                if i[0] == "__dict__":
+                    return i[1]
+        funcs_only_in_AI = list(
+                set(get_annotations(AI))  # Что объявляли в AI
+                - set(get_annotations(AI_ensemble))  # Минус что объявляли в AI_ensemble
+                - set(vars(AI)["__annotations__"])  # Минус переменные
         )
+        funcs_only_in_AI = [i for i in funcs_only_in_AI if not i.startswith("__")]
 
         for item_name in funcs_only_in_AI:
             if not item_name.startswith("__"):
@@ -189,9 +195,10 @@ class AI_ensemble(AI):
     def print_parameters(self):
         print(f"Количество ИИшек в ансамбле {self.ensemble_name}: {len(self.ais)}")
 
-        parameters_ai = sum([i.shape[1] for i in self.ais[0].biases])
-        for layer in self.ais[0].weights:
-            parameters_ai += layer.shape[0] * layer.shape[1]
+        parameters_ai = sum([layer.shape[0] * layer.shape[1] for layer in self.ais[0].weights])
+        if self.ais[0].RNN:
+            parameters_ai *= 2
+        parameters_ai += sum([i.shape[1] for i in self.ais[0].biases])
 
         print(
             f"У одного ИИ: \t Параметров {parameters_ai}\t"
@@ -199,6 +206,10 @@ class AI_ensemble(AI):
             end=" ",
         )
         if self.ais[0].have_bias:
-            print("+ нейрон смещения")
+            print("+ нейрон смещения", end="")
+        if self.ais[0].RNN:
+            print(" + RNN сеть")
+        else:
+            print()
 
         print("Всего параметров:", parameters_ai * len(self.ais))
