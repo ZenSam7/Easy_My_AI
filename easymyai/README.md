@@ -18,24 +18,26 @@ from simplemyai import AI_ensemble, AI
 ai = AI(architecture=[10, 50, 50, 1],
         add_bias=True,
         name="First_AI")
-""" Or you can create an ensemble
+# Or you can create an ensemble
 ai = AI_ensemble(amount_ais=10, architecture=[10, 50, 50, 1],
                       add_bias_neuron=True,
                       name="First_AI")
-"""
 
 # Set coefficients
 ai.alpha = 1e-3  # Learning rate
 ai.batch_size = 10  # Batch size
+
 # For Adam optimizer
 ai.impulse1 = 0.9  # Usually between 0.8 and 0.999
 ai.impulse2 = 0.999  # Slightly different from beta1
+
 # Regularization
 ai.l1 = 0.0  # L1 regularization
 ai.l2 = 0.0  # L2 regularization
 
 ai.what_act_func = ai.kit_act_func.tanh
 ai.end_act_func = ai.kit_act_func.tanh
+
 ai.save_dir = "Saves AIs"  # The directory where we save the AIs
 
 # Train (for example, image recognition)
@@ -44,15 +46,17 @@ for image in dataset:
     answer = [image.what_num]
     ai.learning(data, answer, squared_error=True)
 
-""" There is also Q-learning (see update table functions below)
+# There is also Q-learning (see update table functions below)
 actions = ("left", "right", "up", "down")
 ai.make_all_for_q_learning(actions, ai.kit_upd_q_table.standart,
                            gamma=0.5, epsilon=0.01, q_alpha=0.1)
 
 state, reward = game.get_state_and_reward()
 ai.q_learning(state, reward,
-              learning_method=2.5, squared_error=False)
-"""
+              learning_method=2.5,
+              squared_error=False,
+              use_Adam=True,
+              recce_mode=False)
 ```
 
 
@@ -70,25 +74,25 @@ ai = AI()
 # Or
 ensemble = AI_ensemble(5) # 5 is the number of AIs in the ensemble
 ```
-> An ensemble is multiple AIs in a single box, making decisions together (ensemble is suitable for Q-learning (reinforcement learning; when there is no "correct" or "incorrect" answer, only reward for some chosen action))
+> An ensemble is several AI in one box that make a decision together and due to this, the probability of accidental error is greatly reduced (an ensemble is well suited for Q—learning (this is reinforcement learning; when there is no "right" and "wrong" answer, but only a reward for some chosen action))
 
 > P.S. As an example, take a look at the AI for Snake (in the file "AI for snake.py")
 
-### - To use AI, you need to create an architecture in one of the following ways:
+### - To create an architecture:
 ```python
 ai = AI(architecture=[3, 4, 4, 4, 3],
         add_bias_neuron=True,
         name="First_AI")
 
-""" If using an ensemble
+# If using an ensemble
 ensemble = AI_ensemble(5, architecture=[3, 4, 4, 4, 3],
                        add_bias_neuron=True,
                        name="First_AI")
-"""
 ```
 or
 
 ```python
+ai = AI()
 ai.create_weights([3, 4, 4, 4, 3], add_bias=True)
 ai.name = "First_AI"
 # Name is not mandatory, but if not provided,
@@ -111,7 +115,7 @@ ai.disabled_neurons = 0.0  # Proportion of neurons to disable
 # (This is to prevent overfitting)
 
 ai.batch_size = 10  # Number of answers to average for learning
-# (Speeds up training and (sometimes, not always) improves learning quality)
+# (Speeds up learning, but in some tasks it is better not to use)
 
 # Neuron activation function (highly recommended to leave tanh if
 # possible, as AI works much faster with it)
@@ -159,7 +163,7 @@ and overlooks small imperfections (but sometimes it's better to disable it)
 all_possible_actions = ["left", "right", "up", "down"]
 
 gamma = 0.4     # "Experience trust" coefficient (for "smoothing" the Q-table)
-epsilon = 0.15  # Fraction of random actions (to make the AI explore the environment)
+epsilon = 0.05  # Fraction of random actions (to make the AI explore the environment)
 q_alpha = 0.1   # Q-table update rate (in reality, it doesn't affect much) 
 
 ai.make_all_for_q_learning(all_possible_actions,
@@ -173,7 +177,7 @@ ai_state = [0, 1]  # For example, neural network coordinates
 ai.q_learning(ai_state, reward_for_state, learning_method=1,
               recce_mode=False, squared_error=True)
 
-# The decision made by the AI for certain data
+# The decision made by the AI for certain data (return the name of the action)
 predict = ai.q_predict(ai_state)
 ```
 
@@ -183,10 +187,12 @@ predict = ai.q_predict(ai_state)
 > - 1: "Correct" answer is chosen as the one with the maximum reward, and a maximum value of the activation function is placed in the position of the action (leading to the best answer), and a minimum activation function is placed in the other positions P.s. This is not very good because it ignores other options that bring either the same or slightly less reward (and only one "correct" option is selected). BUT IT WORKS WELL, WHEN YOU HAVE ONLY 1 CORRECT ANSWER IN THE TASK, AND THERE CANNOT BE "MORE" AND "LESS" CORRECT ONES
 > - 2: Make answers with higher rewards more "correct". The fractional part of the number indicates to what power we should raise the "striving for better results" (FOR EXAMPLE: 2.3 means that we use learning method 2 and raise "striving for better results" to the power of 3 (2.345 means the power will be 3.45))
 
-### - And of course, saving and loading the neural network
+### - And of course, saving and loading the NN
 ```python
 ai.save()  # Save under the current name
 ai.save("First_AI")  # Save with the name "First_AI"
+
+ai.load("123")  # Load the NN with name "123" from derictory for saves
 ```
 > You can also choose your own directory for saving AIs (why? I don't know)
 ```python
@@ -211,9 +217,8 @@ ai.make_mutations(0.05)  # 5% of weights are replaced with random numbers
 
 ### - You can also pass data to the output neurons and get it back from the input (Why? I don't know, but it can be semi-interesting)
 ```python
-new_data = ai.predict(data, reverse=True)
-new_data = ai.predict(new_data)
-
+temp_data = ai.predict(data, reverse=True)
+new_data = ai.predict(temp_data)
 # new_data == data
 ```
 
