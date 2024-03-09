@@ -1,3 +1,5 @@
+import numpy as np
+
 from .Code_My_AI import AI
 from typing import List, Optional, Dict, Tuple, Callable
 from numpy import ndarray
@@ -61,7 +63,7 @@ class AI_ensemble(AI):
         input_data: List[float],
         reverse: bool = False,
         _return_answers: bool = False,
-    ) -> List[ndarray]:
+    ) -> [np.matrix]:
         """Тот же start_work, но возвращаем предсказание от каждой ИИшки \n
         P.s. Этот метод может быть использован только пользователем, т.е.
         контретно этот метод не вызывается внутри библиотеки

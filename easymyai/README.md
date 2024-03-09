@@ -183,6 +183,10 @@ predict = ai.q_predict(ai_state)
 
 > recce_mode: "Explore the environment" mode (constantly choose random action)
 
+> rounding: How much do we round off the state for the Q-table (this is necessary in order to classify (group) some period of data and train AI to make a specific choice on this data grapple, and it was possible to train on fractional data)
+> 
+> rounding=0.1: 0.333333333 -> '0.3'; rounding=10: 123,456 -> 120
+
 > Learning methods (value of learning_method determines):
 > - 1: "Correct" answer is chosen as the one with the maximum reward, and a maximum value of the activation function is placed in the position of the action (leading to the best answer), and a minimum activation function is placed in the other positions P.s. This is not very good because it ignores other options that bring either the same or slightly less reward (and only one "correct" option is selected). BUT IT WORKS WELL, WHEN YOU HAVE ONLY 1 CORRECT ANSWER IN THE TASK, AND THERE CANNOT BE "MORE" AND "LESS" CORRECT ONES
 > - 2: Make answers with higher rewards more "correct". The fractional part of the number indicates to what power we should raise the "striving for better results" (FOR EXAMPLE: 2.3 means that we use learning method 2 and raise "striving for better results" to the power of 3 (2.345 means the power will be 3.45))

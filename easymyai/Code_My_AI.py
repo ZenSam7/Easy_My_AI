@@ -122,7 +122,7 @@ class AI:
         self.actions: Tuple[str] = ()
         self.__gamma: float = 0
         self.__epsilon: float = 0
-        self.__q_alpha: float = 0.1
+        self.__q_alpha: float = 0.5
         self._func_update_q_table: Callable = self.kit_upd_q_table.standart
 
         # Будем ли совершить случайные действия во время обучения (для "исследования" мира)
@@ -223,7 +223,7 @@ class AI:
             input_data: List[float],
             reverse: bool = False,
             _return_answers: bool = False,
-    ) -> (np.ndarray, Optional[List[np.ndarray]]):
+    ) -> np.matrix:
         """Возвращает результат работы нейронки, из входных данных
         reverse: Если True, то мы будем идти от выхода к входу, и подавать
         надо данные, соразмерные выходному вектору"""
@@ -233,7 +233,6 @@ class AI:
         if ((not reverse) and result_layer.shape[0] != self.weights[0].shape[0]) or (
                 reverse and result_layer.shape[0] != self.weights[-1].shape[1]
         ):
-            print(self.weights[-1].shape[1] != result_layer.shape[0])
             name = "выходных" if reverse else "входных"
             raise ImpossibleContinue(
                 f"Размерность входных данных не совпадает с количеством {name} нейронов у ИИшки"
@@ -458,6 +457,7 @@ class AI:
             squared_error: bool = False,
             use_Adam: bool = True,
             recce_mode: bool = False,
+            rounding: float = 0.1
     ):
         """
         ИИ используется как предсказатель правильных действий\n
@@ -465,6 +465,11 @@ class AI:
         -------------------------- \n
 
         recce_mode: Режим "исследования окружающей среды" (постоянно выбирать случайное действие)
+
+        rounding: На сколько округляем состояние, для Q-таблицы (это надо чтобы классифицировать (сгруппировать)
+        какой-то промежуток данных и на этой греппе данных обучать ИИ делать конкрентный выбор, и на дробных
+        данных можно было обучаться)
+        rounding=0.1: 0.333333333 -> '0.3'; rounding=10: 123,456 -> 120
 
         -------------------------- \n
 
@@ -499,6 +504,8 @@ class AI:
 
         # (не забываем что мы на 1 шаг в прошлом)
         state_now = state
+        # Округляем
+        state_now = [round(x, int(-np.log10(rounding))) for x in state_now]
 
         # Добовляем новые состояния в Q-таблицу
         last_state_str = str(self.last_state)
