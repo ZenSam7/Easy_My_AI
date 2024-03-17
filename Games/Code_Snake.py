@@ -116,9 +116,10 @@ class Snake:
         # Если змея заполонила весь экран, то мы выиграли
         elif (
             len(self.snake_body) ==
-            self.window_height_cells * self.window_width_cells - self.amount_food
+            self.window_height_cells * self.window_width_cells - self.amount_food - 2
         ):
-            return self.game_over()
+            self.game_over()
+            return self.win_reward
 
         # Столкновение с едой
         elif head in self.food_coords:
@@ -300,22 +301,79 @@ class Snake:
         data = sum(data, [])
         return data
 
-    def get_future_state(self, where_want_move):
-        snake_body = self.snake_body.copy()
-        food_coords = self.food_coords.copy()
-        score, generation, num_steps = self.score, self.generation, self.num_steps
+    def get_ranges_to_blocks(self):
+        """Возвращаем расстояние до блоков (отрицательное == стена, положительное == еда, 0 == тело)"""
+        head = self.snake_body[-1]
+        ranges = [None, None, None, None]  # left, right, up, down
+        neck = self.snake_body[-2]
 
-        self.move_snake(where_want_move)
-        # # Надо, чтобы лишний раз не выщывалась функция game_over_function()
-        # self.ignore_game_over = True
+        # Смотрим Влево
+        x = head[0]-1
+        for x in range(x, -2, -1):
+            if [x, head[1]] in self.snake_body:
+                # Добавляем расстояние, а не координаты
+                ranges[0] = -1*abs(x - head[0])
+                break
+            elif [x, head[1]] in self.food_coords:
+                # Добавляем расстояние, а не координаты
+                ranges[0] = abs(x - head[0])
+                break
+        else:
+            ranges[0] = -1*abs(x - head[0])
 
-        self.collision()
-        future_state = self.get_blocks(self.visibility_range)
+        # Смотрим Вправо
+        x = head[0]+1
+        for x in range(x, self.window_width_cells+1):
+            if [x, head[1]] in self.snake_body:
+                # Добавляем расстояние, а не координаты
+                ranges[1] = -1*abs(x - head[0])
+                break
+            elif [x, head[1]] in self.food_coords:
+                # Добавляем расстояние, а не координаты
+                ranges[1] = abs(x - head[0])
+                break
+        else:
+            ranges[1] = -1*abs(x - head[0])
 
-        self.snake_body, self.food_coords = snake_body, food_coords
-        self.score, self.generation, self.num_steps = score, generation, num_steps
+        # Смотрим Вверх
+        y = head[1]-1
+        for y in range(y, -2, -1):
+            if [head[0], y] in self.snake_body:
+                # Добавляем расстояние, а не координаты
+                ranges[2] = -1 * abs(y - head[1])
+                break
+            elif [head[0], y] in self.food_coords:
+                # Добавляем расстояние, а не координаты
+                ranges[2] = abs(y - head[1])
+                break
+        else:
+            ranges[2] = -1*abs(y - head[1])
 
-        return future_state
+        # Смотрим Вниз
+        y = head[1]+1
+        for y in range(y, self.window_height_cells+1):
+            if [head[0], y] in self.snake_body:
+                # Добавляем расстояние, а не координаты
+                ranges[3] = -1 * abs(y - head[1])
+                break
+            elif [head[0], y] in self.food_coords:
+                # Добавляем расстояние, а не координаты
+                ranges[3] = abs(y - head[1])
+                break
+        else:
+            ranges[3] = -1*abs(y - head[1])
+
+        # Определяем тело
+        if neck[0] - 1 == head[0]:
+            ranges[1] = 0  # Справа шея
+        elif neck[0] + 1 == head[0]:
+            ranges[0] = 0  # Слева шея
+        elif neck[1] - 1 == head[1]:
+            ranges[3] = 0  # Снизу шея
+        elif neck[1] + 1 == head[1]:
+            ranges[2] = 0  # Справа шея
+
+        return ranges
 
     def get_max_mean_score(self):
         try:

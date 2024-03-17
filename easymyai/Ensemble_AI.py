@@ -119,7 +119,7 @@ class AI_ensemble(AI):
         (Если не передать имя, то сохранит ИИшку под именем, заданным при создании,
         если передать имя, то сохранит именно под этим)"""
 
-        ensemble_name = self.ensemble_name if ai_name is None else ai_name
+        ensemble_name = ai_name or self.ensemble_name
 
         # Если нет папки для ансамбля, то создаём её
         if not (ensemble_name in os.listdir(f"{self.save_dir}")):
@@ -148,7 +148,7 @@ class AI_ensemble(AI):
         (Если не передать имя, то загрузит сохранение текущей ИИшки,
         если передать имя, то загрузит чужое сохранение)"""
 
-        ensemble_name = self.ensemble_name if ai_name is None else ai_name
+        ensemble_name = ai_name or self.ensemble_name
 
         # Чтоб не повторяться
         def loading():
@@ -169,7 +169,7 @@ class AI_ensemble(AI):
         (Если не передать имя, то удалит сохранение текущей ИИшки,
         если передать имя, то удалит другое сохранение)"""
 
-        ensemble_name = self.ensemble_name if ai_name is None else ai_name
+        ensemble_name = ai_name or self.ensemble_name
 
         try:
             for save in os.listdir(f"{self.save_dir}/{ensemble_name}"):

@@ -128,8 +128,10 @@ class AI:
         # Будем ли совершить случайные действия во время обучения (для "исследования" мира)
         self.recce_mode: bool = False
 
-        self.name: str = name if name else str(np.random.randint(2 ** 31))
+        self.name: str = name or str(np.random.randint(2 ** 31))
         self.save_dir = save_dir
+
+        self.short_ways = {}
 
         # Все аргументы из kwargs размещаем каждый в свою переменную
         for item, value in kwargs.items():
@@ -324,6 +326,9 @@ class AI:
         self._packet_delta_weight.clear()
         self._packet_layer_answers.clear()
 
+        # Хеш таблица, в которой под соответствующим индексом сохраняем градиент
+        gradients_in_layers = dict((i, 0) for i in self.short_ways.values())
+
         # Совершаем всю магию здесь
         for i in range(len(self.weights) - 1, -1, -1):
             # Превращаем векторы в матрицу
@@ -338,6 +343,13 @@ class AI:
                 gradient = np.multiply(delta_weight, self.end_act_func(l_a.dot(weight) + bias, True))
             else:
                 gradient = np.multiply(delta_weight, self.what_act_func(l_a.dot(weight) + bias, True))
+
+            # Остаточное обучение (прибавляем градиент от слоя который уже прошли)
+            # (Это надо чтобы не затухал градиент)
+            if i in gradients_in_layers:
+                gradients_in_layers[i] = gradient
+            if i in self.short_ways:
+                gradient += gradients_in_layers[self.short_ways[i]]
 
             # L1 и L2 регуляризация
             if self.__l1 or self.__l2:
@@ -504,7 +516,7 @@ class AI:
 
         # (не забываем что мы на 1 шаг в прошлом)
         state_now = state
-        # Округляем
+        # Округляем состояние для Q-таблицы
         state_now = [round(x, int(-np.log10(rounding))) for x in state_now]
 
         # Добовляем новые состояния в Q-таблицу
@@ -590,6 +602,21 @@ class AI:
         self.last_state = state_now
         self.last_reward = reward_for_state
 
+    def make_short_ways(self, *indexes: Tuple[int, int]):
+        """Создаём \"короткие пути\" для Остаточного обучения
+        (с какого на какой индекс переносим градиенты)
+
+         НАПРИМЕР: ai.make_short_ways((1, 3), (5, 7))
+        ОЗНАЧАЕТ: градиент с 7ого слоя весов сложить с градиентом на 5м слое весов,
+        градиент с 3ого слоя весов сложить с градиентом на 1м слое весов"""
+        self.short_ways = dict(list(i) for i in indexes)
+
+        for i in indexes:
+            if self.weights[i[0]].shape[1] != self.weights[i[1]].shape[1]:
+                raise ImpossibleContinue(f"Слои весов по индексами {i[0]} и {i[1]} "
+                                         f"должны иметь одинаковое количество нейронов, "
+                                         f"но имеют: {self.weights[i[0]].shape[1]} и {self.weights[i[1]].shape[1]}")
+
     def check_ai(self):
         """Проверяем Q-таблицу и веса в нейронке на наличие аномальных значений"""
         if not self.auto_check_ai:
@@ -644,7 +671,7 @@ class AI:
 
         (Если не передать имя, то сохранит ИИшку под именем, заданным при создании,
         если передать имя, то сохранит именно под этим)"""
-        name_ai = self.name if ai_name is None else ai_name
+        name_ai = ai_name or self.name
 
         # Если нет папки для ансамбля, то создаём её
         if not (self.save_dir in listdir(".")):
@@ -668,6 +695,8 @@ class AI:
         ai_data["name"] = name_ai.split("/")[-1]
 
         ai_data["architecture"] = self.architecture
+        ai_data["short_ways"] = self.short_ways
+
         ai_data["have_bias"] = self.have_bias
         ai_data["actions"] = self.actions
 
@@ -719,7 +748,9 @@ class AI:
 
             self.weights = [np.array(i) for i in ai_data["weights"]]
             self.biases = [np.array(i) for i in ai_data["biases"]]
+
             self.architecture = ai_data["architecture"]
+            self.short_ways = ai_data["short_ways"]
             self.have_bias = ai_data["have_bias"]
 
             self.disabled_neurons = ai_data["disabled_neurons"]
@@ -758,7 +789,7 @@ class AI:
 
         (Если не передать имя, то удалит сохранение текущей ИИшки,
         если передать имя, то удалит другое сохранение)"""
-        name_ai = self.name if ai_name is None else ai_name
+        name_ai = ai_name or self.name
 
         try:
             remove(f"Saves AIs/{name_ai}.json")

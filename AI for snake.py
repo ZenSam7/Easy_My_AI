@@ -6,25 +6,27 @@ start = time()
 
 # Создаём Змейку
 snake = Snake(7, 5, amount_food=1, amount_walls=0,
-              max_steps=60, display_game=True,
-              dead_reward=-400, win_reward=200, cell_size=120)
+              max_steps=60, display_game=False,
+              dead_reward=-400, win_reward=100, cell_size=120)
 
 # Создаём ансамбль ИИ
-ai = AI_ensemble(3, architecture=[9, 100, 100, 100, 100, 100, 4], add_bias_neuron=True, name="Snake_large")
+ai = AI_ensemble(1, architecture=[4, 51, 52, 50, 54, 55, 56, 57, 50, 4],
+                 add_bias_neuron=True, name="Snake_XXXL")
+ai.make_short_ways((2, 7))
 
 ai.end_act_func = ai.kit_act_func.softmax
 
 ai.make_all_for_q_learning(("left", "right", "up", "down"),
-                           ai.kit_upd_q_table.future,
+                           ai.kit_upd_q_table.standart,
                            gamma=.6, epsilon=.0, q_alpha=.1)
 
-ai.load()
+# ai.load()
 ai.print_parameters()
 
-ai.alpha = 1e-3
+ai.alpha = 4e-4
 
-ai.impulse1 = 0.8
-ai.impulse2 = 0.9
+ai.impulse1 = 0.65
+ai.impulse2 = 0.95
 
 
 learn_iteration: int = 0
@@ -45,8 +47,9 @@ while 1:
         start = time()
         ai.update(check_ai=True)
 
-    # Записываем данные в ответ
-    data = snake.get_blocks(3)
+    # Записываем данные которые видит Змейка
+    # data = snake.get_blocks(5)
+    data = snake.get_ranges_to_blocks()
 
     action = ai.q_predict(data)
     reward = snake.step(action)
