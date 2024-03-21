@@ -10,7 +10,7 @@ snake = Snake(7, 5, amount_food=1, amount_walls=0,
               dead_reward=-100, win_reward=100, cell_size=120)
 
 # Создаём ансамбль ИИ
-ai = AI_ensemble(1, architecture=[9, 100, 100, 100,  4],
+ai = AI_ensemble(5, architecture=[9, 100, 100, 100,  4],
                  add_bias_neuron=True, name="Snake")
 # ai.make_short_ways((1, 4), (3, 6))
 
