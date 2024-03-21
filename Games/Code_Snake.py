@@ -265,7 +265,7 @@ class Snake:
         if self.num_steps > self.max_steps:
             return self.game_over()
 
-        return reward if reward else 0
+        return reward or 0
 
     def get_blocks(self, visibility_range=3):
         """Возвращаем visibility_range ^2 значений, описывающие состояние клетки вокруг головы змеи

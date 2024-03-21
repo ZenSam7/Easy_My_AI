@@ -40,7 +40,7 @@ class AI_ensemble(AI):
         )
 
         for item_name in funcs_only_in_AI:
-            if not item_name.startswith("__"):
+            if item_name[:2] != "__":
                 self.__dict__[item_name] = self._for_all_ais(item_name)
 
     def __getattr__(self, item):

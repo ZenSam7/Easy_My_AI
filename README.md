@@ -25,6 +25,9 @@ ai = AI_ensemble(amount_ais=10, architecture=[10, 50, 50, 1],
                       add_bias_neuron=True,
                       name="First_AI")
 
+# Остаточное обучение (переносим градиент с 3 слоя весов а 2)
+ai.make_short_ways((2, 3))
+
 # Устанавливаем коэффициенты
 ai.alpha = 1e-3  # Скорость обучения
 ai.batch_size = 10  # Размер батча

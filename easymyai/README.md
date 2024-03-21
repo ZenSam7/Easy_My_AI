@@ -18,10 +18,14 @@ from simplemyai import AI_ensemble, AI
 ai = AI(architecture=[10, 50, 50, 1],
         add_bias=True,
         name="First_AI")
+
 # Or you can create an ensemble
 ai = AI_ensemble(amount_ais=10, architecture=[10, 50, 50, 1],
                       add_bias_neuron=True,
                       name="First_AI")
+
+# Residual learning (transferring the gradient from 3 layers of weights and 2)
+ai.make_short_ways((2, 3))
 
 # Set coefficients
 ai.alpha = 1e-3  # Learning rate
