@@ -33,10 +33,14 @@ class AI_ensemble(AI):
         self.q_table = self.ais[0].q_table
 
         # Декорируем все методы кроме переопределённых
+        vars_in_AI = []
+        for v in AI().__dict__:
+            if not callable(getattr(AI(), v)):
+                vars_in_AI.append(v)
         funcs_only_in_AI = (
-            set(getmembers(AI)[4][1])  # Что объявляли в AI
-            - set(getmembers(AI_ensemble)[4][1])  # Что объявляли в AI_ensemble
-            - set(vars(AI)["__annotations__"])  # Переменные
+            set(getmembers(AI)[5][1])  # Что объявляли в AI
+            - set(getmembers(AI_ensemble)[5][1])  # Что объявляли в AI_ensemble
+            - set(vars_in_AI)  # Переменные
         )
 
         for item_name in funcs_only_in_AI:
@@ -202,7 +206,7 @@ class AI_ensemble(AI):
             f"{self.ais[0].architecture}",
             end=" ",
         )
-        if self.ais[0].have_bias:
+        if self.ais[0]._AI__have_bias:
             print("+ нейрон смещения")
 
         print("Всего параметров:", parameters_ai * len(self.ais))
