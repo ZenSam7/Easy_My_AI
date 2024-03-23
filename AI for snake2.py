@@ -11,8 +11,8 @@ snake = Snake(7, 5, amount_food=1, amount_walls=0,
 
 # Создаём ансамбль ИИ
 ai = AI_ensemble(1, architecture=[4, 50, 50, 50, 50, 50, 50, 50, 4],
-                 add_bias_neuron=True, name="Snake")
-# ai.make_short_ways((0, 1), (1, 2), (3, 4), (5, 6))
+                 add_bias_neuron=True, name="Snake2")
+# ai.make_short_ways((0, 6))
 
 ai.end_act_func = ai.kit_act_func.softmax
 

@@ -131,7 +131,9 @@ class AI:
         self.name: str = name or str(np.random.randint(2 ** 31))
         self.save_dir = save_dir
 
+        # Для Остаточного обучения
         self.short_ways = {}
+        self.short_ways_reverse = {}
 
         # Все аргументы из kwargs размещаем каждый в свою переменную
         for item, value in kwargs.items():
@@ -251,7 +253,7 @@ class AI:
 
             layer_count += 1
 
-            if _return_answers:
+            if _return_answers or self.short_ways:
                 ans = np.append(result_layer, 1) if self.have_bias else result_layer
 
                 list_answers.append(ans)
@@ -301,38 +303,40 @@ class AI:
         ai_answer, answers = self.predict(input_data, _return_answers=True)
 
         # На сколько должны суммарно изменить веса
-        delta_weight: np.ndarray = ai_answer - answer
+        gradient: np.ndarray = ai_answer - answer
         if squared_error:  # Возводим в квадрат с сохранением знака
-            delta_weight = np.power(delta_weight, 2) * sign(delta_weight)
+            gradient = np.power(gradient, 2) * sign(gradient)
 
         # Реализуем batch_size
-        if len(self._packet_delta_weight) != self.__batch_size:
-            # Добавляем ошибки (дельту) с выхода и ответы от слоёв
-            self._packet_delta_weight.append(delta_weight)
-            self._packet_layer_answers.append(answers)
-            return
+        if self.__batch_size != 1:
+            if len(self._packet_delta_weight) != self.__batch_size:
+                # Добавляем ошибки (дельту) с выхода и ответы от слоёв
+                self._packet_delta_weight.append(gradient)
+                self._packet_layer_answers.append(answers)
+                return
 
-        # Когда набрали нужное количество складываем все ошибки
-        delta_weight = np.sum(self._packet_delta_weight, axis=0)
+            # Когда набрали нужное количество складываем все ошибки
+            gradient = np.sum(self._packet_delta_weight, axis=0)
 
-        # Отдельно складываем ответы от слоёв (т.к. это список векторов)
-        answers = [l_ans for l_ans in self._packet_layer_answers[0]]
-        for layer_index in range(len(self._packet_layer_answers[0])):
-            # Складываем слои отдельно
-            for list_answers in self._packet_layer_answers[1:]:
-                # Первые ответы уже есть
-                answers[layer_index] += list_answers[layer_index]
+            # Отдельно складываем ответы от слоёв (т.к. это список векторов)
+            answers = [l_ans for l_ans in self._packet_layer_answers[0]]
+            for layer_index in range(len(self._packet_layer_answers[0])):
+                # Складываем слои отдельно
+                for list_answers in self._packet_layer_answers[1:]:
+                    # Первые ответы уже есть
+                    answers[layer_index] += list_answers[layer_index]
 
-        self._packet_delta_weight.clear()
-        self._packet_layer_answers.clear()
+            self._packet_delta_weight.clear()
+            self._packet_layer_answers.clear()
 
         # Хеш таблица, в которой под соответствующим индексом сохраняем градиент
+        # (для Остаточного обучения)
         gradients_in_layers = dict((i, 0) for i in self.short_ways.values())
 
         # Совершаем всю магию здесь
         for i in range(len(self.weights) - 1, -1, -1):
             # Превращаем векторы в матрицу
-            delta_weight = np.matrix(delta_weight)
+            gradient = np.matrix(gradient)
             layer_answer = np.matrix(answers[i])
             weight = self.weights[i]
             bias = self.biases[i]
@@ -340,16 +344,18 @@ class AI:
             # Градиентный спуск ∆⊙𝑓′(𝑧)
             l_a = layer_answer[:, :-1] if self.have_bias else layer_answer
             if i == len(self.weights) - 1:
-                gradient = np.multiply(delta_weight, self.end_act_func(l_a.dot(weight) + bias, True))
+                gradient = np.multiply(gradient, self.end_act_func(l_a.dot(weight) + bias, True))
             else:
-                gradient = np.multiply(delta_weight, self.what_act_func(l_a.dot(weight) + bias, True))
+                gradient = np.multiply(gradient, self.what_act_func(l_a.dot(weight) + bias, True))
 
             # Остаточное обучение (прибавляем градиент от слоя который уже прошли)
-            # (Это надо чтобы не затухал градиент)
-            if i in gradients_in_layers:
-                gradients_in_layers[i] = gradient
-            if i in self.short_ways:
-                gradient += gradients_in_layers[self.short_ways[i]]
+            # (Это надо чтобы не затухал градиент И чтобы некоторые слои нейронки
+            # предскзывали ИЗМЕНЕНИЕ значений, а не сами значения)
+            if self.short_ways:  # Используем ли мы вообще Остатоное обучение?
+                if i in gradients_in_layers:
+                    gradients_in_layers[i] = gradient
+                if i in self.short_ways:
+                    gradient += gradients_in_layers[self.short_ways[i]]
 
             # L1 и L2 регуляризация
             if self.__l1 or self.__l2:
@@ -398,7 +404,7 @@ class AI:
                 self.biases[i] -= self.__alpha * gradient  # np.multiply(gradient, np.abs(bias)) if self.have_bias else 0
 
             # Переносим градиент на другой слой
-            delta_weight = delta_weight.dot(weight.T)
+            gradient = gradient.dot(weight.T)
 
     def q_predict(
             self, input_data: List[float], _return_index_act: bool = False
@@ -609,7 +615,8 @@ class AI:
          НАПРИМЕР: ai.make_short_ways((1, 3), (5, 7))
         ОЗНАЧАЕТ: градиент с 7ого слоя весов сложить с градиентом на 5м слое весов,
         градиент с 3ого слоя весов сложить с градиентом на 1м слое весов"""
-        self.short_ways = dict(list(i) for i in indexes)
+        self.short_ways = dict(sorted(list(i)) for i in indexes)
+        self.short_ways_reverse = dict(sorted(list(i), reverse=True) for i in indexes)
 
         for i in indexes:
             if self.weights[i[0]].shape[1] != self.weights[i[1]].shape[1]:
@@ -696,6 +703,7 @@ class AI:
 
         ai_data["architecture"] = self.architecture
         ai_data["short_ways"] = self.short_ways
+        ai_data["short_ways_reverse"] = self.short_ways_reverse
 
         ai_data["have_bias"] = self.have_bias
         ai_data["actions"] = self.actions
@@ -751,6 +759,7 @@ class AI:
 
             self.architecture = ai_data["architecture"]
             self.short_ways = ai_data["short_ways"]
+            self.short_ways_reverse = ai_data["short_ways_reverse"]
             self.have_bias = ai_data["have_bias"]
 
             self.disabled_neurons = ai_data["disabled_neurons"]
