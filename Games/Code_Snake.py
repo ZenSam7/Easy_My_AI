@@ -12,7 +12,7 @@ class Snake:
         width_cells: int,
         height_cells: int,
         amount_food: int,
-        amount_walls: int,
+        amount_walls: int = 0,
         cell_size: int = 100,
         max_steps: int = 100,
         display_game: bool = False,
@@ -130,6 +130,8 @@ class Snake:
             self.spawn_food(1)
 
             return self.win_reward
+
+        return 0
 
     def spawn_food(self, num_foods):
         """Создаём еду"""

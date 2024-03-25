@@ -29,7 +29,7 @@ model = keras.Sequential([
 ])
 
 model.compile(
-        optimizer= tf.keras.optimizers.SGD(1e-3),  # "adam",
+        optimizer=tf.keras.optimizers.SGD(1e-3),  # "adam",
         loss="mean_absolute_error",
 )
 model.build((1, 9))
@@ -39,6 +39,7 @@ model.summary()
 """
        ДЛЯ ЗМЕЙКИ ИСПОЛЬЗОВАТЬ TF ВМЕСТО МОЕЙ БИБЛИОТЕКИ БЕССМЫСЛЕННО (да и для любых других простых задач)
                                т.к. рабоатет СИЛЬНО дольше, да и Q-обучения нету
+              (его нет потому что этот метод обучения нельзя оптимизировать и выполнять на gpu)
 """
 
 learn_iteration: int = 0
@@ -49,7 +50,7 @@ while 1:
     reward = 0
 
     if learn_iteration % 500 == 0:
-        # Выводим максимальный и средний счёт змейки за 50_000 шагов
+        # Выводим максимальный и средний счёт змейки за 500 шагов
         max, mean = snake.get_max_mean_score()
         print(
             learn_iteration,
@@ -70,7 +71,7 @@ while 1:
     q_table.setdefault(state, [0, 0, 0, 0])
 
     # Формируем ответ
-    answer = [-1, -1, -1, -1]
+    answer = [0, 0, 0, 0]
     answer[np.argmax(q_table[state])] = 1
 
     # Обновляем Q-таблицу

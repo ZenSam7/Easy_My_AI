@@ -2,58 +2,35 @@ from easymyai import AI_ensemble, AI
 from Games import Snake
 from time import time
 
-start = time()
-
 # Создаём Змейку
-snake = Snake(7, 5, amount_food=1, amount_walls=0,
-              max_steps=50, display_game=False,
-              dead_reward=-10, win_reward=10, cell_size=120)
+snake = Snake(9, 5, amount_food=1, amount_walls=0,
+              max_steps=100, display_game=True, cell_size=120)
 
-# Создаём ансамбль ИИ
-ai = AI_ensemble(1, architecture=[4, 50, 50, 50, 50, 50, 50, 50, 4],
-                 add_bias_neuron=True, name="Snake")
-# ai.make_short_ways((0, 1), (1, 2), (3, 4), (5, 6))
-
-ai.end_act_func = ai.kit_act_func.softmax
-
-ai.make_all_for_q_learning(("left", "right", "up", "down"),
-                           ai.kit_upd_q_table.standart,
-                           gamma=.6, epsilon=.0, q_alpha=.1)
-
-# ai.load()
+# Загружаем лучшую нейронку
+ai = AI_ensemble(1)
+ai.load("")
 ai.print_parameters()
 
-ai.alpha = 2e-3
 
-ai.impulse1 = 0.7
-ai.impulse2 = 0.9
-
-
-learn_iteration: int = 0
+start_time, learn_iteration = time(), 0
 while 1:
     learn_iteration += 1
-    reward = 0
 
     if learn_iteration % 50_000 == 0:
         # Выводим максимальный и средний счёт змейки за 50_000 шагов
         max, mean = snake.get_max_mean_score()
         print(
-            # str(learn_iteration//1000)+"_000",
+            str(learn_iteration//1000)+"_000",
             "\t\tMax:", max,
             "\t\tMean:", round(mean, 1),
-            "\t\t", int(time() - start), "s",
+            "\t\t", int(time() - start_time), "s",
             "\t\tAmount States:", len(ai.q_table.keys()),
         )
-        start = time()
-        ai.update(check_ai=True)
+        start_time = time()
 
     # Записываем данные которые видит Змейка
-    # data = snake.get_blocks(3)
-    data = snake.get_ranges_to_blocks()
+    data = snake.get_blocks(3)
+    # data = snake.get_ranges_to_blocks()
 
     action = ai.q_predict(data)
-    reward = snake.step(action)
-
-    # Обучаем
-    ai.q_learning(data, reward, learning_method=1,
-                  squared_error=False, use_Adam=False)
+    snake.step(action)

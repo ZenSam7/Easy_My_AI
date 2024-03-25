@@ -1,3 +1,4 @@
+
 from easymyai import AI_ensemble, AI
 from Games import Snake
 from time import time
@@ -5,25 +6,24 @@ from time import time
 start = time()
 
 # Создаём Змейку
-snake = Snake(7, 5, amount_food=1, amount_walls=0,
-              max_steps=50, display_game=False,
-              dead_reward=-10, win_reward=10, cell_size=120)
+snake = Snake(9, 5, amount_food=1, amount_walls=0,
+              max_steps=100, display_game=False,
+              dead_reward=-10, win_reward=20, cell_size=120)
 
 # Создаём ансамбль ИИ
-ai = AI_ensemble(1, architecture=[4, 50, 50, 50, 50, 50, 50, 50, 4],
-                 add_bias_neuron=True, name="Snake2")
-# ai.make_short_ways((0, 6))
+ai = AI_ensemble(3, architecture=[9, 100, 100, 100, 4],
+                 add_bias_neuron=True, name="Snake1")
 
 ai.end_act_func = ai.kit_act_func.softmax
 
 ai.make_all_for_q_learning(("left", "right", "up", "down"),
-                           ai.kit_upd_q_table.standart,
-                           gamma=.6, epsilon=.0, q_alpha=.1)
+                           ai.kit_upd_q_table.future,
+                           gamma=.6, epsilon=.01, q_alpha=.1)
 
 # ai.load()
 ai.print_parameters()
 
-ai.alpha = 2e-3
+ai.alpha = 1e-3
 
 ai.impulse1 = 0.7
 ai.impulse2 = 0.9
@@ -47,9 +47,13 @@ while 1:
         start = time()
         ai.update(check_ai=True)
 
+        if mean > 17:
+            print("ЛУЧШАЯ ЗМЕЙКА!!!!!!")
+            exit()
+
     # Записываем данные которые видит Змейка
-    # data = snake.get_blocks(3)
-    data = snake.get_ranges_to_blocks()
+    data = snake.get_blocks(3)
+    # data = snake.get_ranges_to_blocks()
 
     action = ai.q_predict(data)
     reward = snake.step(action)

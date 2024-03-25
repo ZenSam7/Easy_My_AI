@@ -156,6 +156,14 @@ class AI_ensemble(AI):
                 ai.save_dir = self.save_dir
                 ai.load(f"{ensemble_name}/{ai.name}")
 
+            # Вместо того чтобы у каждой ИИшки была одинаковая Q-таблица, можно
+            # просто использовать одну единую для всех
+            for ai in self.ais:
+                ai.q_table = self.ais[0].q_table
+                ai.actions = self.ais[0].actions
+            self.q_table = self.ais[0].q_table
+            self.actions = self.ais[0]
+
         # Загружаем ансамбль ЛЮБОЙ ценой
         try:
             loading()
