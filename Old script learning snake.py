@@ -1,4 +1,3 @@
-
 from easymyai import AI_ensemble, AI
 from Games import Snake
 from time import time

@@ -1,10 +1,10 @@
 from easymyai import AI_ensemble
 from Games import Snake
-from multiprocessing import Process
+from multiprocessing import Process, Queue
+from multiprocessing.managers import BaseManager
 from time import time, sleep
 
 start_time = time()
-found_best_snake = False
 
 # Параметры, которые мы вставим во все скрипты
 snake_parameters = {
@@ -23,9 +23,6 @@ ais_parameters = {
     "architecture": [9, 100, 100, 100, 4],
     "visibility_range": 3,
 
-    # Когда ИИшка достигнет и превыситэтот порог, то останавливаем всё обучение
-    "threshold_mean_score": 1,
-
     "alpha": 1e-3,
     "impulse1": 0.7,
     "impulse2": 0.9,
@@ -42,7 +39,7 @@ ais_parameters = {
 }
 
 
-def script_learns(snake_parameters, ais_parameters):
+def script_learns(snake_parameters, ais_parameters, found_best_snake):
     # Создаём Змейку
     snake = Snake(snake_parameters["wight"], snake_parameters["height"],
                   amount_food=snake_parameters["amount_food"], max_steps=snake_parameters["max_steps"],
@@ -67,15 +64,16 @@ def script_learns(snake_parameters, ais_parameters):
         learn_iteration += 1
 
         # Выводим максимальный и средний счёт змейки за max_learn_iteration шагов
-        if learn_iteration % ais_parameters["max_learn_iteration"] == 0:
+        if learn_iteration == ais_parameters["max_learn_iteration"]:
             learn_iteration = 0
             _, mean = snake.get_max_mean_score()
 
+            # Лучшая Змейка найдена
             if mean > ais_parameters["threshold_mean_score"]:
                 print("ЛУЧШАЯ ЗМЕЙКА НАЙДЕНА!!!", mean)
                 ai.update(f"BEST_SNAKE_{round(mean, 1)}")
-                global found_best_snake
-                found_best_snake = True
+
+                found_best_snake.put(True)
 
         # Записываем данные которые видит Змейка
         data = snake.get_blocks(ais_parameters["visibility_range"])
@@ -94,23 +92,26 @@ if __name__ == "__main__":
     # Количество одновременно запущенных интерпретаторов (ограничивается количеством ядер)
     amount_ais_to_learning = 3
 
+    # Когда ИИшка достигнет и превысит этот порог, то останавливаем всё обучение
+    ais_parameters["threshold_mean_score"] = 1
+
+    found_best_snake = Queue()
     processes = []
     for i in range(amount_ais_to_learning):
+        print(f"Process {i} are started")
         process = Process(target=script_learns,
                           args=(snake_parameters,
-                                ais_parameters))
+                                ais_parameters,
+                                found_best_snake))
 
         process.start()
         processes.append(process)
 
-    # Когда ИИшка будет найдена, останавливаем обучение других
+    # Когда лучшая ИИшка будет найдена, останавливаем обучение других
     # (т.е. этот скрипт можно оставить на ночь и на утро будет готовая нейронка)
-    while not found_best_snake:
-        sleep(10)
-        print(found_best_snake)
-
-    for proc in processes:
-        proc.terminate()
+    if found_best_snake.get() is True:
+        for proc in processes:
+            proc.terminate()
 
     print(int(time() - start_time))
     exit()
