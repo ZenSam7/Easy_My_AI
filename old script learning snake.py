@@ -5,26 +5,27 @@ from time import time
 start = time()
 
 # Создаём Змейку
-snake = Snake(9, 5, amount_food=1, amount_walls=0,
+snake = Snake(7, 5, amount_food=1, amount_walls=0,
               max_steps=100, display_game=False,
-              dead_reward=-10, win_reward=20, cell_size=120)
+              dead_reward=-10, win_reward=10, cell_size=120)
 
 # Создаём ансамбль ИИ
-ai = AI_ensemble(3, architecture=[9, 100, 100, 100, 4],
+ai = AI_ensemble(3, architecture=[9, 100, 100, 100, 100, 4],
                  add_bias_neuron=True, name="Snake1")
 
 ai.end_act_func = ai.kit_act_func.softmax
 
 ai.make_all_for_q_learning(("left", "right", "up", "down"),
                            ai.kit_upd_q_table.future,
-                           gamma=.6, epsilon=.01, q_alpha=.1)
+                           gamma=.6, epsilon=.0, q_alpha=.1)
 
 # ai.load()
 ai.print_parameters()
 
 ai.alpha = 1e-3
 
-ai.impulse1 = 0.7
+
+ai.impulse1 = 0.8
 ai.impulse2 = 0.9
 
 
@@ -37,8 +38,7 @@ while 1:
         # Выводим максимальный и средний счёт змейки за 50_000 шагов
         max, mean = snake.get_max_mean_score()
         print(
-            # str(learn_iteration//1000)+"_000",
-            "\t\tMax:", max,
+            "Max:", max,
             "\t\tMean:", round(mean, 1),
             "\t\t", int(time() - start), "s",
             "\t\tAmount States:", len(ai.q_table.keys()),
@@ -59,4 +59,4 @@ while 1:
 
     # Обучаем
     ai.q_learning(data, reward, learning_method=1,
-                  squared_error=False, use_Adam=False)
+                  squared_error=False, use_Adam=True)

@@ -8,8 +8,8 @@ start_time = time()
 
 # Параметры, которые мы вставим во все скрипты
 snake_parameters = {
-    "wight": 9,
-    "height": 7,
+    "wight": 7,
+    "height": 5,
     "max_steps": 100,
 
     "dead_reward": -10,
@@ -21,19 +21,19 @@ snake_parameters = {
 ais_parameters = {
     "amount_ais": 3,
     "architecture": [9, 100, 100, 100, 4],
-    "visibility_range": 3,
 
     "alpha": 1e-3,
     "impulse1": 0.7,
     "impulse2": 0.9,
 
     "gamma": .6,
-    "epsilon": .01,
+    "epsilon": .0,
     "q_alpha": .1,
 
     "func_update_q_table": AI_ensemble(1).kit_upd_q_table.future,
     "max_learn_iteration": 50_000,
     "learning_method": 1,
+    "visibility_range": 3,
     "squared_error": False,
     "use_Adam": False,
 }
@@ -64,16 +64,26 @@ def script_learns(snake_parameters, ais_parameters, found_best_snake):
         learn_iteration += 1
 
         # Выводим максимальный и средний счёт змейки за max_learn_iteration шагов
-        if learn_iteration == ais_parameters["max_learn_iteration"]:
-            learn_iteration = 0
+        if learn_iteration % ais_parameters["max_learn_iteration"] == 0:
             _, mean = snake.get_max_mean_score()
 
             # Лучшая Змейка найдена
             if mean > ais_parameters["threshold_mean_score"]:
-                print("ЛУЧШАЯ ЗМЕЙКА НАЙДЕНА!!!", mean)
+                print("ЛУЧШАЯ ЗМЕЙКА НАЙДЕНА!!!", round(mean, 1))
                 ai.update(f"BEST_SNAKE_{round(mean, 1)}")
 
                 found_best_snake.put(True)
+
+            # Когда превысили порог шагов, пересоздаём нейронку
+            if learn_iteration % ais_parameters["num_steps_before_reset"] == 0:
+                learn_iteration = 0
+                for i in ai.ais:
+                    i.weights.clear()
+                    i.biases.clear()
+                    i._momentums.clear()
+                    i._velocities.clear()
+                ai.create_weights(ais_parameters["architecture"])
+                print("ИИшки пересозданы")
 
         # Записываем данные которые видит Змейка
         data = snake.get_blocks(ais_parameters["visibility_range"])
@@ -90,10 +100,13 @@ def script_learns(snake_parameters, ais_parameters, found_best_snake):
 # Создаём сразу много отдельных скриптов
 if __name__ == "__main__":
     # Количество одновременно запущенных интерпретаторов (ограничивается количеством ядер)
-    amount_ais_to_learning = 3
+    amount_ais_to_learning = 5
 
-    # Когда ИИшка достигнет и превысит этот порог, то останавливаем всё обучение
-    ais_parameters["threshold_mean_score"] = 1
+    # Когда ИИшка достигнет этот порог средних очков, то останавливаем всё обучение
+    ais_parameters["threshold_mean_score"] = 17
+
+    # Пересоздаём ИИшку каждые ... шагов
+    ais_parameters["num_steps_before_reset"] = 40 * ais_parameters["max_learn_iteration"]
 
     found_best_snake = Queue()
     processes = []
@@ -113,5 +126,5 @@ if __name__ == "__main__":
         for proc in processes:
             proc.terminate()
 
-    print(int(time() - start_time))
+    print(f"Прошло {int(time() - start_time)} с (это {int((time() - start_time)//60)} минут)")
     exit()
