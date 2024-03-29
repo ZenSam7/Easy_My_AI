@@ -39,6 +39,8 @@ ais_parameters = {
     "squared_error": False,
     "use_Adam": False,
 }
+# Оптимизируем параметры каждые ... шагов
+ais_parameters["num_steps_before_reset"] = 20 * ais_parameters["max_learn_iteration"]
 
 
 def script_learns(ais_parameters, snake_parameters):
@@ -125,27 +127,34 @@ def select_parameters(trial):
     return script_learns(ais_local_parameters, snake_local_parameters)
 
 
-# Создаём сразу много отдельных скриптов
-if __name__ == "__main__":
-    # Количество одновременно запущенных интерпретаторов (ограничивается количеством ядер)
-    amount_threads = 8
-
-    # Когда ИИшка достигнет этот порог средних очков, то сохраняем её
-    ais_parameters["threshold_mean_score"] = 16
-
-    # Оптимизируем параметры каждые ... шагов
-    ais_parameters["num_steps_before_reset"] = 20 * ais_parameters["max_learn_iteration"]
-
+def start_selecting_parameters(num_thread: int):
     # Загружаем историю Optuna (если есть)
     study = optuna.create_study(
-        study_name="Optuna_Saves\\AI_for_Snake", load_if_exists=True,
+        study_name=f"Optuna_Saves\\AI_for_Snake_{num_thread}", load_if_exists=True,
     )
 
     # Каждый запуск оптимизации параметров мы сохраняем историю
     while True:
-        study.optimize(select_parameters, n_trials=1, n_jobs=amount_threads)
+        study.optimize(select_parameters, n_trials=1)
 
         # Сохраняем историю Optuna
-        with open("Optuna_Saves\\AI_for_Snake.pkl", "wb") as fout:
+        with open(f"Optuna_Saves\\AI_for_Snake_{num_thread}.pkl", "wb") as fout:
             pickle.dump(study.sampler, fout)
         print(f"Прошло {int(time() - start_time)} секунд ({int((time() - start_time) // 60)} минут)")
+
+
+# Создаём сразу много отдельных скриптов
+if __name__ == "__main__":
+    # Количество одновременно запущенных интерпретаторов (ограничивается количеством ядер)
+    amount_threads = 5
+
+    # Когда ИИшка достигнет этот порог средних очков, то сохраняем её
+    ais_parameters["threshold_mean_score"] = 16
+
+    processes = []
+    for i in range(amount_threads):
+        print(f"Process {i} are started")
+
+        process = Process(target=start_selecting_parameters, args=(i,))
+        process.start()
+        processes.append(process)
