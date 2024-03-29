@@ -3,6 +3,8 @@ from Games import Snake
 from multiprocessing import Process, Queue
 from multiprocessing.managers import BaseManager
 from time import time, sleep
+import optuna
+import pickle
 
 start_time = time()
 
@@ -13,7 +15,7 @@ snake_parameters = {
     "max_steps": 100,
 
     "dead_reward": -10,
-    "win_reward":  20,
+    "win_reward":  10,
 
     "amount_food": 1,
 }
@@ -39,7 +41,9 @@ ais_parameters = {
 }
 
 
-def script_learns(snake_parameters, ais_parameters, found_best_snake):
+def script_learns(ais_parameters, snake_parameters):
+    """апускаем обучение одной нейронки, и возвращаем лечший средний счёт"""
+
     # Создаём Змейку
     snake = Snake(snake_parameters["wight"], snake_parameters["height"],
                   amount_food=snake_parameters["amount_food"], max_steps=snake_parameters["max_steps"],
@@ -60,30 +64,19 @@ def script_learns(snake_parameters, ais_parameters, found_best_snake):
     ai.impulse2 = ais_parameters["impulse2"]
 
     learn_iteration = 0
-    while True:
+    all_means_score = []
+    while learn_iteration < ais_parameters["num_steps_before_reset"]:
         learn_iteration += 1
 
         # Выводим максимальный и средний счёт змейки за max_learn_iteration шагов
         if learn_iteration % ais_parameters["max_learn_iteration"] == 0:
             _, mean = snake.get_max_mean_score()
+            all_means_score.append(mean)
 
             # Лучшая Змейка найдена
             if mean > ais_parameters["threshold_mean_score"]:
                 print("ЛУЧШАЯ ЗМЕЙКА НАЙДЕНА!!!", round(mean, 1))
                 ai.update(f"BEST_SNAKE_{round(mean, 1)}")
-
-                found_best_snake.put(True)
-
-            # Когда превысили порог шагов, пересоздаём нейронку
-            if learn_iteration % ais_parameters["num_steps_before_reset"] == 0:
-                learn_iteration = 0
-                for i in ai.ais:
-                    i.weights.clear()
-                    i.biases.clear()
-                    i._momentums.clear()
-                    i._velocities.clear()
-                ai.create_weights(ais_parameters["architecture"])
-                print("ИИшки пересозданы")
 
         # Записываем данные которые видит Змейка
         data = snake.get_blocks(ais_parameters["visibility_range"])
@@ -96,35 +89,63 @@ def script_learns(snake_parameters, ais_parameters, found_best_snake):
                       squared_error=ais_parameters["squared_error"],
                       use_Adam=ais_parameters["use_Adam"])
 
+    # Возвращаем лучший резальтат
+    return max(all_means_score)
+
+
+def select_parameters(trial):
+    """Подбираем гиперпараметры при помощи Optuna"""
+    ais_local_parameters = ais_parameters.copy()
+    snake_local_parameters = snake_parameters.copy()
+
+    """Создаём ИИшку"""
+    # Архитектура
+    depth = trial.suggest_int("depth", 2, 4)
+    widht = trial.suggest_int("width", 50, 200, step=50)
+    ais_local_parameters["architecture"] = [9] + [widht] * depth + [4]
+
+    # Коэффициенты
+    ais_local_parameters["alpha"] = trial.suggest_float("alpha", 5e-4, 5e-3, log=True)
+    ais_local_parameters["gamma"] = trial.suggest_float("gamma", 0, 0.9, step=0.1)
+    ais_local_parameters["epsilon"] = trial.suggest_categorical("epsilon", (0, 0.01))
+
+    # Остальное
+    ais_local_parameters["squared_error"] = trial.suggest_categorical("squared_error", (True, False))
+    ais_local_parameters["use_Adam"] = trial.suggest_categorical("use_Adam", (True, False))
+
+    name_func_update_q_table = trial.suggest_categorical("func_update_q_table",
+                                                         ("standart", "future"))
+    ais_local_parameters["func_update_q_table"] = getattr(AI_ensemble(1).kit_upd_q_table,
+                                                          name_func_update_q_table)
+
+    # Змейка
+    snake_local_parameters["dead_reward"] = trial.suggest_int("dead_reward", -20, -5, step=5)
+    snake_local_parameters["win_reward"] = trial.suggest_int("win_reward", 5, 20, step=5)
+
+    return script_learns(ais_local_parameters, snake_local_parameters)
+
 
 # Создаём сразу много отдельных скриптов
 if __name__ == "__main__":
     # Количество одновременно запущенных интерпретаторов (ограничивается количеством ядер)
-    amount_ais_to_learning = 5
+    amount_threads = 8
 
-    # Когда ИИшка достигнет этот порог средних очков, то останавливаем всё обучение
-    ais_parameters["threshold_mean_score"] = 17
+    # Когда ИИшка достигнет этот порог средних очков, то сохраняем её
+    ais_parameters["threshold_mean_score"] = 16
 
-    # Пересоздаём ИИшку каждые ... шагов
-    ais_parameters["num_steps_before_reset"] = 40 * ais_parameters["max_learn_iteration"]
+    # Оптимизируем параметры каждые ... шагов
+    ais_parameters["num_steps_before_reset"] = 20 * ais_parameters["max_learn_iteration"]
 
-    found_best_snake = Queue()
-    processes = []
-    for i in range(amount_ais_to_learning):
-        print(f"Process {i} are started")
-        process = Process(target=script_learns,
-                          args=(snake_parameters,
-                                ais_parameters,
-                                found_best_snake))
+    # Загружаем историю Optuna (если есть)
+    study = optuna.create_study(
+        study_name="Optuna_Saves\\AI_for_Snake", load_if_exists=True,
+    )
 
-        process.start()
-        processes.append(process)
+    # Каждый запуск оптимизации параметров мы сохраняем историю
+    while True:
+        study.optimize(select_parameters, n_trials=1, n_jobs=amount_threads)
 
-    # Когда лучшая ИИшка будет найдена, останавливаем обучение других
-    # (т.е. этот скрипт можно оставить на ночь и на утро будет готовая нейронка)
-    if found_best_snake.get() is True:
-        for proc in processes:
-            proc.terminate()
-
-    print(f"Прошло {int(time() - start_time)} с (это {int((time() - start_time)//60)} минут)")
-    exit()
+        # Сохраняем историю Optuna
+        with open("Optuna_Saves\\AI_for_Snake.pkl", "wb") as fout:
+            pickle.dump(study.sampler, fout)
+        print(f"Прошло {int(time() - start_time)} секунд ({int((time() - start_time) // 60)} минут)")

@@ -5,11 +5,11 @@ from Games import Snake
 # Создаём Змейку
 snake = Snake(snake_parameters["wight"], snake_parameters["height"],
               amount_food=snake_parameters["amount_food"], max_steps=snake_parameters["max_steps"],
-              display_game=False, cell_size=120)
+              display_game=True, cell_size=120)
 
 # Загружаем лучшую нейронку
 ai = AI_ensemble(1)
-ai.load("BEST_SNAKE_20.5")
+ai.load("Best_Snake")
 ai.print_parameters()
 
 
@@ -19,10 +19,9 @@ while 1:
 
     if learn_iteration % ais_parameters["max_learn_iteration"] == 0:
         # Выводим максимальный и средний счёт змейки за 50_000 шагов
-        max, mean = snake.get_max_mean_score()
+        _, mean = snake.get_max_mean_score()
         print(
-            str(learn_iteration//1000)+"_000",
-            "\t\tMax:", max,
+            str(learn_iteration//ais_parameters["max_learn_iteration"]),
             "\t\tMean:", round(mean, 1),
             "\t\tAmount States:", len(ai.q_table.keys()),
         )
