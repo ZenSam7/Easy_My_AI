@@ -121,7 +121,8 @@ class ActivationFunctions:
             result = np.exp(x) / np.sum(np.exp(x))
             return np.multiply(result, 1 - result)
 
-        return np.exp(x) / np.sum(np.exp(x))
+        exp = np.exp(x)
+        return exp / np.sum(exp)
 
     def tanh(self, x: np.ndarray, return_derivative: bool = False) -> np.ndarray:
         if return_derivative:

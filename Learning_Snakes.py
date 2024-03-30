@@ -40,7 +40,10 @@ ais_parameters = {
     "use_Adam": False,
 }
 # Оптимизируем параметры каждые ... шагов
-ais_parameters["num_steps_before_reset"] = 20 * ais_parameters["max_learn_iteration"]
+ais_parameters["num_steps_before_reset"] = 17 * ais_parameters["max_learn_iteration"]
+
+# Когда ИИшка достигнет этот порог средних очков, то сохраняем её
+ais_parameters["threshold_mean_score"] = 16
 
 
 def script_learns(ais_parameters, snake_parameters):
@@ -114,6 +117,8 @@ def select_parameters(trial):
     # Остальное
     ais_local_parameters["squared_error"] = trial.suggest_categorical("squared_error", (True, False))
     ais_local_parameters["use_Adam"] = trial.suggest_categorical("use_Adam", (True, False))
+    ais_local_parameters["impulse1"] = trial.suggest_float("impulse1", 0.5, 0.9, step=0.1)
+    ais_local_parameters["impulse2"] = trial.suggest_float("impulse2",  0.5, 0.9, step=0.1)
 
     name_func_update_q_table = trial.suggest_categorical("func_update_q_table",
                                                          ("standart", "future"))
@@ -129,8 +134,13 @@ def select_parameters(trial):
 
 def start_selecting_parameters(num_thread: int):
     # Загружаем историю Optuna (если есть)
+    try:
+        loaded_sampler = pickle.load(open(f"Optuna_Saves\\AI_for_Snake_{num_thread}.pkl", "rb"))
+    except FileNotFoundError:
+        loaded_sampler = None
     study = optuna.create_study(
-        study_name=f"Optuna_Saves\\AI_for_Snake_{num_thread}", load_if_exists=True,
+        study_name=f"Optuna_Saves\\AI_for_Snake_{num_thread}",
+        load_if_exists=True, sampler=loaded_sampler,
     )
 
     # Каждый запуск оптимизации параметров мы сохраняем историю
@@ -138,7 +148,7 @@ def start_selecting_parameters(num_thread: int):
         study.optimize(select_parameters, n_trials=1)
 
         # Сохраняем историю Optuna
-        with open(f"Optuna_Saves\\AI_for_Snake_{num_thread}.pkl", "wb") as fout:
+        with open(f"Optuna_Saves\\AI_for_Snake_{num_thread}.pkl", "r+b") as fout:
             pickle.dump(study.sampler, fout)
         print(f"Прошло {int(time() - start_time)} секунд ({int((time() - start_time) // 60)} минут)")
 
@@ -147,9 +157,6 @@ def start_selecting_parameters(num_thread: int):
 if __name__ == "__main__":
     # Количество одновременно запущенных интерпретаторов (ограничивается количеством ядер)
     amount_threads = 5
-
-    # Когда ИИшка достигнет этот порог средних очков, то сохраняем её
-    ais_parameters["threshold_mean_score"] = 16
 
     processes = []
     for i in range(amount_threads):

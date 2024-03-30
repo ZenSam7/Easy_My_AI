@@ -2,6 +2,7 @@ import numpy as np
 import json
 from os import remove, listdir, mkdir
 from typing import Callable, List, Dict, Tuple, Optional
+from functools import cache
 
 from .Ai_Funcs import *
 from .Ai_property import *
@@ -123,7 +124,8 @@ class AI:
         self.__gamma: float = 0
         self.__epsilon: float = 0
         self.__q_alpha: float = 0.5
-        self._func_update_q_table: Callable = self.kit_upd_q_table.standart
+        self.func_update_q_table: Callable = self.kit_upd_q_table.standart
+        self.__name_of_func_update_q_table = "standart"
 
         # Будем ли совершить случайные действия во время обучения (для "исследования" мира)
         self.recce_mode: bool = False
@@ -234,9 +236,8 @@ class AI:
         # Определяем входные данные как вектор
         result_layer = np.array(input_data)
 
-        if ((not reverse) and result_layer.shape[0] != self.weights[0].shape[0]) or (
-                reverse and result_layer.shape[0] != self.weights[-1].shape[1]
-        ):
+        if ((not reverse) and result_layer.shape[0] != self.weights[0].shape[0]) or\
+                (reverse and result_layer.shape[0] != self.weights[-1].shape[1]):
             name = "выходных" if reverse else "входных"
             raise ImpossibleContinue(
                 f"Размерность входных данных не совпадает с количеством {name} нейронов у ИИшки"
@@ -269,7 +270,6 @@ class AI:
             # перемножения результата прошлого слоя на слой весов
             if layer_count != len(self.weights) or reverse:
                 result_layer = self.what_act_func(result_layer)
-
             # Если мы на последнем слое, то пропускаем через конечную функцию активации
             else:
                 result_layer = self.end_act_func(result_layer)
@@ -463,9 +463,9 @@ class AI:
         self.last_reward = None
 
         if func_update_q_table is None:
-            self._func_update_q_table: Callable = self.kit_upd_q_table.standart
+            self.func_update_q_table: Callable = self.kit_upd_q_table.standart
         else:
-            self._func_update_q_table: Callable = func_update_q_table
+            self.func_update_q_table: Callable = func_update_q_table
 
     def q_learning(
             self,
@@ -602,7 +602,7 @@ class AI:
             "ind_act": ind_act,
         }
 
-        self.q_table[state_str][ind_act] = self._func_update_q_table(**all_kwargs)
+        self.q_table[state_str][ind_act] = self.func_update_q_table(**all_kwargs)
 
         # Смещаемся на 1 шаг во времени (вперёд)
         self.last_state = state_now
@@ -659,8 +659,8 @@ class AI:
                 "отрицательное вознаграждение для негативных поступков"
             )
 
-    @staticmethod
-    def __get_name_func(func, kit):
+    @cache
+    def __get_name_func(self, func, kit):
         names_funcs = [
             f
             for f in dir(kit)
@@ -717,8 +717,8 @@ class AI:
         ai_data["what_act_func"] = self.__get_name_func(self.what_act_func, self.kit_act_func)
         ai_data["end_act_func"] = self.__get_name_func(self.end_act_func, self.kit_act_func)
         ai_data["func_update_q_table"] = (
-            self.__get_name_func(self._func_update_q_table, self.kit_upd_q_table)
-            if self._func_update_q_table
+            self.__get_name_func(self.func_update_q_table, self.kit_upd_q_table)
+            if self.func_update_q_table
             else None
         )
 
@@ -774,7 +774,7 @@ class AI:
             self.end_act_func = get_func_with_name(
                 ai_data["end_act_func"], self.kit_act_func
             )
-            self._func_update_q_table = get_func_with_name(
+            self.func_update_q_table = get_func_with_name(
                 ai_data["func_update_q_table"], self.kit_upd_q_table
             )
 
