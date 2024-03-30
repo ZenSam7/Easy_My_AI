@@ -1,10 +1,9 @@
 from easymyai import AI_ensemble
 from Games import Snake
-from multiprocessing import Process, Queue
-from multiprocessing.managers import BaseManager
-from time import time, sleep
+from multiprocessing import Process
+from time import time
+import psycopg2
 import optuna
-import pickle
 
 start_time = time()
 
@@ -40,10 +39,10 @@ ais_parameters = {
     "use_Adam": False,
 }
 # Оптимизируем параметры каждые ... шагов
-ais_parameters["num_steps_before_reset"] = 17 * ais_parameters["max_learn_iteration"]
+ais_parameters["num_steps_before_reset"] = 20 * ais_parameters["max_learn_iteration"]
 
 # Когда ИИшка достигнет этот порог средних очков, то сохраняем её
-ais_parameters["threshold_mean_score"] = 16
+ais_parameters["save_with_mean_score"] = 16
 
 
 def script_learns(ais_parameters, snake_parameters):
@@ -79,7 +78,7 @@ def script_learns(ais_parameters, snake_parameters):
             all_means_score.append(mean)
 
             # Лучшая Змейка найдена
-            if mean > ais_parameters["threshold_mean_score"]:
+            if mean > ais_parameters["save_with_mean_score"]:
                 print("ЛУЧШАЯ ЗМЕЙКА НАЙДЕНА!!!", round(mean, 1))
                 ai.update(f"BEST_SNAKE_{round(mean, 1)}")
 
@@ -132,36 +131,41 @@ def select_parameters(trial):
     return script_learns(ais_local_parameters, snake_local_parameters)
 
 
-def start_selecting_parameters(num_thread: int):
-    # Загружаем историю Optuna (если есть)
-    try:
-        loaded_sampler = pickle.load(open(f"Optuna_Saves\\AI_for_Snake_{num_thread}.pkl", "rb"))
-    except FileNotFoundError:
-        loaded_sampler = None
-    study = optuna.create_study(
-        study_name=f"Optuna_Saves\\AI_for_Snake_{num_thread}",
-        load_if_exists=True, sampler=loaded_sampler,
+def start_selecting_parameters():
+    conn = psycopg2.connect(
+        dbname="optuna_save",
+        host="localhost",
+        user="root",
+        password="root",
+        port="5432"
     )
 
-    # Каждый запуск оптимизации параметров мы сохраняем историю
-    while True:
-        study.optimize(select_parameters, n_trials=1)
+    # Загружаем историю Optuna
+    study = optuna.load_study(
+        study_name="AI_for_Snake",
+        storage="postgresql://root:root@localhost:5432/optuna_save",
+    )
 
-        # Сохраняем историю Optuna
-        with open(f"Optuna_Saves\\AI_for_Snake_{num_thread}.pkl", "r+b") as fout:
-            pickle.dump(study.sampler, fout)
-        print(f"Прошло {int(time() - start_time)} секунд ({int((time() - start_time) // 60)} минут)")
+    # Каждый запуск оптимизации параметровистория сохраняется
+    try:
+        while True:
+            study.optimize(select_parameters, n_trials=1)
+
+            print(f"Прошло {int(time() - start_time)} секунд ({int((time() - start_time) // 60)} минут)")
+    # Не забываем закрыть содинение
+    except KeyboardInterrupt:
+        conn.close()
 
 
 # Создаём сразу много отдельных скриптов
 if __name__ == "__main__":
     # Количество одновременно запущенных интерпретаторов (ограничивается количеством ядер)
-    amount_threads = 5
+    amount_threads = 6
 
     processes = []
     for i in range(amount_threads):
         print(f"Process {i} are started")
 
-        process = Process(target=start_selecting_parameters, args=(i,))
+        process = Process(target=start_selecting_parameters)
         process.start()
         processes.append(process)
