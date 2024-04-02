@@ -5,8 +5,6 @@ from time import time
 import psycopg2
 import optuna
 
-start_time = time()
-
 # Параметры, которые мы вставим во все скрипты
 snake_parameters = {
     "wight": 7,
@@ -109,8 +107,8 @@ def select_parameters(trial):
     ais_local_parameters["architecture"] = [9] + [widht] * depth + [4]
 
     # Коэффициенты
-    ais_local_parameters["alpha"] = trial.suggest_float("alpha", 5e-4, 5e-3, log=True)
-    ais_local_parameters["gamma"] = trial.suggest_float("gamma", 0, 0.9, step=0.1)
+    ais_local_parameters["alpha"] = trial.suggest_float("alpha", 5e-4, 1e-2, log=True)
+    ais_local_parameters["gamma"] = trial.suggest_float("gamma", 0.1, 0.9, step=0.1)
     ais_local_parameters["epsilon"] = trial.suggest_categorical("epsilon", (0, 0.01))
 
     # Остальное
@@ -119,10 +117,9 @@ def select_parameters(trial):
     ais_local_parameters["impulse1"] = trial.suggest_float("impulse1", 0.5, 0.9, step=0.1)
     ais_local_parameters["impulse2"] = trial.suggest_float("impulse2",  0.5, 0.9, step=0.1)
 
-    name_func_update_q_table = trial.suggest_categorical("func_update_q_table",
-                                                         ("standart", "future"))
-    ais_local_parameters["func_update_q_table"] = getattr(AI_ensemble(1).kit_upd_q_table,
-                                                          name_func_update_q_table)
+    name_func_update_q_table = trial.suggest_categorical("func_update_q_table", ("standart", "future"))
+    ais_local_parameters["func_update_q_table"] = getattr(
+        AI_ensemble(1).kit_upd_q_table, name_func_update_q_table)
 
     # Змейка
     snake_local_parameters["dead_reward"] = trial.suggest_int("dead_reward", -20, -5, step=5)
@@ -141,7 +138,9 @@ def start_selecting_parameters():
     )
 
     # Загружаем историю Optuna
-    study = optuna.load_study(
+    study = optuna.create_study(
+        direction="maximize",
+        load_if_exists=True,
         study_name="AI_for_Snake",
         storage="postgresql://root:root@localhost:5432/optuna_save",
     )
@@ -149,6 +148,7 @@ def start_selecting_parameters():
     # Каждый запуск оптимизации параметровистория сохраняется
     try:
         while True:
+            start_time = time()
             study.optimize(select_parameters, n_trials=1)
 
             print(f"Прошло {int(time() - start_time)} секунд ({int((time() - start_time) // 60)} минут)")
@@ -160,7 +160,7 @@ def start_selecting_parameters():
 # Создаём сразу много отдельных скриптов
 if __name__ == "__main__":
     # Количество одновременно запущенных интерпретаторов (ограничивается количеством ядер)
-    amount_threads = 6
+    amount_threads = 5
 
     processes = []
     for i in range(amount_threads):
@@ -169,3 +169,4 @@ if __name__ == "__main__":
         process = Process(target=start_selecting_parameters)
         process.start()
         processes.append(process)
+ 
