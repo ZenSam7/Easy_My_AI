@@ -40,7 +40,7 @@ ais_parameters = {
 ais_parameters["num_steps_before_reset"] = 20 * ais_parameters["max_learn_iteration"]
 
 # Когда ИИшка достигнет этот порог средних очков, то сохраняем её
-ais_parameters["save_with_mean_score"] = 16
+ais_parameters["save_with_mean_score"] = 19
 
 
 def script_learns(ais_parameters, snake_parameters):
@@ -102,20 +102,22 @@ def select_parameters(trial):
 
     """Создаём ИИшку"""
     # Архитектура
-    depth = trial.suggest_int("depth", 2, 4)
+    depth = trial.suggest_int("depth", 2, 5)
     widht = trial.suggest_int("width", 50, 200, step=50)
     ais_local_parameters["architecture"] = [9] + [widht] * depth + [4]
 
+    ais_local_parameters["amount_ais"] = trial.suggest_int("amount_ais", 1, 5, step=2)
+
     # Коэффициенты
-    ais_local_parameters["alpha"] = trial.suggest_float("alpha", 5e-4, 1e-2, log=True)
-    ais_local_parameters["gamma"] = trial.suggest_float("gamma", 0.1, 0.9, step=0.1)
-    ais_local_parameters["epsilon"] = trial.suggest_categorical("epsilon", (0, 0.01))
+    ais_local_parameters["alpha"] = trial.suggest_float("alpha", 1e-4, 1e-2, log=True)
+    ais_local_parameters["gamma"] = trial.suggest_float("gamma", 0.1, 0.9, step=0.2)
+    ais_local_parameters["epsilon"] = trial.suggest_categorical("epsilon", (0, 0.01, 0.1))
 
     # Остальное
-    ais_local_parameters["squared_error"] = trial.suggest_categorical("squared_error", (True, False))
     ais_local_parameters["use_Adam"] = trial.suggest_categorical("use_Adam", (True, False))
-    ais_local_parameters["impulse1"] = trial.suggest_float("impulse1", 0.5, 0.9, step=0.1)
-    ais_local_parameters["impulse2"] = trial.suggest_float("impulse2",  0.5, 0.9, step=0.1)
+    if ais_local_parameters["use_Adam"]:
+        ais_local_parameters["impulse1"] = trial.suggest_float("impulse1", 0.2, 0.7, step=0.1)
+        ais_local_parameters["impulse2"] = trial.suggest_float("impulse2",  0.4, 0.9, step=0.1)
 
     name_func_update_q_table = trial.suggest_categorical("func_update_q_table", ("standart", "future"))
     ais_local_parameters["func_update_q_table"] = getattr(
@@ -160,7 +162,7 @@ def start_selecting_parameters():
 # Создаём сразу много отдельных скриптов
 if __name__ == "__main__":
     # Количество одновременно запущенных интерпретаторов (ограничивается количеством ядер)
-    amount_threads = 5
+    amount_threads = 6
 
     processes = []
     for i in range(amount_threads):
@@ -169,4 +171,3 @@ if __name__ == "__main__":
         process = Process(target=start_selecting_parameters)
         process.start()
         processes.append(process)
- 
