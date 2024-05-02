@@ -183,8 +183,10 @@ class Snake:
     ):
         """Рисуем змею и еду, выводим номер поколения"""
 
-        # Надо чтобы можно было двигать окно
-        pygame.event.get()
+        # Имеем возможность закрыть окно
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                exit()
 
         # Фон
         self.wind.fill((background_color))

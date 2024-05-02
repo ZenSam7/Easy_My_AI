@@ -40,7 +40,7 @@ ais_parameters = {
 ais_parameters["num_steps_before_reset"] = 20 * ais_parameters["max_learn_iteration"]
 
 # Когда ИИшка достигнет этот порог средних очков, то сохраняем её
-ais_parameters["save_with_mean_score"] = 19
+ais_parameters["save_with_mean_score"] = 18
 
 
 def script_learns(ais_parameters, snake_parameters):
@@ -78,7 +78,7 @@ def script_learns(ais_parameters, snake_parameters):
             # Лучшая Змейка найдена
             if mean > ais_parameters["save_with_mean_score"]:
                 print("ЛУЧШАЯ ЗМЕЙКА НАЙДЕНА!!!", round(mean, 1))
-                ai.update(f"BEST_SNAKE_{round(mean, 1)}")
+                ai.update(f"Snake_{round(mean, 1)}")
 
         # Записываем данные которые видит Змейка
         data = snake.get_blocks(ais_parameters["visibility_range"])
@@ -162,7 +162,7 @@ def start_selecting_parameters():
 # Создаём сразу много отдельных скриптов
 if __name__ == "__main__":
     # Количество одновременно запущенных интерпретаторов (ограничивается количеством ядер)
-    amount_threads = 6
+    amount_threads = 5
 
     processes = []
     for i in range(amount_threads):

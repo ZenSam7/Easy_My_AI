@@ -9,7 +9,7 @@ snake = Snake(snake_parameters["wight"], snake_parameters["height"],
 
 # Загружаем лучшую нейронку
 ai = AI_ensemble(1)
-ai.load("BEST_SNAKE_17.1")
+ai.load("Snake_12.4")
 ai.print_parameters()
 
 

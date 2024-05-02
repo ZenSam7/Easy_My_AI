@@ -4,7 +4,7 @@ from os import remove, listdir, mkdir
 from typing import Callable, List, Dict, Tuple, Optional
 from functools import cache
 
-from .Ai_Funcs import *
+from .Ai_funcs import *
 from .Ai_property import *
 
 
@@ -728,11 +728,11 @@ class AI:
 
         # Сохраняем ИИшку ЛЮБОЙ ценой
         try:
-            with open(f"Saves AIs/{name_ai}.json", "w+") as save_file:
+            with open(f"{self.save_dir}/{name_ai}.json", "w+") as save_file:
                 json.dump(ai_data, save_file)
 
         except BaseException as e:
-            with open(f"Saves AIs/{name_ai}.json", "w+") as save_file:
+            with open(f"{self.save_dir}/{name_ai}.json", "w+") as save_file:
                 json.dump(ai_data, save_file)
             raise e
 
@@ -751,7 +751,7 @@ class AI:
 
         # Записываем данны об ИИшке
         try:
-            with open(f"Saves AIs/{name_ai}.json", "r") as save_file:
+            with open(f"{self.save_dir}/{name_ai}.json", "r") as save_file:
                 ai_data = json.load(save_file)
 
             self.weights = [np.array(i) for i in ai_data["weights"]]
@@ -801,7 +801,7 @@ class AI:
         name_ai = ai_name or self.name
 
         try:
-            remove(f"Saves AIs/{name_ai}.json")
+            remove(f"{self.save_dir}/{name_ai}.json")
         except FileNotFoundError:
             pass
 

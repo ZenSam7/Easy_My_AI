@@ -150,26 +150,17 @@ class AI_ensemble(AI):
 
         ensemble_name = ai_name or self.ensemble_name
 
-        # Чтоб не повторяться
-        def loading():
-            for ai in self.ais:
-                ai.save_dir = self.save_dir
-                ai.load(f"{ensemble_name}/{ai.name}")
+        for ai in self.ais:
+            ai.save_dir = self.save_dir
+            ai.load(f"{ensemble_name}/{ai.name}")
 
-            # Вместо того чтобы у каждой ИИшки была одинаковая Q-таблица, можно
-            # просто использовать одну единую для всех
-            for ai in self.ais:
-                ai.q_table = self.ais[0].q_table
-                ai.actions = self.ais[0].actions
-            self.q_table = self.ais[0].q_table
-            self.actions = self.ais[0]
-
-        # Загружаем ансамбль ЛЮБОЙ ценой
-        try:
-            loading()
-        except BaseException as e:
-            loading()
-            raise e
+        # Вместо того чтобы у каждой ИИшки была одинаковая Q-таблица, можно
+        # просто использовать одну единую для всех
+        for ai in self.ais:
+            ai.q_table = self.ais[0].q_table
+            ai.actions = self.ais[0].actions
+        self.q_table = self.ais[0].q_table
+        self.actions = self.ais[0]
 
     def delete(self, ai_name: Optional[str] = None):
         """Удаляет сохранения ансамбля
