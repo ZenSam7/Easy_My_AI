@@ -36,8 +36,8 @@ ais_parameters = {
     "squared_error": False,
     "use_Adam": False,
 }
-# Оптимизируем параметры каждые ... шагов
-ais_parameters["num_steps_before_reset"] = 20 * ais_parameters["max_learn_iteration"]
+# Оптимизируем параметры каждые ... итераций обучения (выводов в консоль)
+ais_parameters["num_steps_before_reset"] = 21 * ais_parameters["max_learn_iteration"]
 
 # Когда ИИшка достигнет этот порог средних очков, то сохраняем её
 ais_parameters["save_with_mean_score"] = 18
