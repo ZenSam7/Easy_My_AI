@@ -73,7 +73,7 @@ class ActivationFunctions:
             "softmax": 0,
             "sigmoid": 0,
             "relu": 0,
-            "relu_2": 0,  # ?
+            "relu_2": -1,  # ?
             "": -100,
         }
 

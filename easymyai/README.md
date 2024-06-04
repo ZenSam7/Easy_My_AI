@@ -61,6 +61,10 @@ ai.q_learning(state, reward,
               squared_error=False,
               use_Adam=True,
               recce_mode=False)
+
+ai.make_mutations(0.05) # 5% of users are rated as random users
+# What do we do with ai_0 to replace vesa with ai_1, but ai_1 does not touch
+ai_0. genetic crossbreeding with(ai_1)
 ```
 
 
@@ -138,7 +142,6 @@ ai.impulse2 = 0.999
 # (Regularization - keeping weights close to 0 (or [-1; +1]))
 ai.l1 = 0.001  # How much to decrease weights (it makes weights tend towards 0)
 ai.l2 = 0.01  # How much to decrease weights (keeps weights close to 0)
-
 ```
 
 

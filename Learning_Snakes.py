@@ -37,7 +37,7 @@ ais_parameters = {
     "use_Adam": False,
 }
 # Оптимизируем параметры каждые ... итераций обучения (выводов в консоль)
-ais_parameters["num_steps_before_reset"] = 21 * ais_parameters["max_learn_iteration"]
+ais_parameters["num_steps_before_reset"] = 25 * ais_parameters["max_learn_iteration"]
 
 # Когда ИИшка достигнет этот порог средних очков, то сохраняем её
 ais_parameters["save_with_mean_score"] = 18
@@ -147,7 +147,7 @@ def start_selecting_parameters():
         storage="postgresql://root:root@localhost:5432/optuna_save",
     )
 
-    # Каждый запуск оптимизации параметровистория сохраняется
+    # Каждый запуск история сохраняется
     try:
         while True:
             start_time = time()

@@ -1,7 +1,7 @@
 from setuptools import setup
 
 # Это для библиотеки easymyai
-
+# Как собрать библиотеку:
 """
 pip install --upgrade twine
 python -m twine upload dist/*

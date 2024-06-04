@@ -10,7 +10,7 @@ snake = Snake(7, 5, amount_food=1, amount_walls=0,
               dead_reward=-10, win_reward=10, cell_size=120)
 
 # Создаём ансамбль ИИ
-ai = AI_ensemble(1, architecture=[9, 100, 100, 100, 4],
+ai = AI_ensemble(3, architecture=[9, 100, 100, 100, 4],
                  add_bias_neuron=True, name="Test_snake")
 
 ai.end_act_func = ai.kit_act_func.softmax
@@ -50,6 +50,7 @@ while 1:
             exit()
 
     # Записываем данные которые видит Змейка
+    # (ожно использовать один из 2х вариантов)
     data = snake.get_blocks(3)
     # data = snake.get_ranges_to_blocks()
 
