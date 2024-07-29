@@ -1,7 +1,7 @@
 import pygame
 from random import randint
 import math
-from My_AI.Code_My_AI import AI
+from easymyai.Code_My_AI import AI
 
 
 class World:

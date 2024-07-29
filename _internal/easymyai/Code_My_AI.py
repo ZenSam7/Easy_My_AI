@@ -28,19 +28,16 @@ class MyProperties(object):
     def property_getter(cls, attr_name: str) -> float:
         """Возвращаем атрибут из класса AI (замыкание нужно чтобы мы знали какой атрибут
         мы хотим получить, при этом не вызывая функцию)"""
-        name = attr_name
 
         def getter(cls) -> float:
-            nonlocal name
-
             # Если к нам попал AI_with_ensemble, то достаем из его атрибута атрибут
             if "ais" in cls.__dict__:
-                return cls.__dict__["ais"][0].__dict__["_AI__" + name]
+                return cls.__dict__["ais"][0].__dict__["_AI__" + attr_name]
 
-            if ("_AI__" + name) in cls.__dict__:
-                return cls.__dict__["_AI__" + name]
+            if ("_AI__" + attr_name) in cls.__dict__:
+                return cls.__dict__["_AI__" + attr_name]
             else:
-                return cls.__dict__[name]
+                return cls.__dict__[attr_name]
 
         return getter
 
