@@ -6,7 +6,7 @@ start = time()
 
 # Создаём Змейку
 snake = Snake(7, 5, amount_food=1, amount_walls=0,
-              max_steps=100, display_game=False,
+              max_steps=100, display_game=True,
               dead_reward=-20, win_reward=10, cell_size=120)
 
 # Создаём ансамбль ИИ
@@ -19,7 +19,7 @@ ai.make_all_for_q_learning(("left", "right", "up", "down"),
                            ai.kit_upd_q_table.future,
                            gamma=.8, epsilon=.0, q_alpha=.1)
 
-# ai.load()
+ai.load()
 ai.print_parameters()
 
 ai.alpha = 1e-3
