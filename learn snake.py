@@ -6,7 +6,7 @@ start = time()
 
 # Создаём Змейку
 snake = Snake(7, 5, amount_food=1, amount_walls=0,
-              max_steps=100, display_game=True,
+              max_steps=100, display_game=False,
               dead_reward=-20, win_reward=10, cell_size=120)
 
 # Создаём ансамбль ИИ
@@ -33,11 +33,11 @@ while 1:
     learn_iteration += 1
     reward = 0
 
-    if learn_iteration % 50_000 == 0:
+    if learn_iteration % 20_000 == 0:
         # Выводим максимальный и средний счёт змейки за 50_000 шагов
         _, mean = snake.get_max_mean_score()
         print(
-            str(learn_iteration//50_000),
+            str(learn_iteration//20_000),
             "\t\tMean:", round(mean, 1),
             "\t\t", int(time() - start), "s",
             "\t\tAmount States:", len(ai.q_table.keys()),

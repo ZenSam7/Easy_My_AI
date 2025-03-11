@@ -52,9 +52,9 @@ class Snake:
         self.spawn_food(self.amount_food)  # Создаём еду
 
         if self.display_game:
-            self.make_window()  # Создаём окно
+            self.__make_window()  # Создаём окно
 
-    def make_window(self):
+    def __make_window(self):
         """Просто создаём окно"""
 
         pygame.init()
