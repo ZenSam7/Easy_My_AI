@@ -21,8 +21,8 @@ ai = AI(architecture=[10, 50, 50, 1],
 
 # Or you can create an ensemble
 ai = AI_ensemble(amount_ais=10, architecture=[10, 50, 50, 1],
-                      add_bias_neuron=True,
-                      name="First_AI")
+                 add_bias_neuron=True,
+                 name="First_AI")
 
 # Residual learning (transferring the gradient from 3 layers of weights and 2)
 ai.make_short_ways((2, 3))
@@ -39,7 +39,7 @@ ai.impulse2 = 0.999  # Slightly different from beta1
 ai.l1 = 0.0  # L1 regularization
 ai.l2 = 0.0  # L2 regularization
 
-ai.what_act_func = ai.kit_act_func.tanh
+ai.main_act_func = ai.kit_act_func.tanh
 ai.end_act_func = ai.kit_act_func.tanh
 
 ai.save_dir = "Saves AIs"  # The directory where we save the AIs
@@ -62,9 +62,11 @@ ai.q_learning(state, reward,
               use_Adam=True,
               recce_mode=False)
 
-ai.make_mutations(0.05) # 5% of users are rated as random users
+ai.make_mutations(0.05)  # 5% of users are rated as random users
 # What do we do with ai_0 to replace vesa with ai_1, but ai_1 does not touch
-ai_0. genetic crossbreeding with(ai_1)
+ai_0.genetic
+crossbreeding
+with(ai_1)
 ```
 
 
@@ -127,7 +129,7 @@ ai.batch_size = 10  # Number of answers to average for learning
 
 # Neuron activation function (highly recommended to leave tanh if
 # possible, as AI works much faster with it)
-ai.what_act_func = ai.kit_act_func.tanh
+ai.main_act_func = ai.kit_act_func.tanh
 
 # Activation function for the last layer (similarly, recommended to leave tanh)
 # P.s. end_act_func can also be absent (i.e., None can be set)

@@ -16,7 +16,7 @@ ai = AI(
     number_disabled_weights=0.0,
 )
 
-ai.what_act_func = ai.kit_act_func.tanh
+ai.main_act_func = ai.kit_act_func.tanh
 ai.end_act_func = ai.kit_act_func.softmax
 
 # ai.load()

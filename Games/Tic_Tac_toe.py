@@ -25,30 +25,41 @@ class TicTacToe:
         if self.display_game:
             self.__make_window()
 
+    def get_field(self):
+        return sum(self.field, [])
+
+    def revert_player(self):
+        """Меняем все крестики и нолики местами"""
+        self.field = [[-i for i in row] for row in self.field]
+
     def reset(self):
         """Сбрасываем игру"""
         if self.display_game:
-            self.draw(_who_is_win=self.queue)
+            # Если выиграли, то закрашиваем фон в цвет победителя
+            who_win = self.queue if self._return_winnings() else 0
+            self.draw(_who_is_win=who_win)
             time.sleep(2)
 
         self.__init__(self.field_size, self.condition_winnings, self.display_game, self.cell_size)
 
-    def make_move(self, row: int, column: int) -> bool:
-        """Делаем ход, row/column = индексы ряда и колонки, возвращает True если игра закончена"""
+    def make_move(self, row: int, column: int) -> (bool, bool):
+        """Делаем ход, row/column = индексы ряда и колонки \n
+        первый возвращаемый параметр: True если игра закончена
+        второй возвращаемый параметр: True если клетка уже занята (если занята, то ничего не делаем)"""
         # Если пытаемся сделать ход в уже занятую клетку
         if self.field[row][column] != 0:
-            raise Exception("Клетка уже занята")
+            return False, True
 
         self.field[row][column] = self.queue
 
         if self.display_game:
             self.draw()
-            time.sleep(0.2)
+            time.sleep(1)
 
         # Если выиграли
         if self._return_winnings():
             self.reset()
-            return True
+            return True, False
 
         # Если всё поле занято
         for row in self.field:
@@ -56,11 +67,11 @@ class TicTacToe:
                 break
         else:
             self.reset()
-            return False
+            return False, False
 
         # Передаём ход только если никто не победил
         self.queue = -self.queue
-        return False
+        return False, False
 
     def _return_winnings(self) -> bool:
         # Для горизонтальных линий

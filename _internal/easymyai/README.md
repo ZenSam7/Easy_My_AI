@@ -34,7 +34,7 @@ ai.impulse2 = 0.999  # Slightly different from beta1
 ai.l1 = 0.0  # L1 regularization
 ai.l2 = 0.0  # L2 regularization
 
-ai.what_act_func = ai.kit_act_func.tanh
+ai.main_act_func = ai.kit_act_func.tanh
 ai.end_act_func = ai.kit_act_func.tanh
 ai.save_dir = "Saves AIs"  # The directory where we save the AIs
 
@@ -101,6 +101,7 @@ This will create the following architecture:
 </div>
 
 ### - Hyperparameters:
+
 ```python
 """It's not necessary to specify or modify all hyperparameters."""
 
@@ -114,21 +115,21 @@ ai.batch_size = 10  # Number of answers to average for learning
 
 # Neuron activation function (highly recommended to leave tanh if
 # possible, as AI works much faster with it)
-ai.what_act_func = ai.kit_act_func.tanh
+ai.main_act_func = ai.kit_act_func.tanh
 
 # Activation function for the last layer (similarly, recommended to leave tanh)
 # P.s. end_act_func can also be absent (i.e., None can be set)
 ai.end_act_func = ai.kit_act_func.tanh
 
 # Impulse coefficients for the Adam optimizer
-ai.impulse1 = 0.9  
+ai.impulse1 = 0.9
 ai.impulse2 = 0.999
 # If you don't know what an optimizer is, google it, it's very interesting))))
 
 # Coefficients for weight regularization 
 # (Regularization - keeping weights close to 0 (or [-1; +1]))
 ai.l1 = 0.001  # How much to decrease weights (it makes weights tend towards 0)
-ai.l2 = 0.01   # How much to decrease weights (keeps weights close to 0)
+ai.l2 = 0.01  # How much to decrease weights (keeps weights close to 0)
 
 ```
 

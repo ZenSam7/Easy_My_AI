@@ -83,7 +83,7 @@ class Agent:
         self.ai.create_weights(
             settings["architecture"], add_bias=settings["add_bias_neuron"]
         )
-        self.ai.what_act_func = self.ai.kit_act_funcs.tanh
+        self.ai.main_act_func = self.ai.kit_act_funcs.tanh
         self.ai.__alpha = settings["alpha"]
 
     def move(self, agents_coords):

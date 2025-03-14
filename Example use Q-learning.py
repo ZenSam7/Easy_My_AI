@@ -31,7 +31,7 @@ ai.make_all_for_q_learning(("left", "right", "up", "down"),
                            ai.kit_upd_q_table.standart,
                            0.5, 0.01, 0.1)
 
-ai.what_act_func = ai.kit_act_func.tanh
+ai.main_act_func = ai.kit_act_func.tanh
 ai.end_act_func = ai.kit_act_func.softmax
 
 ai.batch_size = 1

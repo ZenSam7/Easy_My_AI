@@ -161,7 +161,7 @@ class AI:
     # Функции
     what_act_func: Callable = MyProperties.get_property(
         MyProperties.just_pass,
-        "what_act_func", "Функция активации"
+        "main_act_func", "Функция активации"
     )
     end_act_func: Callable = MyProperties.get_property(
         MyProperties.just_pass,
@@ -768,7 +768,7 @@ class AI:
         ai_data["alpha"] = self.__alpha
         ai_data["batch_size"] = self.__batch_size
 
-        ai_data["what_act_func"] = self.__get_name_func(self.what_act_func, self.kit_act_func)
+        ai_data["main_act_func"] = self.__get_name_func(self.what_act_func, self.kit_act_func)
         ai_data["end_act_func"] = self.__get_name_func(self.end_act_func, self.kit_act_func)
         ai_data["func_update_q_table"] = (
             self.__get_name_func(self._func_update_q_table, self.kit_upd_q_table)
@@ -820,7 +820,7 @@ class AI:
             self.batch_size = ai_data["batch_size"]
 
             self.what_act_func = get_func_with_name(
-                ai_data["what_act_func"], self.kit_act_func
+                ai_data["main_act_func"], self.kit_act_func
             )
             self.end_act_func = get_func_with_name(
                 ai_data["end_act_func"], self.kit_act_func
