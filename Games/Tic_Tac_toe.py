@@ -1,3 +1,4 @@
+import random
 import time
 
 import pygame
@@ -19,7 +20,7 @@ class TicTacToe:
         self.cell_size = cell_size
         self.width = field_size * cell_size
 
-        # 0 = Нолики, 1 = крестики
+        # -1 = Нолики, 1 = крестики
         self.field = [[0 for _ in range(field_size)] for __ in range(field_size)]
 
         if self.display_game:
@@ -29,7 +30,8 @@ class TicTacToe:
         return sum(self.field, [])
 
     def revert_player(self):
-        """Меняем все крестики и нолики местами"""
+        """Играем ЗА противника"""
+        self.queue = -self.queue
         self.field = [[-i for i in row] for row in self.field]
 
     def reset(self):
@@ -38,40 +40,36 @@ class TicTacToe:
             # Если выиграли, то закрашиваем фон в цвет победителя
             who_win = self.queue if self._return_winnings() else 0
             self.draw(_who_is_win=who_win)
-            time.sleep(2)
+            time.sleep(1)
 
         self.__init__(self.field_size, self.condition_winnings, self.display_game, self.cell_size)
 
-    def make_move(self, row: int, column: int) -> (bool, bool):
+    def make_move(self, row: int, column: int) -> int:
         """Делаем ход, row/column = индексы ряда и колонки \n
-        первый возвращаемый параметр: True если игра закончена
-        второй возвращаемый параметр: True если клетка уже занята (если занята, то ничего не делаем)"""
-        # Если пытаемся сделать ход в уже занятую клетку
-        if self.field[row][column] != 0:
-            return False, True
+        Если клетка занята, то делаем ход в случайную не занятую клетку"""
+        # Если пытаемся сделать ход в уже занятую ПРОТИВНИКОМ клетку, делаем случайный ход
+        # Но можем записывать ход в свою же клетку
+        while self.field[row][column] == -self.queue:
+            row = random.randint(0, self.field_size - 1)
+            column = random.randint(0, self.field_size - 1)
 
         self.field[row][column] = self.queue
 
         if self.display_game:
             self.draw()
-            time.sleep(1)
 
         # Если выиграли
         if self._return_winnings():
-            self.reset()
-            return True, False
+            return 1
 
-        # Если всё поле занято
+        # Если всё поле занято － Проиграли
         for row in self.field:
             if row.count(0) != 0:
                 break
         else:
-            self.reset()
-            return False, False
+            return -1
 
-        # Передаём ход только если никто не победил
-        self.queue = -self.queue
-        return False, False
+        return 0
 
     def _return_winnings(self) -> bool:
         # Для горизонтальных линий
@@ -118,7 +116,6 @@ class TicTacToe:
 
     def __make_window(self):
         """Просто создаём окно"""
-
         pygame.init()
 
         self.wind = pygame.display.set_mode((self.width, self.width))
@@ -194,3 +191,4 @@ class TicTacToe:
                     )
 
         pygame.display.flip()
+        time.sleep(0.1)

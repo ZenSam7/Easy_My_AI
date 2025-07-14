@@ -647,17 +647,18 @@ class AI:
                 q_table_ok = False
 
         if not weights_ok:
-            self.auto_check_ai = False
             print(
                 "Веса ИИ слишком большие, рекомендуем уменьшить alpha и пересоздать ИИ"
             )
         if not q_table_ok:
-            self.auto_check_ai = False
             print(
                 "В Q-таблице отрицательных чисел больше положительных, "
                 "рекомендуем увеличить вознаграждение за хорошие действия и/или уменьшить "
                 "отрицательное вознаграждение для негативных поступков"
             )
+
+        # Проверили 1 раз и всё, хватит
+        self.auto_check_ai = False
 
     @cache
     def __get_name_func(self, func, kit):
@@ -805,7 +806,7 @@ class AI:
         except FileNotFoundError:
             pass
 
-    def update(self, ai_name: Optional[str] = None, check_ai: bool = True):
+    def update(self, ai_name: Optional[str] = None):
         """Обновляем сохранение и проверяем ИИшку (даём непрошеных советов)
 
         (Если не передать имя, то обновить сохранение текущей ИИшки,
@@ -814,9 +815,7 @@ class AI:
         self.delete(ai_name)
         self.save(ai_name)
 
-        self.auto_check_ai = check_ai
-        if self.auto_check_ai:
-            self.check_ai()
+        self.check_ai()
 
     def print_parameters(self):
         """Выводит в консоль в формате:

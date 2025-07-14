@@ -3,51 +3,63 @@ from time import time
 from Games import TicTacToe
 from easymyai import AI
 
-size = 3
-tic_tac = TicTacToe(size, 3, False, 100)
+DISPLAY_GAME = 1  # 0 || 1
+SIZE = 3
+CONDITION_WINNING = 3
+tic_tac = TicTacToe(SIZE, CONDITION_WINNING, DISPLAY_GAME, 100)
 
-# Иницииализируем сразу 2 одинаковые нейронки
-ais = []
-for _ in range(2):
-    ai = AI([size ** 2, 100, 100, size ** 2], name=f"tic-tac-toe-{_}")
-    ai.main_act_func = ai.kit_act_func.tanh
-    ai.end_act_func = ai.kit_act_func.softmax
-    actions = tuple((_, __) for _ in range(size) for __ in range(size))
-    ai.make_all_for_q_learning(actions, ai.kit_upd_q_table.standart, 0.3, 0.01)
-    ais.append(ai)
+ai = AI(architecture=[SIZE ** 2, 50, 50, SIZE ** 2], name="tic-tac-toe")
+ai.main_act_func = ai.kit_act_func.tanh
+ai.end_act_func = ai.kit_act_func.softmax
 
-ai_tic, ai_tac = ais
+ai.alpha = 1e-3
+ai.l1 = 0.0
+ai.l2 = 0.0
 
-# ais[0].load()
-# ais[1].load()
+actions = tuple((_, __) for _ in range(SIZE) for __ in range(SIZE))
+ai.make_all_for_q_learning(actions, ai.kit_upd_q_table.standart, 0.3, 0.01)
 
+# Если я захочу посмотреть как обучились нейронки
+if DISPLAY_GAME:
+    ai.load()
 
-iters_per_epoch = 10_000
+ai.print_parameters()
+
+print("\nЭпоха | Время на эпоху | % выигрышов | Количество состояний в Q-таблице")
+
+iters_per_epoch = 20_000
 for epoch in range(1, 10 ** 10):
-    count_wins = 0
+    count_wins, count_fail = 0, 1
     start_time = time()
 
     for _ in range(iters_per_epoch):
-        for ai in ais:  # Отдельно для крестиков и отдельно для ноликов
-            reward = 0
-            field = tic_tac.get_field()
-            move = ai.q_predict(field)
+        field = tic_tac.get_field()
+        move = ai.q_predict(field)
 
-            win, busy = tic_tac.make_move(move[0], move[1])
+        win_fail = tic_tac.make_move(move[0], move[1])
+        # Умножаем на знак хода, т.к. если X выиграли, то O проиграли,
+        # т.е. если соперник выиграл, то мы проиграли и наоборот
+        win_fail *= tic_tac.queue
 
-            # Клетка уже занята
-            if busy:
-                reward = -10
-
-            if win:
-                count_wins += 1
-                reward = 20
-
-            ai.q_learning(field, reward)
+        if win_fail == 1:
+            # Выиграли
+            # Учитываем выигрыш только крестиков
+            count_wins += 1
+            ai.q_learning(field, 100)
+            tic_tac.reset()
+        elif win_fail == -1:
+            # Проиграли (всё поле заполнено после нашего хода)
+            count_fail += 1
+            ai.q_learning(field, -100)
+            tic_tac.reset()
+        else:
+            # Играем ЗА противника
+            tic_tac.revert_player()
+            ai.q_learning(field, 0)
 
     time_spent = int(time() - start_time)
-    mean_wins = round(count_wins / iters_per_epoch, 3)
-    amount_states = len(ais[0].q_table)
+    mean_wins = round(100*count_wins / (count_wins + count_fail), 1)
+    amount_states = len(ai.q_table)
     print(f"{epoch}\t{time_spent}s\t\t{mean_wins}\t{amount_states}")
 
-    # ai.save()
+    ai.update()
